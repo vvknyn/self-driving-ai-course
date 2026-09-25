@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Module 03: Lift-Splat-Shoot (LSS) Interactive BEV Transform</title>
+  <title>Chapter 04 • Interactive Lab: Lift-Splat-Shoot (LSS)</title>
   <style>
     :root {
       --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #c9d1d9;
@@ -54,7 +54,7 @@
 <body>
   <div class="header">
     <div>
-      <h2 style="font-size:1.25rem;">Module 03: Lift-Splat-Shoot (LSS) Interactive BEV Transform</h2>
+      <h2 style="font-size:clamp(1.1rem, 3vw, 1.4rem); color:#f0f6fc;">Chapter 04 • Interactive Lab: Lift-Splat-Shoot (LSS)</h2>
       <p style="color:#8b949e; font-size:0.85rem;">From 2D camera pixels to top-down 3D metric Bird's-Eye View (Philion & Fidler ECCV 2020)</p>
     </div>
     <a href="index.html" class="back-link">← Return to Portal</a>
@@ -295,5 +295,10 @@
     [inDepth, inTemp, inBins].forEach(inp => inp.addEventListener('input', draw));
     draw();
   </script>
+<script>
+if (window.self !== window.top) {
+  document.querySelector(".back-link")?.remove();
+}
+</script>
 </body>
 </html>

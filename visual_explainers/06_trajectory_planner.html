@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Module 06: Quintic Lattice Trajectory Planner & Cost Maps</title>
+  <title>Chapter 07 • Interactive Lab: Lattice Trajectory Planner</title>
   <style>
     :root {
       --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #c9d1d9;
@@ -51,7 +51,7 @@
 <body>
   <div class="header">
     <div>
-      <h2 style="font-size:1.25rem;">Module 06: Quintic Lattice Trajectory Planner & Cost Maps</h2>
+      <h2 style="font-size:clamp(1.1rem, 3vw, 1.4rem); color:#f0f6fc;">Chapter 07 • Interactive Lab: Lattice Trajectory Planner</h2>
       <p style="color:#8b949e; font-size:0.85rem;">Multi-modal candidate generation & expected risk minimization (OpenDriveLab UniAD)</p>
     </div>
     <a href="index.html" class="back-link">← Return to Portal</a>
@@ -314,5 +314,10 @@
     [inColl, inRad, inLane, inJerk].forEach(inp => inp.addEventListener('input', draw));
     draw();
   </script>
+<script>
+if (window.self !== window.top) {
+  document.querySelector(".back-link")?.remove();
+}
+</script>
 </body>
 </html>

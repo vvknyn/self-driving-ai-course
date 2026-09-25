@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Module 07: Closed-Loop Driving Simulator (Stanley vs Pure Pursuit)</title>
+  <title>Chapter 08 • Interactive Lab: Closed-Loop Vehicle Simulator</title>
   <style>
     :root {
       --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #c9d1d9;
@@ -63,7 +63,7 @@
 <body>
   <div class="header">
     <div>
-      <h2 style="font-size:1.25rem;">Module 07: Closed-Loop Driving Simulator (Stanley vs Pure Pursuit)</h2>
+      <h2 style="font-size:clamp(1.1rem, 3vw, 1.4rem); color:#f0f6fc;">Chapter 08 • Interactive Lab: Closed-Loop Vehicle Simulator</h2>
       <p style="color:#8b949e; font-size:0.85rem;">Kinematic bicycle dynamics & live cross-track error telemetry (Sebastian Thrun / Duckietown)</p>
     </div>
     <a href="index.html" class="back-link">← Return to Portal</a>
@@ -333,5 +333,10 @@
 
     draw();
   </script>
+<script>
+if (window.self !== window.top) {
+  document.querySelector(".back-link")?.remove();
+}
+</script>
 </body>
 </html>

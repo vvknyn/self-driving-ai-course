@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Module 08: End-to-End FSD Mission Control Dashboard</title>
+  <title>Chapter 09 • Interactive Lab: Full FSD Mission Control</title>
   <style>
     :root {
       --bg: #090d16; --panel: #131b26; --border: #232f3e; --text: #c9d1d9;
@@ -77,7 +77,7 @@
 <body>
   <div class="header">
     <div>
-      <h2 style="color:#f0f6fc; font-size:1.25rem;">Module 08: End-to-End FSD Mission Control Dashboard</h2>
+      <h2 style="font-size:clamp(1.1rem, 3vw, 1.4rem); color:#f0f6fc;">Chapter 09 • Interactive Lab: Full FSD Mission Control</h2>
       <p style="color:#8b949e; font-size:0.82rem;">Multi-Cam Vision → BEV Lifting → 3D Occupancy → Vector Tracking → Trajectory Plan → Actuation</p>
     </div>
     <a href="index.html" class="back-link">← Return to Portal</a>
@@ -326,5 +326,10 @@
 
     loop();
   </script>
+<script>
+if (window.self !== window.top) {
+  document.querySelector(".back-link")?.remove();
+}
+</script>
 </body>
 </html>

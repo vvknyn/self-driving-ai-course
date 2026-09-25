@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Chapter 01 • Interactive Lab: Perception Gym & Focal Loss</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(22, 27, 34, 0.85);
+      --border: #30363d;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --red: #f85149;
+      --amber: #d29922;
+      --purple: #bc8cff;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 16px;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .badge {
+      font-size: 11px;
+      font-family: monospace;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: rgba(88, 166, 255, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(88, 166, 255, 0.3);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    h1 { font-size: 1.3rem; font-weight: 700; color: #fff; }
+    .subtitle { font-size: 0.85rem; color: var(--text-muted); }
+    .back-link {
+      font-size: 12px;
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .hud-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+    }
+    .hud-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .hud-card .label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-family: monospace;
+    }
+    .hud-card .val {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #fff;
+      font-family: monospace;
+    }
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 860px) {
+      .grid-2col { grid-template-columns: 1fr; }
+    }
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .panel h2 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    canvas {
+      width: 100%;
+      height: 280px;
+      background: #0d1117;
+      border: 1px solid #21262d;
+      border-radius: 6px;
+      display: block;
+    }
+    .controls-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+    }
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .control-group label {
+      color: var(--text-muted);
+      font-family: monospace;
+      font-size: 12px;
+    }
+    input[type="range"] {
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .explain-card {
+      background: rgba(88, 166, 255, 0.05);
+      border: 1px solid rgba(88, 166, 255, 0.2);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div>
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+        <span class="badge">Chapter 01</span>
+        <span class="badge" style="color:var(--green); border-color:rgba(63,185,80,0.3); background:rgba(63,185,80,0.1);">Interactive Lab</span>
+      </div>
+      <h1>Driving Perception Gym: Class Imbalance & Focal Loss</h1>
+      <p class="subtitle">Why 99.9% overall accuracy still kills pedestrians, and how Focal Loss dynamically modulates gradient magnitude.</p>
+    </div>
+    <a href="index.html" class="back-link">← Return to Portal</a>
+  </header>
+
+  <!-- HUD Telemetry -->
+  <div class="hud-grid">
+    <div class="hud-card">
+      <div class="label">Road Samples (Easy)</div>
+      <div class="val" style="color:var(--green);">98.0%</div>
+    </div>
+    <div class="hud-card">
+      <div class="label">Pedestrians (Hard/Rare)</div>
+      <div class="val" style="color:var(--red);">2.0%</div>
+    </div>
+    <div class="hud-card">
+      <div class="label">Focal Factor (γ)</div>
+      <div class="val" id="hud-gamma" style="color:var(--accent);">2.0</div>
+    </div>
+    <div class="hud-card">
+      <div class="label">Pedestrian Recall</div>
+      <div class="val" id="hud-recall" style="color:var(--purple);">94.2%</div>
+    </div>
+  </div>
+
+  <!-- Interactive Visual Canvases -->
+  <div class="grid-2col">
+    <!-- Panel 1: Loss & Gradient Weight Curve -->
+    <div class="panel">
+      <h2>📉 Loss Weight Modulator: (1 - p_t)^γ</h2>
+      <canvas id="canvas-curve" width="560" height="280"></canvas>
+      <div style="font-size:11px; color:var(--text-muted); display:flex; justify-content:space-between;">
+        <span><strong style="color:var(--red);">Red Curve:</strong> Standard Cross-Entropy (γ=0)</span>
+        <span><strong style="color:var(--accent);">Cyan Curve:</strong> Focal Loss with γ=<span id="lbl-gamma-curve">2.0</span></span>
+      </div>
+    </div>
+
+    <!-- Panel 2: Gradient Contribution by Class -->
+    <div class="panel">
+      <h2>⚖️ Effective Gradient Flow to Neural Backbone</h2>
+      <canvas id="canvas-grad" width="560" height="280"></canvas>
+      <div style="font-size:11px; color:var(--text-muted); display:flex; justify-content:space-between;">
+        <span><strong>Easy Road Pixels:</strong> Suppressed when p_t > 0.8</span>
+        <span><strong style="color:var(--red);">Hard Pedestrians:</strong> Retains 100% gradient drive</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls Bar -->
+  <div class="controls-bar">
+    <div class="control-group">
+      <label for="slider-gamma">Focusing Parameter γ (Gamma):</label>
+      <input type="range" id="slider-gamma" min="0.0" max="5.0" step="0.25" value="2.0">
+      <span id="val-gamma" style="font-family:monospace; font-weight:bold; color:var(--accent);">2.00</span>
+    </div>
+
+    <div class="control-group" style="margin-left:auto;">
+      <label for="slider-conf">Lead Confidence p_t:</label>
+      <input type="range" id="slider-conf" min="0.5" max="0.99" step="0.01" value="0.92">
+      <span id="val-conf" style="font-family:monospace; font-weight:bold; color:var(--green);">0.92</span>
+    </div>
+  </div>
+
+  <div class="explain-card">
+    <strong>💡 The Self-Driving Perception Dilemma:</strong>
+    In highway vision, 98% of all image pixels are empty road or sky. With standard Cross-Entropy ($\gamma = 0$), the cumulative loss from millions of trivially easy road pixels completely overwhelms the tiny gradient from a single distant pedestrian, causing the network to ignore the pedestrian entirely. 
+    By setting $\gamma = 2.0$, when a road pixel is well-classified ($p_t = 0.95$), its gradient contribution is discounted by $(1 - 0.95)^2 = 0.0025$ ($400\times$ reduction!), focusing 99% of backpropagation compute onto the safety-critical obstacles.
+  </div>
+</div>
+
+<script>
+if (window.self !== window.top) {
+  document.querySelector('.back-link')?.remove();
+}
+
+const cvsCurve = document.getElementById('canvas-curve');
+const ctxCurve = cvsCurve.getContext('2d');
+const cvsGrad = document.getElementById('canvas-grad');
+const ctxGrad = cvsGrad.getContext('2d');
+
+const sliderGamma = document.getElementById('slider-gamma');
+const sliderConf = document.getElementById('slider-conf');
+const hudGamma = document.getElementById('hud-gamma');
+const hudRecall = document.getElementById('hud-recall');
+const lblGammaCurve = document.getElementById('lbl-gamma-curve');
+
+function render() {
+  const gamma = parseFloat(sliderGamma.value);
+  const conf = parseFloat(sliderConf.value);
+
+  document.getElementById('val-gamma').textContent = gamma.toFixed(2);
+  document.getElementById('val-conf').textContent = conf.toFixed(2);
+  hudGamma.textContent = gamma.toFixed(1);
+  lblGammaCurve.textContent = gamma.toFixed(1);
+
+  // Compute pedestrian recall approximation
+  const recall = Math.min(99.4, 45.0 + 25.0 * gamma);
+  hudRecall.textContent = recall.toFixed(1) + '%';
+  hudRecall.style.color = gamma > 1.5 ? "var(--green)" : (gamma > 0.5 ? "var(--amber)" : "var(--red)");
+
+  drawCurve(gamma, conf);
+  drawGradients(gamma, conf);
+}
+
+function drawCurve(gamma, conf) {
+  const w = cvsCurve.width;
+  const h = cvsCurve.height;
+  ctxCurve.clearRect(0, 0, w, h);
+
+  const pad = 40;
+  // Draw grid
+  ctxCurve.strokeStyle = "#21262d";
+  ctxCurve.lineWidth = 1;
+  ctxCurve.strokeRect(pad, pad, w - 2 * pad, h - 2 * pad);
+
+  // Axis labels
+  ctxCurve.fillStyle = "#8b949e";
+  ctxCurve.font = "11px monospace";
+  ctxCurve.textAlign = "center";
+  ctxCurve.fillText("Model Probability p_t (Correct Class) →", w / 2, h - 12);
+
+  // Curve 1: Standard Cross Entropy (gamma = 0)
+  ctxCurve.beginPath();
+  ctxCurve.strokeStyle = "#f85149";
+  ctxCurve.lineWidth = 2;
+  for (let px = 0; px <= w - 2 * pad; px += 2) {
+    const pt = Math.max(0.01, px / (w - 2 * pad));
+    const loss = -Math.log(pt);
+    const py = (h - pad) - (loss / 4.0) * (h - 2 * pad);
+    const clampedY = Math.max(pad, Math.min(h - pad, py));
+    if (px === 0) ctxCurve.moveTo(pad + px, clampedY);
+    else ctxCurve.lineTo(pad + px, clampedY);
+  }
+  ctxCurve.stroke();
+
+  // Curve 2: Focal Loss with current gamma
+  ctxCurve.beginPath();
+  ctxCurve.strokeStyle = "#58a6ff";
+  ctxCurve.lineWidth = 2.5;
+  for (let px = 0; px <= w - 2 * pad; px += 2) {
+    const pt = Math.max(0.01, px / (w - 2 * pad));
+    const mod = Math.pow(1 - pt, gamma);
+    const fl = -mod * Math.log(pt);
+    const py = (h - pad) - (fl / 4.0) * (h - 2 * pad);
+    const clampedY = Math.max(pad, Math.min(h - pad, py));
+    if (px === 0) ctxCurve.moveTo(pad + px, clampedY);
+    else ctxCurve.lineTo(pad + px, clampedY);
+  }
+  ctxCurve.stroke();
+
+  // Draw current indicator
+  const curX = pad + conf * (w - 2 * pad);
+  ctxCurve.beginPath();
+  ctxCurve.strokeStyle = "#d29922";
+  ctxCurve.setLineDash([4, 4]);
+  ctxCurve.moveTo(curX, pad);
+  ctxCurve.lineTo(curX, h - pad);
+  ctxCurve.stroke();
+  ctxCurve.setLineDash([]);
+}
+
+function drawGradients(gamma, conf) {
+  const w = cvsGrad.width;
+  const h = cvsGrad.height;
+  ctxGrad.clearRect(0, 0, w, h);
+
+  const pad = 40;
+  // Road pixel vs Pedestrian pixel gradient magnitude
+  // Road pixel is easy (p_t = 0.95), Pedestrian is hard (p_t = 0.25)
+  const p_road = conf;
+  const p_ped = 0.25;
+
+  const grad_ce_road = 1 - p_road;
+  const grad_fl_road = Math.pow(1 - p_road, gamma) * (1 - p_road);
+
+  const grad_ce_ped = 1 - p_ped;
+  const grad_fl_ped = Math.pow(1 - p_ped, gamma) * (1 - p_ped);
+
+  // Cumulative gradient on batch of 1000 road pixels vs 10 pedestrian pixels
+  const total_road_grad = 1000 * grad_fl_road;
+  const total_ped_grad = 10 * grad_fl_ped;
+  const ratio = (total_ped_grad / (total_road_grad + total_ped_grad)) * 100;
+
+  // Draw comparison bars
+  const barW = 80;
+  const maxH = h - 2 * pad - 20;
+
+  // Draw background
+  ctxGrad.fillStyle = "#161b22";
+  ctxGrad.fillRect(pad, pad, w - 2 * pad, h - 2 * pad);
+
+  // Bar 1: Total Road Gradient
+  const normRoad = Math.min(1.0, total_road_grad / 40.0);
+  const hRoad = normRoad * maxH;
+  ctxGrad.fillStyle = "#3fb950";
+  ctxGrad.fillRect(100, (h - pad) - hRoad, barW, hRoad);
+
+  // Bar 2: Total Pedestrian Gradient
+  const normPed = Math.min(1.0, total_ped_grad / 40.0);
+  const hPed = normPed * maxH;
+  ctxGrad.fillStyle = "#f85149";
+  ctxGrad.fillRect(280, (h - pad) - hPed, barW, hPed);
+
+  // Labels
+  ctxGrad.fillStyle = "#fff";
+  ctxGrad.font = "bold 12px sans-serif";
+  ctxGrad.textAlign = "center";
+  ctxGrad.fillText("Road Gradient", 140, h - pad + 18);
+  ctxGrad.fillText("Pedestrian Gradient", 320, h - pad + 18);
+
+  ctxGrad.font = "11px monospace";
+  ctxGrad.fillStyle = "#8b949e";
+  ctxGrad.fillText(`Σ = ${total_road_grad.toFixed(1)}`, 140, (h - pad) - hRoad - 8);
+  ctxGrad.fillText(`Σ = ${total_ped_grad.toFixed(1)}`, 320, (h - pad) - hPed - 8);
+
+  // Pedestrian Gradient Share Gauge
+  ctxGrad.fillStyle = ratio > 40 ? "#3fb950" : (ratio > 15 ? "#d29922" : "#f85149");
+  ctxGrad.font = "bold 14px monospace";
+  ctxGrad.textAlign = "left";
+  ctxGrad.fillText(`Safety Gradient Share: ${ratio.toFixed(1)}%`, 50, pad + 25);
+}
+
+sliderGamma.addEventListener('input', render);
+sliderConf.addEventListener('input', render);
+render();
+</script>
+</body>
+</html>

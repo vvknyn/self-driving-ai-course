@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Chapter 00 • Interactive Lab: Neural Autograd Studio</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(22, 27, 34, 0.8);
+      --border: #30363d;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --red: #f85149;
+      --amber: #d29922;
+      --purple: #bc8cff;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 16px;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .badge {
+      font-size: 11px;
+      font-family: monospace;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: rgba(88, 166, 255, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(88, 166, 255, 0.3);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    h1 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    .subtitle {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .hud-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+    }
+    .hud-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .hud-card .label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-family: monospace;
+    }
+    .hud-card .val {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #fff;
+      font-family: monospace;
+    }
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 860px) {
+      .grid-2col { grid-template-columns: 1fr; }
+    }
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .panel h2 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    canvas {
+      width: 100%;
+      height: 280px;
+      background: #0d1117;
+      border: 1px solid #21262d;
+      border-radius: 6px;
+      display: block;
+      touch-action: none;
+    }
+    .controls-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+    }
+    button {
+      background: #21262d;
+      color: #fff;
+      border: 1px solid #30363d;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    button:hover { background: #30363d; border-color: #8b949e; }
+    button.primary {
+      background: #238636;
+      border-color: #2ea043;
+    }
+    button.primary:hover { background: #2ea043; }
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .control-group label {
+      color: var(--text-muted);
+      font-family: monospace;
+      font-size: 12px;
+    }
+    input[type="range"] {
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    select {
+      background: #21262d;
+      color: #fff;
+      border: 1px solid #30363d;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .explain-card {
+      background: rgba(88, 166, 255, 0.05);
+      border: 1px solid rgba(88, 166, 255, 0.2);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .explain-card strong { color: #fff; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div>
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+        <span class="badge">Chapter 00</span>
+        <span class="badge" style="color:var(--green); border-color:rgba(63,185,80,0.3); background:rgba(63,185,80,0.1);">Interactive Lab</span>
+      </div>
+      <h1>Neural Autograd & Loss Surface Studio</h1>
+      <p class="subtitle">Experience how a 2-layer neural network learns the quadratic stopping distance boundary from raw gradient descent.</p>
+    </div>
+  </header>
+
+  <!-- HUD Telemetry -->
+  <div class="hud-grid">
+    <div class="hud-card">
+      <div class="label">Training Epoch</div>
+      <div class="val" id="hud-epoch">0</div>
+    </div>
+    <div class="hud-card">
+      <div class="label">Hinge Loss</div>
+      <div class="val" id="hud-loss" style="color:var(--amber);">1.000</div>
+    </div>
+    <div class="hud-card">
+      <div class="label">Gradient Norm ||∇L||</div>
+      <div class="val" id="hud-grad" style="color:var(--purple);">0.000</div>
+    </div>
+    <div class="hud-card">
+      <div class="label">Decision Accuracy</div>
+      <div class="val" id="hud-acc" style="color:var(--green);">50.0%</div>
+    </div>
+  </div>
+
+  <!-- Interactive Canvases -->
+  <div class="grid-2col">
+    <!-- Panel 1: Neural Network Computational Graph -->
+    <div class="panel">
+      <h2>🧠 Neural Network Graph (Synapses = Weights)</h2>
+      <canvas id="canvas-net" width="560" height="280"></canvas>
+      <div style="font-size:11px; color:var(--text-muted); display:flex; justify-content:space-between;">
+        <span><strong style="color:var(--green);">Green line:</strong> Positive weight</span>
+        <span><strong style="color:var(--red);">Red line:</strong> Negative weight</span>
+        <span><strong>Thickness:</strong> Magnitude |w|</span>
+      </div>
+    </div>
+
+    <!-- Panel 2: 2D Driving Boundary (Speed vs Distance) -->
+    <div class="panel">
+      <h2>🚗 2D Feature Space (Speed vs Distance)</h2>
+      <canvas id="canvas-data" width="560" height="280"></canvas>
+      <div style="font-size:11px; color:var(--text-muted); display:flex; justify-content:space-between;">
+        <span><strong style="color:var(--green);">● Safe Following:</strong> d > 0.75·v²</span>
+        <span><strong style="color:var(--red);">● Hazard Braking:</strong> d < 0.75·v²</span>
+        <span><strong style="color:var(--accent);">Cyan Curve:</strong> Learned Net Boundary</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls-bar">
+    <button class="primary" id="btn-toggle">▶ Auto-Train</button>
+    <button id="btn-step">Step 1 Epoch</button>
+    <button id="btn-reset">Reset Weights</button>
+
+    <div class="control-group">
+      <label for="slider-lr">Learning Rate (η):</label>
+      <input type="range" id="slider-lr" min="0.01" max="0.5" step="0.01" value="0.12">
+      <span id="val-lr" style="font-family:monospace; font-size:12px;">0.12</span>
+    </div>
+
+    <div class="control-group">
+      <label for="sel-act">Activation:</label>
+      <select id="sel-act">
+        <option value="tanh">Tanh (Non-linear)</option>
+        <option value="relu">ReLU (Non-linear)</option>
+        <option value="linear">Linear (Collapses to single line)</option>
+      </select>
+    </div>
+
+    <div class="control-group" style="margin-left:auto;">
+      <label style="cursor:pointer; display:flex; align-items:center; gap:6px;">
+        <input type="checkbox" id="chk-zero-init">
+        <span>Drill 1: Zero-Init Trap</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="explain-card">
+    <strong>💡 Andrej Karpathy & Andrew Ng Insight:</strong> 
+    Notice how switching the activation to <em>Linear</em> permanently prevents the model from curving around the quadratic stopping distance boundary ($d > v^2$), regardless of how many epochs you train. Checking <em>Zero-Init Trap</em> illustrates how identical weights compute identical gradients, permanently freezing the network in symmetry.
+  </div>
+</div>
+
+<script>
+// --- Synthetic Dataset Generation ---
+const NUM_PTS = 40;
+const dataset = [];
+function initData() {
+  dataset.length = 0;
+  for (let i = 0; i < NUM_PTS; i++) {
+    const speed = 0.1 + Math.random() * 0.9;
+    const dist = 0.05 + Math.random() * 0.95;
+    const isSafe = dist > (0.75 * speed * speed + 0.1);
+    dataset.push({ x: [speed, dist], y: isSafe ? 1.0 : -1.0 });
+  }
+}
+initData();
+
+// --- 2-Layer Neural Network Weights ---
+// 2 inputs -> 4 hidden -> 1 output
+let W1 = [], b1 = [], W2 = [], b2 = 0;
+let epoch = 0;
+let isTraining = false;
+
+function initWeights(zeroInit = false) {
+  W1 = [];
+  b1 = [0, 0, 0, 0];
+  W2 = [];
+  b2 = 0;
+  epoch = 0;
+
+  for (let h = 0; h < 4; h++) {
+    if (zeroInit) {
+      W1.push([0.0, 0.0]);
+      W2.push(0.0);
+    } else {
+      W1.push([
+        (Math.random() - 0.5) * 1.5,
+        (Math.random() - 0.5) * 1.5
+      ]);
+      W2.push((Math.random() - 0.5) * 1.5);
+    }
+  }
+  updateUI();
+  draw();
+}
+
+function actFn(z, type) {
+  if (type === 'tanh') return Math.tanh(z);
+  if (type === 'relu') return Math.max(0, z);
+  return z; // linear
+}
+
+function actDeriv(z, a, type) {
+  if (type === 'tanh') return 1.0 - a * a;
+  if (type === 'relu') return z > 0 ? 1.0 : 0.0;
+  return 1.0;
+}
+
+function forward(x0, x1, actType) {
+  const h_act = [];
+  const h_pre = [];
+  for (let h = 0; h < 4; h++) {
+    const z = W1[h][0] * x0 + W1[h][1] * x1 + b1[h];
+    h_pre.push(z);
+    h_act.push(actFn(z, actType));
+  }
+  let out = b2;
+  for (let h = 0; h < 4; h++) {
+    out += W2[h] * h_act[h];
+  }
+  return { out, h_pre, h_act };
+}
+
+function trainStep() {
+  const lr = parseFloat(document.getElementById('slider-lr').value);
+  const actType = document.getElementById('sel-act').value;
+
+  let totalLoss = 0;
+  let correct = 0;
+
+  // Accumulated gradients
+  const dW1 = [[0,0],[0,0],[0,0],[0,0]];
+  const db1 = [0,0,0,0];
+  const dW2 = [0,0,0,0];
+  let db2 = 0;
+
+  for (let i = 0; i < dataset.length; i++) {
+    const pt = dataset[i];
+    const { out, h_pre, h_act } = forward(pt.x[0], pt.x[1], actType);
+
+    // Hinge margin: max(0, 1 - y * out)
+    const margin = 1.0 - pt.y * out;
+    if (margin > 0) {
+      totalLoss += margin;
+      // dMargin / dOut = -y
+      const dOut = -pt.y;
+      db2 += dOut;
+      for (let h = 0; h < 4; h++) {
+        dW2[h] += dOut * h_act[h];
+        // Backprop to hidden neuron
+        const dh_act = dOut * W2[h];
+        const dh_pre = dh_act * actDeriv(h_pre[h], h_act[h], actType);
+        db1[h] += dh_pre;
+        dW1[h][0] += dh_pre * pt.x[0];
+        dW1[h][1] += dh_pre * pt.x[1];
+      }
+    }
+
+    if ((out > 0 && pt.y > 0) || (out < 0 && pt.y < 0)) correct++;
+  }
+
+  const N = dataset.length;
+  totalLoss /= N;
+  let gradNormSq = 0;
+
+  // Apply gradient descent
+  for (let h = 0; h < 4; h++) {
+    const gw0 = dW1[h][0] / N;
+    const gw1 = dW1[h][1] / N;
+    const gb = db1[h] / N;
+    const gw2 = dW2[h] / N;
+
+    gradNormSq += gw0*gw0 + gw1*gw1 + gb*gb + gw2*gw2;
+
+    W1[h][0] -= lr * gw0;
+    W1[h][1] -= lr * gw1;
+    b1[h] -= lr * gb;
+    W2[h] -= lr * gw2;
+  }
+  b2 -= lr * (db2 / N);
+  gradNormSq += (db2 / N) * (db2 / N);
+
+  epoch++;
+  const acc = (correct / N) * 100;
+  const gradNorm = Math.sqrt(gradNormSq);
+
+  document.getElementById('hud-epoch').textContent = epoch;
+  document.getElementById('hud-loss').textContent = totalLoss.toFixed(3);
+  document.getElementById('hud-grad').textContent = gradNorm.toFixed(3);
+  document.getElementById('hud-acc').textContent = acc.toFixed(1) + '%';
+
+  draw();
+}
+
+function updateUI() {
+  document.getElementById('hud-epoch').textContent = epoch;
+  document.getElementById('hud-loss').textContent = "1.000";
+  document.getElementById('hud-grad').textContent = "0.000";
+  document.getElementById('hud-acc').textContent = "50.0%";
+}
+
+// --- Canvas Renderers ---
+const cvsNet = document.getElementById('canvas-net');
+const ctxNet = cvsNet.getContext('2d');
+const cvsData = document.getElementById('canvas-data');
+const ctxData = cvsData.getContext('2d');
+
+function draw() {
+  drawNet();
+  drawData();
+}
+
+function drawNet() {
+  const w = cvsNet.width;
+  const h = cvsNet.height;
+  ctxNet.clearRect(0, 0, w, h);
+
+  const layerX = [60, 280, 500];
+  const inY = [90, 190];
+  const hidY = [45, 105, 175, 235];
+  const outY = [140];
+
+  // Draw synapses: Inputs -> Hidden
+  for (let i = 0; i < 2; i++) {
+    for (let j = 0; j < 4; j++) {
+      const weight = W1[j][i];
+      ctxNet.beginPath();
+      ctxNet.moveTo(layerX[0], inY[i]);
+      ctxNet.lineTo(layerX[1], hidY[j]);
+      ctxNet.strokeStyle = weight >= 0 ? `rgba(63, 185, 80, ${Math.min(1, Math.abs(weight) * 0.8 + 0.1)})` : `rgba(248, 81, 73, ${Math.min(1, Math.abs(weight) * 0.8 + 0.1)})`;
+      ctxNet.lineWidth = Math.min(6, Math.max(1, Math.abs(weight) * 3));
+      ctxNet.stroke();
+    }
+  }
+
+  // Draw synapses: Hidden -> Output
+  for (let j = 0; j < 4; j++) {
+    const weight = W2[j];
+    ctxNet.beginPath();
+    ctxNet.moveTo(layerX[1], hidY[j]);
+    ctxNet.lineTo(layerX[2], outY[0]);
+    ctxNet.strokeStyle = weight >= 0 ? `rgba(63, 185, 80, ${Math.min(1, Math.abs(weight) * 0.8 + 0.1)})` : `rgba(248, 81, 73, ${Math.min(1, Math.abs(weight) * 0.8 + 0.1)})`;
+    ctxNet.lineWidth = Math.min(6, Math.max(1, Math.abs(weight) * 3));
+    ctxNet.stroke();
+  }
+
+  // Draw Neurons
+  function drawNeuron(x, y, label, sub) {
+    ctxNet.beginPath();
+    ctxNet.arc(x, y, 16, 0, Math.PI * 2);
+    ctxNet.fillStyle = "#161b22";
+    ctxNet.fill();
+    ctxNet.strokeStyle = "#58a6ff";
+    ctxNet.lineWidth = 2;
+    ctxNet.stroke();
+
+    ctxNet.fillStyle = "#fff";
+    ctxNet.font = "bold 10px monospace";
+    ctxNet.textAlign = "center";
+    ctxNet.textBaseline = "middle";
+    ctxNet.fillText(label, x, y);
+
+    if (sub) {
+      ctxNet.fillStyle = "#8b949e";
+      ctxNet.font = "9px sans-serif";
+      ctxNet.fillText(sub, x, y + 26);
+    }
+  }
+
+  drawNeuron(layerX[0], inY[0], "v", "Speed");
+  drawNeuron(layerX[0], inY[1], "d", "Dist");
+
+  for (let j = 0; j < 4; j++) {
+    drawNeuron(layerX[1], hidY[j], `h${j+1}`, "");
+  }
+
+  drawNeuron(layerX[2], outY[0], "ŷ", "Decision");
+}
+
+function drawData() {
+  const w = cvsData.width;
+  const h = cvsData.height;
+  ctxData.clearRect(0, 0, w, h);
+
+  const pad = 35;
+  const actType = document.getElementById('sel-act').value;
+
+  // Grid background
+  ctxData.strokeStyle = "#21262d";
+  ctxData.lineWidth = 1;
+  ctxData.strokeRect(pad, pad, w - 2 * pad, h - 2 * pad);
+
+  // Axis labels
+  ctxData.fillStyle = "#8b949e";
+  ctxData.font = "11px monospace";
+  ctxData.textAlign = "center";
+  ctxData.fillText("Ego Speed (v) →", w / 2, h - 10);
+  ctxData.save();
+  ctxData.translate(14, h / 2);
+  ctxData.rotate(-Math.PI / 2);
+  ctxData.fillText("Distance (d) →", 0, 0);
+  ctxData.restore();
+
+  // True physical braking boundary (dotted yellow line)
+  ctxData.beginPath();
+  ctxData.setLineDash([4, 4]);
+  ctxData.strokeStyle = "#d29922";
+  ctxData.lineWidth = 2;
+  for (let px = 0; px <= w - 2 * pad; px += 4) {
+    const normSpeed = px / (w - 2 * pad);
+    const trueDist = 0.75 * normSpeed * normSpeed + 0.1;
+    const py = (h - pad) - trueDist * (h - 2 * pad);
+    if (px === 0) ctxData.moveTo(pad + px, py);
+    else ctxData.lineTo(pad + px, py);
+  }
+  ctxData.stroke();
+  ctxData.setLineDash([]);
+
+  // Learned Neural Decision Boundary (Cyan solid curve where out = 0)
+  ctxData.beginPath();
+  ctxData.strokeStyle = "#58a6ff";
+  ctxData.lineWidth = 2.5;
+  let started = false;
+  for (let px = 0; px <= w - 2 * pad; px += 4) {
+    const normSpeed = px / (w - 2 * pad);
+    // Find dist where out is closest to 0
+    let bestDist = null;
+    let minDiff = 999;
+    for (let testD = 0; testD <= 1.0; testD += 0.02) {
+      const { out } = forward(normSpeed, testD, actType);
+      if (Math.abs(out) < minDiff) {
+        minDiff = Math.abs(out);
+        bestDist = testD;
+      }
+    }
+    if (bestDist !== null && minDiff < 0.25) {
+      const py = (h - pad) - bestDist * (h - 2 * pad);
+      if (!started) { ctxData.moveTo(pad + px, py); started = true; }
+      else ctxData.lineTo(pad + px, py);
+    }
+  }
+  ctxData.stroke();
+
+  // Draw dataset samples
+  for (const pt of dataset) {
+    const cx = pad + pt.x[0] * (w - 2 * pad);
+    const cy = (h - pad) - pt.x[1] * (h - 2 * pad);
+
+    ctxData.beginPath();
+    ctxData.arc(cx, cy, 5, 0, Math.PI * 2);
+    ctxData.fillStyle = pt.y > 0 ? "#3fb950" : "#f85149";
+    ctxData.fill();
+    ctxData.strokeStyle = "#000";
+    ctxData.lineWidth = 1;
+    ctxData.stroke();
+  }
+}
+
+// --- Event Listeners ---
+let animId = null;
+function loop() {
+  if (isTraining) {
+    trainStep();
+    animId = requestAnimationFrame(loop);
+  }
+}
+
+document.getElementById('btn-toggle').addEventListener('click', () => {
+  isTraining = !isTraining;
+  document.getElementById('btn-toggle').textContent = isTraining ? "⏸ Pause" : "▶ Auto-Train";
+  document.getElementById('btn-toggle').style.background = isTraining ? "#d29922" : "#238636";
+  if (isTraining) loop();
+});
+
+document.getElementById('btn-step').addEventListener('click', () => {
+  trainStep();
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  isTraining = false;
+  document.getElementById('btn-toggle').textContent = "▶ Auto-Train";
+  document.getElementById('btn-toggle').style.background = "#238636";
+  const zeroInit = document.getElementById('chk-zero-init').checked;
+  initWeights(zeroInit);
+});
+
+document.getElementById('chk-zero-init').addEventListener('change', (e) => {
+  initWeights(e.target.checked);
+});
+
+document.getElementById('slider-lr').addEventListener('input', (e) => {
+  document.getElementById('val-lr').textContent = e.target.value;
+});
+
+document.getElementById('sel-act').addEventListener('change', () => {
+  draw();
+});
+
+// Initial boot
+initWeights(false);
+</script>
+</body>
+</html>

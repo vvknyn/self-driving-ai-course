@@ -2,21 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vision-First Autonomous Driving — Interactive Visual Explainers</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>LearnFSD — Zero-to-FSD Interactive Visual Labs</title>
   <style>
     :root {
-      --bg: #0d1117;
-      --card-bg: #161b22;
+      --bg: #090d16;
+      --card-bg: rgba(22, 27, 34, 0.8);
       --border: #30363d;
       --text: #c9d1d9;
       --text-bright: #f0f6fc;
       --accent: #58a6ff;
-      --accent-glow: rgba(88, 166, 255, 0.2);
+      --accent-glow: rgba(88, 166, 255, 0.15);
       --green: #3fb950;
       --purple: #bc8cff;
       --orange: #f0883e;
-      --red: #f85149;
+      --amber: #d29922;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body {
@@ -32,60 +32,61 @@
     }
     header {
       text-align: center;
-      margin-bottom: 36px;
+      margin-bottom: 32px;
       padding-bottom: 24px;
       border-bottom: 1px solid var(--border);
     }
     .badge {
       display: inline-block;
       padding: 6px 14px;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       font-weight: 700;
       border-radius: 20px;
       background: var(--accent-glow);
       color: var(--accent);
       border: 1px solid var(--accent);
-      margin-bottom: 14px;
+      margin-bottom: 12px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
     h1 {
-      font-size: clamp(1.8rem, 5vw, 2.8rem);
+      font-size: clamp(1.8rem, 5vw, 2.6rem);
       color: var(--text-bright);
       font-weight: 800;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
       letter-spacing: -0.02em;
-      line-height: 1.2;
     }
     .subtitle {
-      font-size: clamp(0.95rem, 2.5vw, 1.15rem);
+      font-size: 1rem;
       color: #8b949e;
-      max-width: 800px;
-      margin: 0 auto 16px;
+      max-width: 780px;
+      margin: 0 auto;
     }
-    .pedagogy-row {
+    .phase-section {
+      margin-bottom: 36px;
+    }
+    .phase-header {
       display: flex;
-      justify-content: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-top: 16px;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(48, 54, 61, 0.6);
     }
-    .ped-tag {
-      background: #21262d;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 6px 10px;
-      font-size: 0.8rem;
-      color: var(--text-bright);
-      font-weight: 500;
+    .phase-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-family: monospace;
     }
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 16px;
     }
     @media (max-width: 600px) {
-      body { padding: 16px 12px; }
       .grid { grid-template-columns: 1fr; }
     }
     .card {
@@ -93,208 +94,245 @@
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 20px;
-      transition: transform 0.2s ease, border-color 0.2s ease;
       display: flex;
       flex-direction: column;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       position: relative;
     }
     .card:hover {
-      transform: translateY(-3px);
       border-color: var(--accent);
-      box-shadow: 0 8px 24px var(--accent-glow);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     }
-    .card-num {
-      font-size: 0.8rem;
+    .card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .ch-num {
+      font-size: 11px;
+      font-family: monospace;
       font-weight: 700;
       color: var(--accent);
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+      background: var(--accent-glow);
+      padding: 3px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(88, 166, 255, 0.3);
     }
-    .card h2 {
-      font-size: 1.25rem;
+    .card-title {
+      font-size: 1.05rem;
       color: var(--text-bright);
-      margin-bottom: 10px;
-      line-height: 1.3;
+      font-weight: 700;
+      margin-bottom: 6px;
     }
-    .card p {
-      font-size: 0.9rem;
+    .card-desc {
+      font-size: 0.85rem;
       color: #8b949e;
-      margin-bottom: 18px;
+      margin-bottom: 14px;
       flex-grow: 1;
-      line-height: 1.5;
     }
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 44px;
-      padding: 10px 18px;
-      background: #238636;
-      color: #fff;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 0.95rem;
-      border-radius: 8px;
-      transition: background 0.2s;
-    }
-    .btn:hover, .btn:active { background: #2ea043; }
-    .btn.primary {
-      background: #1f6feb;
-    }
-    .btn.primary:hover, .btn.primary:active { background: #388bfd; }
-    .card-footer {
+    .card-tags {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 14px;
-      padding-top: 12px;
-      border-top: 1px solid #21262d;
-      font-size: 0.8rem;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tag {
+      font-size: 11px;
+      background: #21262d;
       color: #8b949e;
+      padding: 2px 8px;
+      border-radius: 4px;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="badge">Interactive Course Portal (Mobile & Touch Friendly)</div>
-      <h1>Vision-First Autonomous Driving</h1>
-      <p class="subtitle">
-        Interactive visual explainers, animated geometry engines, and live simulators modeled directly after Tesla FSD's modern architecture. Choose your depth Just-In-Time from beginner to PhD research.
-      </p>
-      <div class="pedagogy-row">
-        <span class="ped-tag">📐 Andrew Ng Intuition</span>
-        <span class="ped-tag">🛠️ Andrej Karpathy "Code From Scratch"</span>
-        <span class="ped-tag">🏎️ Sebastian Thrun Robotics</span>
-        <span class="ped-tag">🎲 MITx Probability (6.041x)</span>
-        <span class="ped-tag">🦆 Duckietown Tactile Robotics</span>
-        <span class="ped-tag">🎓 OpenDriveLab (UniAD) PhD Track</span>
-      </div>
+<div class="container">
+  <header>
+    <div class="badge">Zero-to-FSD Curriculum</div>
+    <h1>Interactive Visual Simulation Labs</h1>
+    <p class="subtitle">
+      Zero-dependency, mobile-responsive interactive playgrounds modeling Tesla's vision-centric FSD architecture from first principles.
+    </p>
+  </header>
 
-      <!-- JIT Depth Navigation Bar -->
-      <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; padding:14px; margin-top:20px; text-align:left; max-width:850px; margin-left:auto; margin-right:auto;">
-        <div style="font-weight:700; color:#f0f6fc; font-size:0.95rem; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-          <span>🎯 Choose Your Depth Just-In-Time (JIT):</span>
-          <span style="font-size:0.8rem; color:#8b949e;">Beginner ➔ PhD Level</span>
-        </div>
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px; font-size:0.8rem;">
-          <div style="background:#21262d; padding:8px; border-radius:6px; border-left:3px solid var(--green);">
-            <b style="color:var(--green);">🟢 Tier 1</b><br><span style="color:#8b949e;">Intuition & Diagnost.</span>
-          </div>
-          <div style="background:#21262d; padding:8px; border-radius:6px; border-left:3px solid #e3b341;">
-            <b style="color:#e3b341;">🟡 Tier 2</b><br><span style="color:#8b949e;">Karpathy Raw PyTorch</span>
-          </div>
-          <div style="background:#21262d; padding:8px; border-radius:6px; border-left:3px solid var(--red);">
-            <b style="color:var(--red);">🔴 Tier 3</b><br><span style="color:#8b949e;">Thrun / MITx Math</span>
-          </div>
-          <div style="background:#21262d; padding:8px; border-radius:6px; border-left:3px solid var(--purple);">
-            <b style="color:var(--purple);">🎓 Tier 4</b><br><span style="color:#8b949e;">CVPR / PhD Frontier</span>
-          </div>
-          <div style="background:#21262d; padding:8px; border-radius:6px; border-left:3px solid var(--accent);">
-            <b style="color:var(--accent);">🟣 Tier 5</b><br><span style="color:#8b949e;">Duckie / Edge Robot</span>
-          </div>
-        </div>
-      </div>
-    </header>
-
+  <!-- PHASE 1 -->
+  <div class="phase-section">
+    <div class="phase-header">
+      <span style="color:var(--green); font-size:1.2rem;">●</span>
+      <h2 class="phase-title">Phase 1: Foundations — From Neurons to Photons</h2>
+    </div>
     <div class="grid">
-      <!-- 01 -->
-      <div class="card">
-        <div class="card-num">Module 01 Visualizer</div>
-        <h2>Pinhole Camera & IPM Transform</h2>
-        <p>Interactive 3D camera ray unprojector and ground-plane homography. Adjust pitch, roll, and focal length to see why dynamic suspension tilts cause 25m distance errors.</p>
-        <a href="01_camera_geometry_ipm.html" class="btn">Launch 3D Camera Ray Visualizer →</a>
-        <div class="card-footer">
-          <span>Camera Geometry</span>
-          <span>Zero dependencies</span>
+      <a href="00_neural_network_autograd.html" class="card">
+        <div class="card-top">
+          <span class="ch-num">Chapter 00</span>
+          <span class="tag" style="color:var(--green);">Karpathy Micrograd</span>
         </div>
-      </div>
+        <div class="card-title">Neural Autograd & Loss Surface Studio</div>
+        <div class="card-desc">Experience how an artificial neuron, computational DAG graph, and reverse-mode backpropagation learn non-linear stopping distances from scratch.</div>
+        <div class="card-tags">
+          <span class="tag">Scalar Autograd</span>
+          <span class="tag">Multivariate Chain Rule</span>
+          <span class="tag">Loss Valley</span>
+        </div>
+      </a>
 
-      <!-- 02 -->
-      <div class="card">
-        <div class="card-num">Module 02 Visualizer</div>
-        <h2>HydraNet Architecture & Loss Balancer</h2>
-        <p>Animated feature flow from shared convolutional trunk into 4 perception heads. Test gradient starvation and watch MITx Homoscedastic Uncertainty re-balance task weights.</p>
-        <a href="02_hydranet_architecture.html" class="btn">Launch HydraNet Flow Engine →</a>
-        <div class="card-footer">
-          <span>Multi-Task Perception</span>
-          <span>MLE Loss Weights</span>
+      <a href="01_perception_ml_gym.html" class="card">
+        <div class="card-top">
+          <span class="ch-num">Chapter 01</span>
+          <span class="tag" style="color:var(--amber);">Andrew Ng Diagnostics</span>
         </div>
-      </div>
+        <div class="card-title">Driving Perception Gym & Focal Loss</div>
+        <div class="card-desc">Why 99.9% overall accuracy still misses pedestrians, and how Focal Loss dynamically down-weights easy background road pixels to save lives.</div>
+        <div class="card-tags">
+          <span class="tag">Class Imbalance</span>
+          <span class="tag">Focal Loss γ</span>
+          <span class="tag">AdamW</span>
+        </div>
+      </a>
 
-      <!-- 03 -->
-      <div class="card">
-        <div class="card-num">Module 03 Visualizer</div>
-        <h2>Lift-Splat-Shoot (LSS) BEV Transform</h2>
-        <p>Step-by-step animated 3D frustum to 2D Bird's-Eye View projection. Tune depth distribution entropy and witness how categorical depth transforms 2D pixels into metric space.</p>
-        <a href="03_lift_splat_shoot_bev.html" class="btn">Launch 3D Frustum-to-BEV Animator →</a>
-        <div class="card-footer">
-          <span>Bird's-Eye View</span>
-          <span>Categorical Depth</span>
+      <a href="01_camera_geometry_ipm.html" class="card">
+        <div class="card-top">
+          <span class="ch-num">Chapter 02</span>
+          <span class="tag" style="color:var(--accent);">Sebastian Thrun Geometry</span>
         </div>
-      </div>
-
-      <!-- 04 -->
-      <div class="card">
-        <div class="card-num">Module 04 Visualizer</div>
-        <h2>3D Occupancy Network & Flow Field</h2>
-        <p>Interactive 3D voxel grid viewer. Touch/drag to orbit around the car, slice through elevation layers, inspect dynamic velocity vectors, and test temporal ConvGRU memory.</p>
-        <a href="04_occupancy_network_3d.html" class="btn">Launch 3D Voxel Grid Orbit →</a>
-        <div class="card-footer">
-          <span>3D Occupancy</span>
-          <span>Touch Orbit Supported</span>
+        <div class="card-title">3D Camera Rig & IPM Transform</div>
+        <div class="card-desc">Calibrate a multi-camera surround rig, project optical rays, and unproject perspective pixels into top-down metric Bird's-Eye View.</div>
+        <div class="card-tags">
+          <span class="tag">Intrinsics K</span>
+          <span class="tag">Extrinsics [R|T]</span>
+          <span class="tag">Pitch Tilt</span>
         </div>
-      </div>
-
-      <!-- 05 -->
-      <div class="card">
-        <div class="card-num">Module 05 Visualizer</div>
-        <h2>Vector Space Tracker & Lane Splines</h2>
-        <p>Watch Kalman filter covariance ellipses contract as measurements arrive. Compare naive Euclidean association vs Mahalanobis distance gating to prevent track identity swaps.</p>
-        <a href="05_vector_space_tracker.html" class="btn">Launch Vector Tracker Sim →</a>
-        <div class="card-footer">
-          <span>Tracking & Maps</span>
-          <span>Bayes Conditioning</span>
-        </div>
-      </div>
-
-      <!-- 06 -->
-      <div class="card">
-        <div class="card-num">Module 06 Visualizer</div>
-        <h2>Lattice Trajectory Planner & Cost Maps</h2>
-        <p>Drag obstacles across highway lanes with your finger and watch 15 quintic polynomial candidates fan out in real time. Adjust safety bubbles and jerk weights on your phone.</p>
-        <a href="06_trajectory_planner.html" class="btn">Launch Trajectory Cost Tuner →</a>
-        <div class="card-footer">
-          <span>Trajectory Planning</span>
-          <span>Touch Drag Supported</span>
-        </div>
-      </div>
-
-      <!-- 07 -->
-      <div class="card">
-        <div class="card-num">Module 07 Visualizer</div>
-        <h2>Closed-Loop Simulator (Stanley & MPC)</h2>
-        <p>Interactive canvas vehicle driving simulator. Steer manually with on-screen touch buttons or activate Stanley / Pure Pursuit controllers through tight S-curves with live plots.</p>
-        <a href="07_closed_loop_simulator.html" class="btn">Launch Closed-Loop Driving Sim →</a>
-        <div class="card-footer">
-          <span>Vehicle Dynamics</span>
-          <span>Touch Controls</span>
-        </div>
-      </div>
-
-      <!-- 08 -->
-      <div class="card" style="border-color: #388bfd;">
-        <div class="card-num" style="color: #58a6ff;">Module 08 Capstone</div>
-        <h2>End-to-End FSD Mission Control Dashboard</h2>
-        <p>The unified Capstone dashboard displaying 3 camera video feeds, BEV metric grid, 3D occupancy, vector tracks, real-time trajectory fanouts, and steering wheel telemetries.</p>
-        <a href="08_fsd_dashboard.html" class="btn primary">Launch Full FSD Dashboard →</a>
-        <div class="card-footer">
-          <span>Capstone Integration</span>
-          <span>Live Mobile Telemetry</span>
-        </div>
-      </div>
+      </a>
     </div>
   </div>
+
+  <!-- PHASE 2 -->
+  <div class="phase-section">
+    <div class="phase-header">
+      <span style="color:var(--accent); font-size:1.2rem;">●</span>
+      <h2 class="phase-title">Phase 2: The Vision-to-BEV Engine (Tesla Core)</h2>
+    </div>
+    <div class="grid">
+      <a href="02_hydranet_architecture.html" class="card">
+        <div class="card-top">
+          <span class="ch-num">Chapter 03</span>
+          <span class="tag" style="color:var(--purple);">Tesla AI Day 2021</span>
+        </div>
+        <div class="card-title">Multi-Task HydraNet Architecture</div>
+        <div class="card-desc">Extract features once through a shared ConvNeXt trunk and route to decoupled heads, balanced via Kendall & Gal homoscedastic uncertainty MLE.</div>
+        <div class="card-tags">
+          <span class="tag">Trunk Caching</span>
+          <span class="tag">Freespace Head</span>
+          <span class="tag">Uncertainty Loss</span>
+        </div>
+      </a>
+
+      <a href="03_lift_splat_shoot_bev.html" class="card">
+        <div class="card-top">
+          <span class="ch-num">Chapter 04</span>
+          <span class="tag" style="color:var(--accent);">Philion & Fidler ECCV</span>
+        </div>
+        <div class="card-title">Bird's-Eye View (BEV) Transform</div>
+        <div class="card-desc">Predict categorical depth distributions along optical rays and pool unprojected frustum features into metric 2D BEV pillars.</div>
+        <div class="card-tags">
+          <span class="tag">Softmax Depth</span>
+          <span class="tag">Voxel Pooling</span>
+          <span class="tag">BEV Pillars</span>
+        </div>
+      </a>
+
+      <a href="04_occupancy_network_3d.html" class="card">
+        <div class="card-top">
+          <span class="ch-num">Chapter 05</span>
+          <span class="tag" style="color:var(--orange);">Tesla AI Day 2022</span>
+        </div>
+        <div class="card-title">3D Occupancy & Temporal Memory</div>
+        <div class="card-desc">Move beyond brittle bounding boxes. Discretize space into 3D voxel fields with velocity flow vectors, tracked across occlusions with ConvGRU memory.</div>
+        <div class="card-tags">
+          <span class="tag">3D Voxel Field</span>
+          <span class="tag">ConvGRU Memory</span>
+          <span class="tag">Flow Vectors</span>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- PHASE 3 -->
+  <div class="phase-section">
+    <div class="phase-header">
+      <span style="color:var(--amber); font-size:1.2rem;">●</span>
+      <h2 class="phase-title">Phase 3: Prediction, Planning & Control</h2>
+    </div>
+    <div class="grid">
+      <a href="05_vector_space_tracker.html" class="card">
+        <div class="card-top">
+          <span class="ch-num">Chapter 06</span>
+          <span class="tag" style="color:var(--green);">Bayesian State Estimation</span>
+        </div>
+        <div class="card-title">Vector Space Tracking & HD Maps</div>
+        <div class="card-desc">Track dynamic vehicles across occlusions with Kalman filters and Hungarian bipartite matching. Fit parametric cubic lane splines with analytical road curvature.</div>
+        <div class="card-tags">
+          <span class="tag">Kalman Filter</span>
+          <span class="tag">Hungarian Matching</span>
+          <span class="tag">Cubic Splines</span>
+        </div>
+      </a>
+
+      <a href="06_trajectory_planner.html" class="card">
+        <div class="card-top">
+          <span class="ch-num">Chapter 07</span>
+          <span class="tag" style="color:var(--orange);">OpenDriveLab UniAD</span>
+        </div>
+        <div class="card-title">Lattice Trajectory Planning</div>
+        <div class="card-desc">Solve the analytical 5th-order boundary value problem, sample candidate trajectory lattices in Frenet coordinates, and evaluate collision risk.</div>
+        <div class="card-tags">
+          <span class="tag">Frenet Frame</span>
+          <span class="tag">Quintic Splines</span>
+          <span class="tag">Jerk Minimization</span>
+        </div>
+      </a>
+
+      <a href="07_closed_loop_simulator.html" class="card">
+        <div class="card-top">
+          <span class="ch-num">Chapter 08</span>
+          <span class="tag" style="color:var(--accent);">Stanford Stanley / Thrun</span>
+        </div>
+        <div class="card-title">Closed-Loop Vehicle Simulation & Control</div>
+        <div class="card-desc">Connect planned paths to physical tires rolling on asphalt. Stanley front-axle control with proven Lyapunov stability and actuator latency compensation.</div>
+        <div class="card-tags">
+          <span class="tag">Bicycle Model</span>
+          <span class="tag">Stanley Controller</span>
+          <span class="tag">Lyapunov Proof</span>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- PHASE 4 -->
+  <div class="phase-section">
+    <div class="phase-header">
+      <span style="color:var(--purple); font-size:1.2rem;">●</span>
+      <h2 class="phase-title">Phase 4: Full System Integration & Research Horizons</h2>
+    </div>
+    <div class="grid">
+      <a href="08_fsd_dashboard.html" class="card">
+        <div class="card-top">
+          <span class="ch-num">Chapter 09</span>
+          <span class="tag" style="color:var(--green);">Full Capstone</span>
+        </div>
+        <div class="card-title">Full FSD Mission Control Capstone</div>
+        <div class="card-desc">The complete integrated pipeline: Cameras → HydraNet → BEV → 3D Occupancy → Tracking → Planner → Steering Controller running at 80 Hz.</div>
+        <div class="card-tags">
+          <span class="tag">End-to-End Pipeline</span>
+          <span class="tag">Scenario Injection</span>
+          <span class="tag">80 Hz Budget</span>
+        </div>
+      </a>
+    </div>
+  </div>
+</div>
 </body>
 </html>
