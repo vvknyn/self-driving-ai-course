@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Module 07: Closed-Loop Driving Simulator (Stanley vs Pure Pursuit)</title>
+  <style>
+    :root {
+      --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #c9d1d9;
+      --accent: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 24px;
+    }
+    .header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 16px;
+    }
+    .back-link { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; }
+    .controls {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 20px;
+    }
+    .control-group { margin-bottom: 16px; }
+    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: #8b949e; }
+    input[type=range] { width: 100%; accent-color: var(--accent); }
+    .val-display { float: right; color: var(--accent); font-weight: 700; }
+    .canvas-card {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 20px;
+    }
+    canvas {
+      width: 100%; height: 380px; background: #000; border-radius: 8px; display: block;
+    }
+    .btn-mode {
+      width: 100%; padding: 10px; border: 1px solid var(--border);
+      background: #21262d; color: var(--text); border-radius: 6px; font-weight: 700;
+      cursor: pointer; margin-bottom: 8px;
+    }
+    .btn-mode.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h2>Module 07: Closed-Loop Driving Simulator (Stanley vs Pure Pursuit)</h2>
+      <p style="color:#8b949e; font-size:0.9rem;">Kinematic bicycle dynamics & live cross-track error telemetry (Sebastian Thrun / Duckietown)</p>
+    </div>
+    <a href="index.html" class="back-link">← Return to Portal</a>
+  </div>
+
+  <div class="layout">
+    <div class="controls">
+      <h3 style="color:#f0f6fc; margin-bottom:14px;">Controller Selection</h3>
+
+      <button id="btnStanley" class="btn-mode active">1. Stanley Controller (Thrun)</button>
+      <button id="btnPurePursuit" class="btn-mode">2. Pure Pursuit (Duckietown)</button>
+      <button id="btnManual" class="btn-mode">3. Manual Keyboard (Arrow Keys)</button>
+
+      <div class="control-group" style="margin-top:16px;">
+        <label>Cruise Speed $v$ <span id="vSpeed" class="val-display">45 km/h</span></label>
+        <input type="range" id="carSpeed" min="20" max="80" step="5" value="45">
+      </div>
+
+      <div class="control-group">
+        <label>Stanley Gain $k$ <span id="vGain" class="val-display">0.85</span></label>
+        <input type="range" id="kGain" min="0.2" max="2.0" step="0.05" value="0.85">
+      </div>
+
+      <button id="btnLatency" class="btn-mode" style="background:#21262d; border-color:var(--border);">Add 150ms Latency: OFF</button>
+
+      <div style="background:#21262d; padding:12px; border-radius:6px; font-size:0.85rem; font-family:monospace; margin-top:14px;">
+        <div>Cross-Track Error: <b id="lblCTE" style="color:var(--green);">0.04 m</b></div>
+        <div>Steering Angle $\delta$: <b id="lblSteer">-1.2°</b></div>
+        <div>Heading Alignment: <b id="lblHeading">0.8°</b></div>
+      </div>
+    </div>
+
+    <div class="canvas-card">
+      <h3 style="color:#f0f6fc; margin-bottom:10px;">Simulation Track (S-Curve & Hairpin)</h3>
+      <canvas id="simCanvas" width="700" height="380"></canvas>
+      <p style="font-size:0.8rem; color:#8b949e; margin-top:8px;">
+        The green dot shows the <b>front axle</b> tracking point. The yellow dashed line is the ground truth lane centerline.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let mode = 'stanley'; // 'stanley', 'pure_pursuit', 'manual'
+    let latencyActive = false;
+    let steerHistory = [];
+
+    const btnStanley = document.getElementById('btnStanley');
+    const btnPP = document.getElementById('btnPurePursuit');
+    const btnManual = document.getElementById('btnManual');
+    const btnLatency = document.getElementById('btnLatency');
+
+    const inSpeed = document.getElementById('carSpeed');
+    const inGain = document.getElementById('kGain');
+
+    btnStanley.addEventListener('click', () => setMode('stanley'));
+    btnPP.addEventListener('click', () => setMode('pure_pursuit'));
+    btnManual.addEventListener('click', () => setMode('manual'));
+
+    function setMode(m) {
+      mode = m;
+      [btnStanley, btnPP, btnManual].forEach(b => b.classList.remove('active'));
+      if (mode === 'stanley') btnStanley.classList.add('active');
+      else if (mode === 'pure_pursuit') btnPP.classList.add('active');
+      else btnManual.classList.add('active');
+    }
+
+    btnLatency.addEventListener('click', () => {
+      latencyActive = !latencyActive;
+      btnLatency.innerText = latencyActive ? "Add 150ms Latency: ON (Fishtailing)" : "Add 150ms Latency: OFF";
+      btnLatency.style.background = latencyActive ? "var(--red)" : "#21262d";
+      btnLatency.style.color = latencyActive ? "#fff" : "var(--text)";
+    });
+
+    // Vehicle state: x, y, psi, v
+    let carX = 50;
+    let carY = 190;
+    let carPsi = 0.0;
+    let carDelta = 0.0;
+    const L = 28; // visual wheelbase pixels
+
+    // S-curve path
+    function getPathPoint(x) {
+      const y = 190 + 70 * Math.sin(x / 65.0);
+      const dy = (70 / 65.0) * Math.cos(x / 65.0);
+      const psi = Math.atan(dy);
+      return { y, psi };
+    }
+
+    // Keyboard controls for manual
+    const keys = {};
+    window.addEventListener('keydown', e => keys[e.key] = true);
+    window.addEventListener('keyup', e => keys[e.key] = false);
+
+    function stepPhysics() {
+      const speedKmH = parseFloat(inSpeed.value);
+      const v = (speedKmH / 3.6) * 0.45; // pixel speed per tick
+      const k = parseFloat(inGain.value);
+
+      document.getElementById('vSpeed').innerText = speedKmH + " km/h";
+      document.getElementById('vGain').innerText = k.toFixed(2);
+
+      // Front axle position
+      const frontX = carX + L * Math.cos(carPsi);
+      const frontY = carY + L * Math.sin(carPsi);
+
+      // Target path at front axle
+      const { y: targetY, psi: targetPsi } = getPathPoint(frontX);
+
+      // Cross track error
+      const cte = frontY - targetY;
+      const headingErr = targetPsi - carPsi;
+
+      let cmdDelta = 0.0;
+      if (mode === 'stanley') {
+        const cteTerm = Math.atan2(k * -cte, v + 0.1);
+        cmdDelta = headingErr + cteTerm;
+      } else if (mode === 'pure_pursuit') {
+        const lookaheadX = carX + 60;
+        const { y: lookaheadY } = getPathPoint(lookaheadX);
+        const alpha = Math.atan2(lookaheadY - carY, lookaheadX - carX) - carPsi;
+        cmdDelta = Math.atan2(2 * L * Math.sin(alpha), 60);
+      } else {
+        if (keys['ArrowLeft']) cmdDelta = -0.45;
+        else if (keys['ArrowRight']) cmdDelta = 0.45;
+        else cmdDelta = 0.0;
+      }
+
+      // Latency queue
+      steerHistory.push(cmdDelta);
+      if (latencyActive && steerHistory.length > 8) {
+        carDelta = steerHistory.shift();
+      } else {
+        carDelta = cmdDelta;
+        if (steerHistory.length > 8) steerHistory.shift();
+      }
+
+      // Clamp steering
+      carDelta = Math.max(-0.6, Math.min(0.6, carDelta));
+
+      // Bicycle motion integration
+      carX += v * Math.cos(carPsi);
+      carY += v * Math.sin(carPsi);
+      carPsi += (v / L) * Math.tan(carDelta);
+
+      // Loop around track
+      if (carX > 680) {
+        carX = 40;
+        carY = getPathPoint(40).y;
+        carPsi = getPathPoint(40).psi;
+      }
+
+      document.getElementById('lblCTE').innerText = Math.abs(cte / 10).toFixed(2) + " m";
+      document.getElementById('lblCTE').style.color = Math.abs(cte) < 15 ? "var(--green)" : "var(--red)";
+      document.getElementById('lblSteer').innerText = (carDelta * 180 / Math.PI).toFixed(1) + "°";
+      document.getElementById('lblHeading').innerText = (headingErr * 180 / Math.PI).toFixed(1) + "°";
+    }
+
+    function draw() {
+      stepPhysics();
+
+      ctx.fillStyle = "#090d16";
+      ctx.fillRect(0, 0, 700, 380);
+
+      // Draw Road Track
+      ctx.strokeStyle = "#1e293b";
+      ctx.lineWidth = 60;
+      ctx.beginPath();
+      for (let x = 0; x <= 700; x += 10) {
+        const pt = getPathPoint(x);
+        if (x === 0) ctx.moveTo(x, pt.y);
+        else ctx.lineTo(x, pt.y);
+      }
+      ctx.stroke();
+
+      // Yellow Dashed Centerline
+      ctx.strokeStyle = "#fbbf24";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 8]);
+      ctx.beginPath();
+      for (let x = 0; x <= 700; x += 10) {
+        const pt = getPathPoint(x);
+        if (x === 0) ctx.moveTo(x, pt.y);
+        else ctx.lineTo(x, pt.y);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Draw Car Body
+      ctx.save();
+      ctx.translate(carX, carY);
+      ctx.rotate(carPsi);
+
+      // Chassis
+      ctx.fillStyle = "#38bdf8";
+      ctx.fillRect(-15, -10, 30, 20);
+
+      // Rear Wheels
+      ctx.fillStyle = "#64748b";
+      ctx.fillRect(-14, -13, 10, 4);
+      ctx.fillRect(-14, 9, 10, 4);
+
+      // Front Steered Wheels
+      ctx.save();
+      ctx.translate(14, -11);
+      ctx.rotate(carDelta);
+      ctx.fillRect(-5, -2, 10, 4);
+      ctx.restore();
+
+      ctx.save();
+      ctx.translate(14, 11);
+      ctx.rotate(carDelta);
+      ctx.fillRect(-5, -2, 10, 4);
+      ctx.restore();
+
+      ctx.restore();
+
+      // Front Axle tracking marker
+      const frontX = carX + L * Math.cos(carPsi);
+      const frontY = carY + L * Math.sin(carPsi);
+      ctx.fillStyle = "#3fb950";
+      ctx.beginPath();
+      ctx.arc(frontX, frontY, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      requestAnimationFrame(draw);
+    }
+
+    draw();
+  </script>
+</body>
+</html>

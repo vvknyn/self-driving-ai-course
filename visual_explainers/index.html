@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vision-First Autonomous Driving — Interactive Visual Explainers</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-bright: #f0f6fc;
+      --accent: #58a6ff;
+      --accent-glow: rgba(88, 166, 255, 0.2);
+      --green: #3fb950;
+      --purple: #bc8cff;
+      --orange: #f0883e;
+      --red: #f85149;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 50px;
+      padding-bottom: 30px;
+      border-bottom: 1px solid var(--border);
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-radius: 20px;
+      background: var(--accent-glow);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    h1 {
+      font-size: 2.8rem;
+      color: var(--text-bright);
+      font-weight: 800;
+      margin-bottom: 14px;
+      letter-spacing: -0.02em;
+    }
+    .subtitle {
+      font-size: 1.2rem;
+      color: #8b949e;
+      max-width: 800px;
+      margin: 0 auto 20px;
+    }
+    .pedagogy-row {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+    .ped-tag {
+      background: #21262d;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 0.9rem;
+      color: var(--text-bright);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 24px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      transition: all 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent);
+      box-shadow: 0 12px 32px var(--accent-glow);
+    }
+    .card-num {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+    .card h2 {
+      font-size: 1.4rem;
+      color: var(--text-bright);
+      margin-bottom: 12px;
+    }
+    .card p {
+      font-size: 0.95rem;
+      color: #8b949e;
+      margin-bottom: 20px;
+      flex-grow: 1;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 18px;
+      background: #238636;
+      color: #fff;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: #2ea043; }
+    .btn.primary {
+      background: #1f6feb;
+    }
+    .btn.primary:hover { background: #388bfd; }
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid #21262d;
+      font-size: 0.85rem;
+      color: #8b949e;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge">Interactive Course Portal</div>
+      <h1>Vision-First Autonomous Driving</h1>
+      <p class="subtitle">
+        Interactive visual explainers, animated geometry engines, and live simulators modeled directly after Tesla FSD's modern architecture.
+      </p>
+      <div class="pedagogy-row">
+        <span class="ped-tag">📐 Andrew Ng Math Rigor</span>
+        <span class="ped-tag">🏎️ Sebastian Thrun Control</span>
+        <span class="ped-tag">⚡ FastAI "Break It & Fix It"</span>
+        <span class="ped-tag">🎲 MITx Probability Foundations</span>
+        <span class="ped-tag">🦆 Duckietown Zero-BS Robotics</span>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- 01 -->
+      <div class="card">
+        <div class="card-num">Module 01 Visualizer</div>
+        <h2>Pinhole Camera & IPM Transform</h2>
+        <p>Interactive 3D camera ray unprojector and ground-plane homography. Adjust pitch, roll, and focal length to see why dynamic suspension tilts cause 25m distance errors.</p>
+        <a href="01_camera_geometry_ipm.html" class="btn">Launch 3D Camera Ray Visualizer →</a>
+        <div class="card-footer">
+          <span>Camera Geometry</span>
+          <span>Zero external dependencies</span>
+        </div>
+      </div>
+
+      <!-- 02 -->
+      <div class="card">
+        <div class="card-num">Module 02 Visualizer</div>
+        <h2>HydraNet Architecture & Loss Balancer</h2>
+        <p>Animated feature flow from shared convolutional trunk into 4 perception heads. Test gradient starvation and watch MITx Homoscedastic Uncertainty re-balance task weights.</p>
+        <a href="02_hydranet_architecture.html" class="btn">Launch HydraNet Flow Engine →</a>
+        <div class="card-footer">
+          <span>Multi-Task Perception</span>
+          <span>Interactive Likelihood Weights</span>
+        </div>
+      </div>
+
+      <!-- 03 -->
+      <div class="card">
+        <div class="card-num">Module 03 Visualizer</div>
+        <h2>Lift-Splat-Shoot (LSS) BEV Transform</h2>
+        <p>Step-by-step animated 3D frustum to 2D Bird's-Eye View projection. Tune depth distribution entropy and witness how categorical depth transforms 2D pixels into metric space.</p>
+        <a href="03_lift_splat_shoot_bev.html" class="btn">Launch 3D Frustum-to-BEV Animator →</a>
+        <div class="card-footer">
+          <span>Bird's-Eye View</span>
+          <span>Categorical Depth</span>
+        </div>
+      </div>
+
+      <!-- 04 -->
+      <div class="card">
+        <div class="card-num">Module 04 Visualizer</div>
+        <h2>3D Occupancy Network & Flow Field</h2>
+        <p>Interactive 3D voxel grid viewer. Orbit around the car, slice through elevation layers, inspect dynamic velocity vectors, and test temporal ConvGRU memory during occlusion.</p>
+        <a href="04_occupancy_network_3d.html" class="btn">Launch 3D Voxel Grid Orbit →</a>
+        <div class="card-footer">
+          <span>3D Occupancy</span>
+          <span>Bernoulli Voxel Field</span>
+        </div>
+      </div>
+
+      <!-- 05 -->
+      <div class="card">
+        <div class="card-num">Module 05 Visualizer</div>
+        <h2>Vector Space Tracker & Lane Splines</h2>
+        <p>Watch Kalman filter covariance ellipses contract as measurements arrive. Compare naive Euclidean association vs Mahalanobis distance gating to prevent track identity swaps.</p>
+        <a href="05_vector_space_tracker.html" class="btn">Launch Vector Tracker Sim →</a>
+        <div class="card-footer">
+          <span>Tracking & Maps</span>
+          <span>Recursive Bayes Filtering</span>
+        </div>
+      </div>
+
+      <!-- 06 -->
+      <div class="card">
+        <div class="card-num">Module 06 Visualizer</div>
+        <h2>Lattice Trajectory Planner & Cost Maps</h2>
+        <p>Drag obstacles across highway lanes and watch 15 quintic polynomial candidates fan out in real time. Adjust safety bubbles and jerk weights to cure the Freezing Robot Problem.</p>
+        <a href="06_trajectory_planner.html" class="btn">Launch Trajectory Cost Tuner →</a>
+        <div class="card-footer">
+          <span>Trajectory Planning</span>
+          <span>Quintic Spline Lattice</span>
+        </div>
+      </div>
+
+      <!-- 07 -->
+      <div class="card">
+        <div class="card-num">Module 07 Visualizer</div>
+        <h2>Closed-Loop Simulator (Stanley & MPC)</h2>
+        <p>Interactive canvas vehicle driving simulator. Steer manually or activate Stanley / Pure Pursuit controllers through tight S-curves. Includes live oscilloscope cross-track error plots.</p>
+        <a href="07_closed_loop_simulator.html" class="btn">Launch Closed-Loop Driving Sim →</a>
+        <div class="card-footer">
+          <span>Vehicle Dynamics</span>
+          <span>Kinematic Bicycle Model</span>
+        </div>
+      </div>
+
+      <!-- 08 -->
+      <div class="card" style="border-color: #388bfd;">
+        <div class="card-num" style="color: #58a6ff;">Module 08 Capstone</div>
+        <h2>End-to-End FSD Mission Control Dashboard</h2>
+        <p>The unified Capstone dashboard displaying 3 camera video feeds, BEV metric grid, 3D occupancy, vector tracks, real-time trajectory fanouts, and steering wheel telemetries.</p>
+        <a href="08_fsd_dashboard.html" class="btn primary">Launch Full FSD Dashboard →</a>
+        <div class="card-footer">
+          <span>Capstone Integration</span>
+          <span>Live Multi-Cam Telemetry</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

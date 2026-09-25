@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Module 01: Pinhole Camera Model & IPM Geometric Visualizer</title>
+  <style>
+    :root {
+      --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #c9d1d9;
+      --accent: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 24px;
+    }
+    .header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 16px;
+    }
+    .back-link { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; }
+    .controls {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 20px;
+    }
+    .control-group { margin-bottom: 18px; }
+    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: #8b949e; }
+    input[type=range] { width: 100%; accent-color: var(--accent); }
+    .val-display { float: right; color: var(--accent); font-weight: 700; }
+    .canvases { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .canvas-card {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px;
+    }
+    .canvas-card h3 { font-size: 1.1rem; margin-bottom: 10px; color: #f0f6fc; }
+    canvas {
+      width: 100%; height: 320px; background: #000; border-radius: 6px; display: block;
+    }
+    .metric-badge {
+      margin-top: 12px; padding: 10px; border-radius: 6px; font-size: 0.9rem; font-family: monospace;
+    }
+    .badge-error { background: rgba(248, 81, 73, 0.15); border: 1px solid var(--red); color: var(--red); }
+    .badge-success { background: rgba(63, 185, 80, 0.15); border: 1px solid var(--green); color: var(--green); }
+    .btn-fix {
+      width: 100%; padding: 10px; background: var(--green); color: #fff; border: none;
+      border-radius: 6px; font-weight: 700; cursor: pointer; margin-top: 10px;
+    }
+    .btn-fix:hover { opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h2>Module 01: Pinhole Camera Model & IPM Geometric Visualizer</h2>
+      <p style="color:#8b949e; font-size:0.9rem;">Interactive ray unprojection & ground-plane homography</p>
+    </div>
+    <a href="index.html" class="back-link">← Return to Portal</a>
+  </div>
+
+  <div class="layout">
+    <div class="controls">
+      <h3 style="color:#f0f6fc; margin-bottom:16px;">Rig Calibration</h3>
+
+      <div class="control-group">
+        <label>Camera Height $h$ (meters) <span id="valHeight" class="val-display">1.40 m</span></label>
+        <input type="range" id="camHeight" min="1.0" max="2.5" step="0.05" value="1.40">
+      </div>
+
+      <div class="control-group">
+        <label>Nominal Pitch $\theta_{\text{nom}}$ (degrees) <span id="valNominalPitch" class="val-display">4.0°</span></label>
+        <input type="range" id="nominalPitch" min="1.0" max="10.0" step="0.5" value="4.0">
+      </div>
+
+      <div class="control-group">
+        <label>Braking/Suspension Pitch Tilt $\Delta\theta$ <span id="valPitchError" class="val-display">+2.5°</span></label>
+        <input type="range" id="pitchError" min="-4.0" max="4.0" step="0.1" value="2.5">
+        <p style="font-size:0.75rem; color:#8b949e; margin-top:4px;">Simulates car pitching forward during heavy deceleration.</p>
+      </div>
+
+      <div class="control-group">
+        <label>Target Object True Distance <span id="valTrueDist" class="val-display">25.0 m</span></label>
+        <input type="range" id="trueDist" min="10.0" max="40.0" step="1.0" value="25.0">
+      </div>
+
+      <button id="btnFixPitch" class="btn-fix">⚡ Apply Dynamic Pitch Compensation</button>
+
+      <div id="metricBox" class="metric-badge badge-error" style="margin-top:16px;">
+        <div>True Distance: <b id="lblTrue">25.00 m</b></div>
+        <div>Estimated (Naive IPM): <b id="lblEst">48.67 m</b></div>
+        <div>Estimation Error: <b id="lblErr">+23.67 m</b></div>
+      </div>
+    </div>
+
+    <div class="canvases">
+      <div class="canvas-card">
+        <h3>1. Perspective Camera View (Pixels $u, v$)</h3>
+        <canvas id="perspCanvas" width="480" height="320"></canvas>
+        <p style="font-size:0.8rem; color:#8b949e; margin-top:8px;">Road lines converge at the optical horizon. The lead car appears at pixel $(u, v)$.</p>
+      </div>
+
+      <div class="canvas-card">
+        <h3>2. Bird's-Eye View (Metric Ground Plane $Z = 0$)</h3>
+        <canvas id="bevCanvas" width="480" height="320"></canvas>
+        <p style="font-size:0.8rem; color:#8b949e; margin-top:8px;">Top-down metric space (0 to 50m forward). Notice how pitch error smears distance.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const camHeightInput = document.getElementById('camHeight');
+    const nominalPitchInput = document.getElementById('nominalPitch');
+    const pitchErrorInput = document.getElementById('pitchError');
+    const trueDistInput = document.getElementById('trueDist');
+    const btnFixPitch = document.getElementById('btnFixPitch');
+
+    const perspCanvas = document.getElementById('perspCanvas');
+    const bevCanvas = document.getElementById('bevCanvas');
+    const ctxP = perspCanvas.getContext('2d');
+    const ctxB = bevCanvas.getContext('2d');
+
+    let dynamicCompensated = false;
+
+    function toRad(deg) { return deg * Math.PI / 180; }
+
+    function update() {
+      const h = parseFloat(camHeightInput.value);
+      const nomPitch = parseFloat(nominalPitchInput.value);
+      const pitchErr = dynamicCompensated ? 0.0 : parseFloat(pitchErrorInput.value);
+      const trueX = parseFloat(trueDistInput.value);
+
+      document.getElementById('valHeight').innerText = h.toFixed(2) + " m";
+      document.getElementById('valNominalPitch').innerText = nomPitch.toFixed(1) + "°";
+      document.getElementById('valPitchError').innerText = (pitchErr >= 0 ? "+" : "") + pitchErr.toFixed(1) + "°";
+      document.getElementById('valTrueDist').innerText = trueX.toFixed(1) + " m";
+
+      const actualPitch = nomPitch + parseFloat(pitchErrorInput.value);
+      const actualPitchRad = toRad(actualPitch);
+      const nominalPitchRad = toRad(nomPitch);
+
+      // Pinhole camera parameters
+      const f = 280; // focal length
+      const cy = 160;
+      const cx = 240;
+
+      // Project target onto perspective sensor using ACTUAL pitch
+      // Y_cam = -Z_ego, Z_cam = X_ego
+      // With pitch rotation:
+      // ray angle from camera optical axis to target:
+      const angleToTarget = Math.atan2(h, trueX);
+      const vTarget = cy + f * Math.tan(actualPitchRad - angleToTarget);
+
+      // Naive IPM unprojection assumes nominal pitch
+      const naiveAngle = nominalPitchRad - Math.atan((vTarget - cy) / f);
+      const estX = naiveAngle > 0 ? (h / Math.tan(naiveAngle)) : 999.0;
+      const errX = estX - trueX;
+
+      const metricBox = document.getElementById('metricBox');
+      document.getElementById('lblTrue').innerText = trueX.toFixed(2) + " m";
+      document.getElementById('lblEst').innerText = estX > 150 ? "> 150 m (Infinity)" : estX.toFixed(2) + " m";
+      document.getElementById('lblErr').innerText = (errX >= 0 ? "+" : "") + errX.toFixed(2) + " m";
+
+      if (Math.abs(errX) < 0.5) {
+        metricBox.className = "metric-badge badge-success";
+      } else {
+        metricBox.className = "metric-badge badge-error";
+      }
+
+      drawPerspective(ctxP, vTarget, actualPitchRad, f, cy, cx);
+      drawBEV(ctxB, trueX, estX, h);
+    }
+
+    function drawPerspective(ctx, vTarget, pitchRad, f, cy, cx) {
+      ctx.fillStyle = "#1e293b";
+      ctx.fillRect(0, 0, 480, 320);
+
+      // Horizon line
+      const vHorizon = cy - f * Math.tan(pitchRad);
+      ctx.fillStyle = "#38bdf8";
+      ctx.fillRect(0, 0, 480, Math.max(0, vHorizon));
+
+      // Road asphalt
+      ctx.fillStyle = "#334155";
+      ctx.fillRect(0, Math.max(0, vHorizon), 480, 320);
+
+      // Converging road lanes
+      ctx.strokeStyle = "#fbbf24";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(cx, vHorizon); ctx.lineTo(60, 320);
+      ctx.moveTo(cx, vHorizon); ctx.lineTo(420, 320);
+      ctx.stroke();
+
+      // Dashed lane centerlines
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([12, 12]);
+      ctx.beginPath();
+      ctx.moveTo(cx, vHorizon); ctx.lineTo(cx, 320);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Draw Lead Vehicle at target
+      if (vTarget > vHorizon && vTarget < 320) {
+        const carW = Math.max(16, 120 * (vTarget / 320));
+        const carH = carW * 0.7;
+        ctx.fillStyle = "#ef4444";
+        ctx.fillRect(cx - carW/2, vTarget - carH, carW, carH);
+        // Taillights
+        ctx.fillStyle = "#ff0000";
+        ctx.fillRect(cx - carW/2 + 2, vTarget - carH*0.6, carW*0.2, carH*0.3);
+        ctx.fillRect(cx + carW/2 - carW*0.2 - 2, vTarget - carH*0.6, carW*0.2, carH*0.3);
+      }
+    }
+
+    function drawBEV(ctx, trueX, estX, h) {
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(0, 0, 480, 320);
+
+      // Grid lines: 10m intervals (from 0 to 50m)
+      ctx.strokeStyle = "#1e293b";
+      ctx.lineWidth = 1;
+      for (let x = 10; x <= 50; x += 10) {
+        const yPix = 320 - (x / 50) * 300;
+        ctx.beginPath(); ctx.moveTo(0, yPix); ctx.lineTo(480, yPix); ctx.stroke();
+        ctx.fillStyle = "#64748b";
+        ctx.font = "10px monospace";
+        ctx.fillText(x + "m", 10, yPix - 4);
+      }
+
+      // Parallel Lane Lines in BEV
+      ctx.strokeStyle = "#fbbf24";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(180, 0); ctx.lineTo(180, 320);
+      ctx.moveTo(300, 0); ctx.lineTo(300, 320);
+      ctx.stroke();
+
+      // Ego car at bottom
+      ctx.fillStyle = "#38bdf8";
+      ctx.fillRect(230, 300, 20, 18);
+
+      // True target vehicle (Green)
+      const trueYPix = 320 - (trueX / 50) * 300;
+      ctx.fillStyle = "rgba(63, 185, 80, 0.9)";
+      ctx.fillRect(230, trueYPix - 15, 20, 15);
+      ctx.fillStyle = "#fff";
+      ctx.font = "10px sans-serif";
+      ctx.fillText("True (" + trueX.toFixed(0) + "m)", 260, trueYPix);
+
+      // Naive IPM Projected target (Red Ghost)
+      if (estX <= 55) {
+        const estYPix = 320 - (estX / 50) * 300;
+        ctx.fillStyle = "rgba(239, 68, 68, 0.8)";
+        ctx.fillRect(230, estYPix - 15, 20, 15);
+        ctx.fillText("Naive IPM (" + estX.toFixed(0) + "m)", 260, estYPix);
+
+        // Error line between true and estimated
+        ctx.strokeStyle = "#f85149";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(240, trueYPix); ctx.lineTo(240, estYPix);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    [camHeightInput, nominalPitchInput, pitchErrorInput, trueDistInput].forEach(inp => {
+      inp.addEventListener('input', () => {
+        dynamicCompensated = false;
+        btnFixPitch.innerText = "⚡ Apply Dynamic Pitch Compensation";
+        btnFixPitch.style.background = "var(--green)";
+        update();
+      });
+    });
+
+    btnFixPitch.addEventListener('click', () => {
+      dynamicCompensated = !dynamicCompensated;
+      if (dynamicCompensated) {
+        btnFixPitch.innerText = "🔄 Dynamic Compensation Active (Reset)";
+        btnFixPitch.style.background = "var(--accent)";
+      } else {
+        btnFixPitch.innerText = "⚡ Apply Dynamic Pitch Compensation";
+        btnFixPitch.style.background = "var(--green)";
+      }
+      update();
+    });
+
+    update();
+  </script>
+</body>
+</html>

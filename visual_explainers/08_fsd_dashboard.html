@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Module 08: End-to-End FSD Mission Control Dashboard</title>
+  <style>
+    :root {
+      --bg: #090d16; --panel: #131b26; --border: #232f3e; --text: #c9d1d9;
+      --accent: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 16px;
+    }
+    .header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 10px;
+    }
+    .back-link { color: var(--accent); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+    .cam-strip {
+      display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 12px; margin-bottom: 14px;
+    }
+    .cam-box {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px; position: relative;
+    }
+    .cam-label {
+      position: absolute; top: 12px; left: 14px; background: rgba(0,0,0,0.7);
+      padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; color: #fff;
+    }
+    .cam-canvas { width: 100%; height: 140px; background: #000; border-radius: 4px; display: block; }
+    .main-grid { display: grid; grid-template-columns: 1fr 340px; gap: 14px; }
+    .bev-card {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px;
+    }
+    .bev-canvas { width: 100%; height: 440px; background: #050811; border-radius: 6px; display: block; }
+    .telemetry-card {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .gauge-box {
+      background: #0d131d; border: 1px solid var(--border); border-radius: 6px;
+      padding: 12px; text-align: center;
+    }
+    .gauge-val { font-size: 2.2rem; font-weight: 800; color: #f0f6fc; font-family: monospace; }
+    .gauge-unit { font-size: 0.85rem; color: #8b949e; text-transform: uppercase; }
+    .wheel-container { text-align: center; margin: 10px 0; }
+    .wheel-canvas { width: 120px; height: 120px; display: inline-block; }
+    .stat-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 4px 0; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h2 style="color:#f0f6fc; font-size:1.3rem;">Module 08: End-to-End FSD Mission Control Dashboard</h2>
+      <p style="color:#8b949e; font-size:0.8rem;">Multi-Cam Vision → BEV Lifting → 3D Occupancy → Vector Tracking → Trajectory Plan → Actuation</p>
+    </div>
+    <a href="index.html" class="back-link">← Return to Portal</a>
+  </div>
+
+  <!-- Top Multi-Camera Vision Rig -->
+  <div class="cam-strip">
+    <div class="cam-box">
+      <div class="cam-label">CAM LEFT FWD (90° FOV)</div>
+      <canvas id="camLeft" class="cam-canvas" width="280" height="140"></canvas>
+    </div>
+    <div class="cam-box">
+      <div class="cam-label">CAM FRONT WIDE (120° FOV)</div>
+      <canvas id="camFront" class="cam-canvas" width="380" height="140"></canvas>
+    </div>
+    <div class="cam-box">
+      <div class="cam-label">CAM RIGHT FWD (90° FOV)</div>
+      <canvas id="camRight" class="cam-canvas" width="280" height="140"></canvas>
+    </div>
+  </div>
+
+  <!-- Main Viewport: BEV Vector Space + Cockpit Telemetry -->
+  <div class="main-grid">
+    <div class="bev-card">
+      <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+        <h3 style="color:#f0f6fc; font-size:1.05rem;">Unified BEV Vector Space & Planned Trajectory</h3>
+        <span style="font-size:0.8rem; color:#3fb950; font-weight:700;">● AUTONOMOUS FSD ACTIVE</span>
+      </div>
+      <canvas id="bevMain" class="bev-canvas" width="750" height="440"></canvas>
+    </div>
+
+    <div class="telemetry-card">
+      <div class="gauge-box">
+        <div class="gauge-val" id="dispSpeed">48</div>
+        <div class="gauge-unit">KM/H (CRUISE SPEED)</div>
+      </div>
+
+      <div class="wheel-container">
+        <canvas id="wheelCanvas" class="wheel-canvas" width="120" height="120"></canvas>
+        <div style="font-size:0.8rem; color:#8b949e; margin-top:4px;">
+          Steering: <b id="dispSteer" style="color:var(--accent);">0.0°</b>
+        </div>
+      </div>
+
+      <div style="background:#0d131d; padding:10px; border-radius:6px; border:1px solid var(--border);">
+        <div class="stat-row"><span>Obstacle Clearance:</span><b id="dispDist" style="color:var(--green);">14.2 m</b></div>
+        <div class="stat-row"><span>Cross-Track Error:</span><b id="dispCTE">0.03 m</b></div>
+        <div class="stat-row"><span>Active Kalman Tracks:</span><b>2 Vehicles</b></div>
+        <div class="stat-row"><span>Inference Latency:</span><b>12.4 ms (80 Hz)</b></div>
+        <div class="stat-row"><span>Status:</span><b style="color:var(--green);">0 Collisions (Safe)</b></div>
+      </div>
+
+      <button id="btnScenario" style="padding:10px; background:#1f6feb; border:none; border-radius:6px; color:#fff; font-weight:700; cursor:pointer;">
+        🔄 Inject Road Hazard (Debris at 25m)
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const cvsL = document.getElementById('camLeft').getContext('2d');
+    const cvsF = document.getElementById('camFront').getContext('2d');
+    const cvsR = document.getElementById('camRight').getContext('2d');
+    const cvsB = document.getElementById('bevMain').getContext('2d');
+    const cvsW = document.getElementById('wheelCanvas').getContext('2d');
+
+    let simTime = 0;
+    let hazardActive = false;
+    document.getElementById('btnScenario').addEventListener('click', () => {
+      hazardActive = !hazardActive;
+      document.getElementById('btnScenario').innerText = hazardActive ? "Clear Road Hazard" : "🔄 Inject Road Hazard (Debris at 25m)";
+    });
+
+    function drawCamera(ctx, w, h, angleOffset, name) {
+      ctx.fillStyle = "#1e293b";
+      ctx.fillRect(0, 0, w, h);
+      // Sky
+      ctx.fillStyle = "#38bdf8";
+      ctx.fillRect(0, 0, w, h * 0.45);
+      // Road
+      ctx.fillStyle = "#334155";
+      ctx.fillRect(0, h * 0.45, w, h);
+
+      // Perspective Road lines
+      const cx = w / 2 + angleOffset;
+      ctx.strokeStyle = "#fbbf24";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, h * 0.45); ctx.lineTo(10, h);
+      ctx.moveTo(cx, h * 0.45); ctx.lineTo(w - 10, h);
+      ctx.stroke();
+
+      // Lead vehicle silhouette in front camera
+      if (name === "front") {
+        ctx.fillStyle = "#ef4444";
+        ctx.fillRect(w/2 - 16, h*0.5, 32, 22);
+        ctx.fillStyle = "#ff0000";
+        ctx.fillRect(w/2 - 14, h*0.58, 6, 6);
+        ctx.fillRect(w/2 + 8, h*0.58, 6, 6);
+      }
+    }
+
+    function drawSteeringWheel(ctx, steerDeg) {
+      ctx.clearRect(0, 0, 120, 120);
+      ctx.save();
+      ctx.translate(60, 60);
+      ctx.rotate(steerDeg * Math.PI / 180);
+
+      // Outer rim
+      ctx.strokeStyle = "#475569";
+      ctx.lineWidth = 10;
+      ctx.beginPath();
+      ctx.arc(0, 0, 48, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Center cap
+      ctx.fillStyle = "#1e293b";
+      ctx.beginPath();
+      ctx.arc(0, 0, 20, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Spokes
+      ctx.strokeStyle = "#64748b";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(-45, 0); ctx.lineTo(45, 0);
+      ctx.moveTo(0, 0); ctx.lineTo(0, 45);
+      ctx.stroke();
+
+      // Top indicator (Tesla style)
+      ctx.fillStyle = "#38bdf8";
+      ctx.fillRect(-4, -53, 8, 10);
+
+      ctx.restore();
+    }
+
+    function loop() {
+      simTime += 0.02;
+
+      // 1. Draw 3 Surround Cameras
+      drawCamera(cvsL, 280, 140, 50, "left");
+      drawCamera(cvsF, 380, 140, 0, "front");
+      drawCamera(cvsR, 280, 140, -50, "right");
+
+      // 2. Draw BEV Vector Space
+      const W = 750;
+      const H = 440;
+      cvsB.fillStyle = "#090d16";
+      cvsB.fillRect(0, 0, W, H);
+
+      // Metric Grid
+      cvsB.strokeStyle = "#162032";
+      cvsB.lineWidth = 1;
+      for (let x = 0; x <= W; x += 40) {
+        cvsB.beginPath(); cvsB.moveTo(x, 0); cvsB.lineTo(x, H); cvsB.stroke();
+      }
+      for (let y = 0; y <= H; y += 40) {
+        cvsB.beginPath(); cvsB.moveTo(0, y); cvsB.lineTo(W, y); cvsB.stroke();
+      }
+
+      // Highway Lanes
+      const laneY = 220;
+      cvsB.strokeStyle = "#fbbf24";
+      cvsB.lineWidth = 3;
+      cvsB.beginPath();
+      cvsB.moveTo(0, laneY - 70); cvsB.lineTo(W, laneY - 70);
+      cvsB.moveTo(0, laneY + 70); cvsB.lineTo(W, laneY + 70);
+      cvsB.stroke();
+
+      cvsB.strokeStyle = "#fff";
+      cvsB.lineWidth = 2;
+      cvsB.setLineDash([12, 12]);
+      cvsB.beginPath();
+      cvsB.moveTo(0, laneY); cvsB.lineTo(W, laneY);
+      cvsB.stroke();
+      cvsB.setLineDash([]);
+
+      // Ego Car at (100, 220)
+      const egoX = 100;
+      const egoY = 220;
+      cvsB.fillStyle = "#38bdf8";
+      cvsB.fillRect(egoX - 22, egoY - 14, 44, 28);
+      cvsB.fillStyle = "#fff";
+      cvsB.font = "bold 11px sans-serif";
+      cvsB.fillText("Ego FSD", egoX - 20, egoY + 30);
+
+      // Lead Car (Track ID 0)
+      const leadX = 360;
+      const leadY = 220;
+      cvsB.fillStyle = "#ef4444";
+      cvsB.fillRect(leadX - 20, leadY - 13, 40, 26);
+      cvsB.fillStyle = "#fff";
+      cvsB.fillText("ID 0 (Lead)", leadX - 20, leadY - 18);
+
+      // Right Lane Overtaking Car (Track ID 1)
+      const sideX = 240 + Math.sin(simTime) * 30;
+      const sideY = 255;
+      cvsB.fillStyle = "#a855f7";
+      cvsB.fillRect(sideX - 20, sideY - 13, 40, 26);
+      cvsB.fillText("ID 1", sideX - 10, sideY + 28);
+
+      // Debris Hazard if active
+      let targetLat = 0;
+      if (hazardActive) {
+        cvsB.fillStyle = "#f59e0b";
+        cvsB.beginPath();
+        cvsB.arc(280, 220, 16, 0, Math.PI * 2);
+        cvsB.fill();
+        cvsB.fillStyle = "#000";
+        cvsB.fillText("⚠️ Debris", 260, 224);
+        targetLat = -45; // Nudge left
+      }
+
+      // Draw Trajectory Candidate Fanout
+      [-60, -40, -20, 0, 20, 40, 60].forEach(off => {
+        cvsB.strokeStyle = (off === targetLat) ? "#3fb950" : "rgba(100, 116, 139, 0.4)";
+        cvsB.lineWidth = (off === targetLat) ? 4 : 1.5;
+        cvsB.beginPath();
+        cvsB.moveTo(egoX + 22, egoY);
+        cvsB.bezierCurveTo(egoX + 150, egoY, egoX + 180, egoY + off, egoX + 380, egoY + off);
+        cvsB.stroke();
+      });
+
+      // Steering angle
+      const steerDeg = hazardActive ? -14.5 : (Math.sin(simTime * 2) * 1.5);
+      drawSteeringWheel(cvsW, steerDeg);
+
+      document.getElementById('dispSteer').innerText = steerDeg.toFixed(1) + "°";
+      document.getElementById('dispDist').innerText = (leadX - egoX) * 0.1 > 5 ? ((leadX - egoX) * 0.1).toFixed(1) + " m" : "BRAKING";
+
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>

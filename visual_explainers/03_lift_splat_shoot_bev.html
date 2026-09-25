@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Module 03: Lift-Splat-Shoot (LSS) Interactive BEV Transform</title>
+  <style>
+    :root {
+      --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #c9d1d9;
+      --accent: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 24px;
+    }
+    .header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 16px;
+    }
+    .back-link { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .layout { display: grid; grid-template-columns: 360px 1fr; gap: 20px; }
+    .controls {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 20px;
+    }
+    .control-group { margin-bottom: 18px; }
+    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: #8b949e; }
+    input[type=range] { width: 100%; accent-color: var(--accent); }
+    .val-display { float: right; color: var(--accent); font-weight: 700; }
+    .canvas-card {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 20px;
+    }
+    canvas {
+      width: 100%; height: 420px; background: #000; border-radius: 8px; display: block;
+    }
+    .phase-buttons { display: flex; gap: 8px; margin-bottom: 16px; }
+    .btn-phase {
+      flex: 1; padding: 8px; background: #21262d; border: 1px solid var(--border);
+      color: var(--text); border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.8rem;
+    }
+    .btn-phase.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h2>Module 03: Lift-Splat-Shoot (LSS) Interactive BEV Transform</h2>
+      <p style="color:#8b949e; font-size:0.9rem;">From 2D camera pixels to top-down 3D metric Bird's-Eye View (Philion & Fidler ECCV 2020)</p>
+    </div>
+    <a href="index.html" class="back-link">← Return to Portal</a>
+  </div>
+
+  <div class="layout">
+    <div class="controls">
+      <h3 style="color:#f0f6fc; margin-bottom:14px;">Depth Discretization</h3>
+
+      <div class="phase-buttons">
+        <button id="p1" class="btn-phase active">1. Lift</button>
+        <button id="p2" class="btn-phase">2. Splat</button>
+        <button id="p3" class="btn-phase">3. Shoot (BEV)</button>
+      </div>
+
+      <div class="control-group">
+        <label>True Obstacle Depth <span id="vTrueDepth" class="val-display">20.0 m</span></label>
+        <input type="range" id="trueDepth" min="5.0" max="35.0" step="1.0" value="20.0">
+      </div>
+
+      <div class="control-group">
+        <label>Softmax Temperature $T$ (Entropy) <span id="vTemp" class="val-display">0.3</span></label>
+        <input type="range" id="depthTemp" min="0.1" max="3.0" step="0.1" value="0.3">
+        <p style="font-size:0.75rem; color:#8b949e; margin-top:4px;">Low T: Sharp peaked distribution.<br>High T: Uniform depth collapse (radial smearing failure).</p>
+      </div>
+
+      <div class="control-group">
+        <label>Discrete Depth Bins $D$ <span id="vBins" class="val-display">16 bins</span></label>
+        <input type="range" id="numBins" min="8" max="32" step="4" value="16">
+      </div>
+
+      <div style="background:#21262d; padding:12px; border-radius:6px; font-size:0.85rem; font-family:monospace; margin-top:16px;">
+        <div>MITx Categorical Dist:</div>
+        <div>P(D = d_k) = Softmax(z_k / T)</div>
+        <div style="margin-top:6px; color:var(--accent);">Entropy: <span id="lblEntropy">0.42</span> nats</div>
+      </div>
+    </div>
+
+    <div class="canvas-card">
+      <h3 id="stageTitle" style="color:#f0f6fc; margin-bottom:12px;">Stage 1: LIFT (Predicting Categorical Depth along Optical Ray)</h3>
+      <canvas id="lssCanvas" width="700" height="420"></canvas>
+      <p style="font-size:0.85rem; color:#8b949e; margin-top:12px;">
+        Notice how <b>Lift</b> creates a 3D ray of point features weighted by $P(D = d_k)$. <b>Splat</b> bins them into 3D voxel cells, and <b>Shoot</b> sums vertical pillars to create the final 2D BEV map.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    let activePhase = 1;
+    const canvas = document.getElementById('lssCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const inDepth = document.getElementById('trueDepth');
+    const inTemp = document.getElementById('depthTemp');
+    const inBins = document.getElementById('numBins');
+
+    const p1Btn = document.getElementById('p1');
+    const p2Btn = document.getElementById('p2');
+    const p3Btn = document.getElementById('p3');
+
+    [p1Btn, p2Btn, p3Btn].forEach((btn, idx) => {
+      btn.addEventListener('click', () => {
+        [p1Btn, p2Btn, p3Btn].forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activePhase = idx + 1;
+        updateTitle();
+      });
+    });
+
+    function updateTitle() {
+      const titles = [
+        "Stage 1: LIFT (Predicting Categorical Depth along Optical Ray)",
+        "Stage 2: SPLAT (Unprojecting Frustum Points into 3D Voxel Grid)",
+        "Stage 3: SHOOT (Pooling Vertical Pillars into 2D Top-Down BEV Map)"
+      ];
+      document.getElementById('stageTitle').innerText = titles[activePhase - 1];
+    }
+
+    function draw() {
+      const trueD = parseFloat(inDepth.value);
+      const temp = parseFloat(inTemp.value);
+      const K = parseInt(inBins.value);
+
+      document.getElementById('vTrueDepth').innerText = trueD.toFixed(1) + " m";
+      document.getElementById('vTemp').innerText = temp.toFixed(1);
+      document.getElementById('vBins').innerText = K + " bins";
+
+      // Compute discrete depth distribution
+      const dMin = 4.0;
+      const dMax = 40.0;
+      const binWidth = (dMax - dMin) / K;
+      const depths = [];
+      const logits = [];
+
+      for (let i = 0; i < K; i++) {
+        const d = dMin + (i + 0.5) * binWidth;
+        depths.push(d);
+        // Gaussian peak at true depth
+        logits.push(-Math.pow(d - trueD, 2) / (2 * 4.0 * 4.0));
+      }
+
+      // Softmax with temperature
+      const expLogits = logits.map(l => Math.exp(l / temp));
+      const sumExp = expLogits.reduce((a, b) => a + b, 0);
+      const probs = expLogits.map(e => e / sumExp);
+
+      // Entropy
+      let entropy = 0;
+      probs.forEach(p => { if (p > 1e-6) entropy -= p * Math.log(p); });
+      document.getElementById('lblEntropy').innerText = entropy.toFixed(2) + " nats";
+
+      ctx.fillStyle = "#090d16";
+      ctx.fillRect(0, 0, 700, 420);
+
+      const originX = 350;
+      const originY = 380;
+
+      // Draw Vehicle Base
+      ctx.fillStyle = "#38bdf8";
+      ctx.fillRect(originX - 16, originY, 32, 20);
+      ctx.fillStyle = "#fff";
+      ctx.font = "10px sans-serif";
+      ctx.fillText("Ego Cam", originX - 22, originY + 34);
+
+      if (activePhase === 1) {
+        // STAGE 1: LIFT (Ray probabilities)
+        ctx.strokeStyle = "#334155";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(originX, originY);
+        ctx.lineTo(originX, 40);
+        ctx.stroke();
+
+        for (let i = 0; i < K; i++) {
+          const d = depths[i];
+          const yPos = originY - (d / 42.0) * 320;
+          const prob = probs[i];
+
+          // Bar showing probability
+          const barW = prob * 220;
+          ctx.fillStyle = prob > 0.15 ? "rgba(63, 185, 80, 0.85)" : "rgba(88, 166, 255, 0.5)";
+          ctx.fillRect(originX, yPos - 4, barW, 8);
+
+          ctx.fillStyle = "#64748b";
+          ctx.font = "9px monospace";
+          ctx.fillText(d.toFixed(0) + "m", originX - 35, yPos + 3);
+        }
+      } else if (activePhase === 2) {
+        // STAGE 2: SPLAT (3D Frustum grid)
+        ctx.strokeStyle = "#1e293b";
+        for (let x = -15; x <= 15; x += 5) {
+          const xPix = originX + (x / 20) * 300;
+          ctx.beginPath(); ctx.moveTo(xPix, 40); ctx.lineTo(xPix, originY); ctx.stroke();
+        }
+        for (let d = 5; d <= 40; d += 5) {
+          const yPix = originY - (d / 42.0) * 320;
+          ctx.beginPath(); ctx.moveTo(originX - 220, yPix); ctx.lineTo(originX + 220, yPix); ctx.stroke();
+        }
+
+        // Camera Frustum cone
+        ctx.strokeStyle = "#58a6ff";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(originX, originY); ctx.lineTo(originX - 180, 50);
+        ctx.moveTo(originX, originY); ctx.lineTo(originX + 180, 50);
+        ctx.stroke();
+
+        // Splat points
+        for (let i = 0; i < K; i++) {
+          const d = depths[i];
+          const yPix = originY - (d / 42.0) * 320;
+          const p = probs[i];
+          ctx.fillStyle = `rgba(239, 68, 68, ${Math.min(1.0, p * 3.0)})`;
+          ctx.beginPath();
+          ctx.arc(originX, yPix, Math.max(2, p * 20), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else {
+        // STAGE 3: SHOOT (2D BEV Top-Down Map)
+        ctx.strokeStyle = "#fbbf24";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(originX - 50, 40); ctx.lineTo(originX - 50, originY);
+        ctx.moveTo(originX + 50, 40); ctx.lineTo(originX + 50, originY);
+        ctx.stroke();
+
+        // Target Obstacle pooled in BEV
+        for (let i = 0; i < K; i++) {
+          const d = depths[i];
+          const yPix = originY - (d / 42.0) * 320;
+          const p = probs[i];
+          const radius = Math.max(1, p * 35);
+          ctx.fillStyle = `rgba(63, 185, 80, ${Math.min(1.0, p * 2.5)})`;
+          ctx.fillRect(originX - radius, yPix - 6, radius * 2, 12);
+        }
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 12px sans-serif";
+        ctx.fillText("Top-Down 2D BEV Feature Map", originX - 90, 30);
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    [inDepth, inTemp, inBins].forEach(inp => inp.addEventListener('input', draw));
+    draw();
+  </script>
+</body>
+</html>

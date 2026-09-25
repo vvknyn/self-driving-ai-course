@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Module 04: 3D Occupancy Network & Spatiotemporal Memory</title>
+  <style>
+    :root {
+      --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #c9d1d9;
+      --accent: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 24px;
+    }
+    .header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 16px;
+    }
+    .back-link { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .layout { display: grid; grid-template-columns: 360px 1fr; gap: 20px; }
+    .controls {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 20px;
+    }
+    .control-group { margin-bottom: 18px; }
+    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: #8b949e; }
+    input[type=range] { width: 100%; accent-color: var(--accent); }
+    .val-display { float: right; color: var(--accent); font-weight: 700; }
+    .canvas-card {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 20px;
+    }
+    canvas {
+      width: 100%; height: 420px; background: #000; border-radius: 8px; display: block; cursor: grab;
+    }
+    canvas:active { cursor: grabbing; }
+    .btn-action {
+      width: 100%; padding: 10px; background: #238636; color: #fff; border: none;
+      border-radius: 6px; font-weight: 700; cursor: pointer; margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h2>Module 04: 3D Occupancy Network & Spatiotemporal Memory</h2>
+      <p style="color:#8b949e; font-size:0.9rem;">Discretized 3D voxel volume + dynamic motion flow vectors (Ashok Elluswamy / Tesla AI Day 2022)</p>
+    </div>
+    <a href="index.html" class="back-link">← Return to Portal</a>
+  </div>
+
+  <div class="layout">
+    <div class="controls">
+      <h3 style="color:#f0f6fc; margin-bottom:14px;">3D Voxel Controls</h3>
+
+      <div class="control-group">
+        <label>Orbit Camera Yaw <span id="vRot" class="val-display">35°</span></label>
+        <input type="range" id="camRot" min="-180" max="180" value="35">
+      </div>
+
+      <div class="control-group">
+        <label>Elevation Slice $Z$ <span id="vSlice" class="val-display">All Layers</span></label>
+        <input type="range" id="zSlice" min="0" max="5" value="0">
+        <p style="font-size:0.75rem; color:#8b949e; margin-top:4px;">0: All layers. 1: Ground road. 3: Car body. 5: Overhanging tree branch.</p>
+      </div>
+
+      <button id="btnOcclude" class="btn-action">⚠️ Simulate 1-Frame Occlusion (Truck passes)</button>
+      <button id="btnToggleMemory" class="btn-action" style="background:#1f6feb; margin-top:8px;">Memory Mode: ConvGRU Active</button>
+
+      <div id="statusBox" style="background:#21262d; padding:12px; border-radius:6px; font-size:0.85rem; font-family:monospace; margin-top:16px;">
+        <div>Temporal State: <b id="lblMemory" style="color:var(--green);">ConvGRU Active</b></div>
+        <div>Lead Car Belief: <b id="lblProb" style="color:var(--green);">94.2%</b></div>
+        <div style="font-size:0.75rem; color:#8b949e; margin-top:6px;">Drag mouse on 3D viewport to orbit camera.</div>
+      </div>
+    </div>
+
+    <div class="canvas-card">
+      <h3 style="color:#f0f6fc; margin-bottom:12px;">3D Isometric Voxel Viewer</h3>
+      <canvas id="occCanvas" width="700" height="420"></canvas>
+      <div style="display:flex; gap:16px; margin-top:10px; font-size:0.8rem;">
+        <span style="color:#38bdf8;">■ Ego Car</span>
+        <span style="color:#ef4444;">■ Dynamic Vehicle (with Velocity Arrow)</span>
+        <span style="color:#fbbf24;">■ Concrete Barrier</span>
+        <span style="color:#22c55e;">■ Overhanging Tree Branch (Z=2.5m)</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('occCanvas');
+    const ctx = canvas.getContext('2d');
+    const inRot = document.getElementById('camRot');
+    const inSlice = document.getElementById('zSlice');
+    const btnOcclude = document.getElementById('btnOcclude');
+    const btnToggleMem = document.getElementById('btnToggleMemory');
+
+    let memoryActive = true;
+    let isOccluded = false;
+    let yawDeg = 35;
+    let isDragging = false;
+    let lastMouseX = 0;
+
+    canvas.addEventListener('mousedown', e => { isDragging = true; lastMouseX = e.clientX; });
+    window.addEventListener('mouseup', () => isDragging = false);
+    window.addEventListener('mousemove', e => {
+      if (isDragging) {
+        yawDeg += (e.clientX - lastMouseX) * 0.5;
+        inRot.value = yawDeg;
+        lastMouseX = e.clientX;
+      }
+    });
+
+    btnToggleMem.addEventListener('click', () => {
+      memoryActive = !memoryActive;
+      btnToggleMem.innerText = memoryActive ? "Memory Mode: ConvGRU Active" : "Memory Mode: Single-Frame (No Memory)";
+      btnToggleMem.style.background = memoryActive ? "#1f6feb" : "var(--red)";
+      document.getElementById('lblMemory').innerText = memoryActive ? "ConvGRU Active" : "Disabled";
+      document.getElementById('lblMemory').style.color = memoryActive ? "var(--green)" : "var(--red)";
+    });
+
+    btnOcclude.addEventListener('click', () => {
+      isOccluded = true;
+      btnOcclude.innerText = "⏳ Obstacle Momentarily Occluded...";
+      setTimeout(() => {
+        isOccluded = false;
+        btnOcclude.innerText = "⚠️ Simulate 1-Frame Occlusion (Truck passes)";
+      }, 1500);
+    });
+
+    function project3Dto2D(x, y, z, yaw) {
+      const rad = yaw * Math.PI / 180;
+      // Rotate in XY plane
+      const rx = x * Math.cos(rad) - y * Math.sin(rad);
+      const ry = x * Math.sin(rad) + y * Math.cos(rad);
+      
+      // Isometric projection
+      const screenX = 350 + rx * 14 - ry * 10;
+      const screenY = 240 + rx * 5 + ry * 5 - z * 22;
+      return { x: screenX, y: screenY };
+    }
+
+    function drawVoxel(x, y, z, color, alpha = 1.0) {
+      const p = project3Dto2D(x, y, z, yawDeg);
+      const sz = 12;
+      ctx.fillStyle = color;
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.roundRect(p.x - sz/2, p.y - sz/2, sz, sz, 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.4)";
+      ctx.stroke();
+      ctx.globalAlpha = 1.0;
+    }
+
+    function draw() {
+      yawDeg = parseFloat(inRot.value);
+      const slice = parseInt(inSlice.value);
+      document.getElementById('vRot').innerText = yawDeg.toFixed(0) + "°";
+      document.getElementById('vSlice').innerText = slice === 0 ? "All Layers" : "Layer Z=" + slice;
+
+      ctx.fillStyle = "#090d16";
+      ctx.fillRect(0, 0, 700, 420);
+
+      // Grid Base (Z = 0)
+      ctx.strokeStyle = "#162032";
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= 25; x += 5) {
+        const p1 = project3Dto2D(x, -8, 0, yawDeg);
+        const p2 = project3Dto2D(x, 8, 0, yawDeg);
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+      }
+
+      // Draw Ego Car at (0, 0, 0)
+      drawVoxel(0, 0, 0.5, "#38bdf8");
+      drawVoxel(1, 0, 0.5, "#38bdf8");
+
+      // Draw Highway Concrete Barrier (Y = -5, Z = 0 to 1)
+      if (slice === 0 || slice === 1) {
+        for (let x = 2; x <= 22; x += 2) {
+          drawVoxel(x, -5, 0.5, "#fbbf24", 0.7);
+        }
+      }
+
+      // Lead Vehicle at (14, 0)
+      let beliefProb = 0.94;
+      if (isOccluded) {
+        beliefProb = memoryActive ? 0.86 : 0.04;
+      }
+      document.getElementById('lblProb').innerText = (beliefProb * 100).toFixed(1) + "%";
+      document.getElementById('lblProb').style.color = beliefProb > 0.5 ? "var(--green)" : "var(--red)";
+
+      if (slice === 0 || slice === 2 || slice === 3) {
+        const alpha = beliefProb;
+        drawVoxel(14, 0, 0.5, "#ef4444", alpha);
+        drawVoxel(15, 0, 0.5, "#ef4444", alpha);
+        drawVoxel(14, -0.8, 0.5, "#ef4444", alpha);
+        drawVoxel(15, -0.8, 0.5, "#ef4444", alpha);
+
+        // Velocity Arrow
+        if (beliefProb > 0.3) {
+          const pStart = project3Dto2D(15, 0, 0.5, yawDeg);
+          const pEnd = project3Dto2D(18, 0, 0.5, yawDeg);
+          ctx.strokeStyle = "#38bdf8";
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(pStart.x, pStart.y); ctx.lineTo(pEnd.x, pEnd.y); ctx.stroke();
+          ctx.fillStyle = "#38bdf8";
+          ctx.font = "10px monospace";
+          ctx.fillText("v=14 m/s", pEnd.x + 4, pEnd.y);
+        }
+      }
+
+      // Overhanging Tree Branch / Sign at (10, 2, Z=3.5)
+      if (slice === 0 || slice === 4 || slice === 5) {
+        drawVoxel(10, 1.5, 3.0, "#22c55e", 0.9);
+        drawVoxel(11, 2.0, 3.0, "#22c55e", 0.9);
+        drawVoxel(10, 2.5, 3.2, "#22c55e", 0.9);
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    [inRot, inSlice].forEach(inp => inp.addEventListener('input', draw));
+    draw();
+  </script>
+</body>
+</html>

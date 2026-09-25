@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Module 05: Vector Space Tracker & Kalman Data Association</title>
+  <style>
+    :root {
+      --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #c9d1d9;
+      --accent: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 24px;
+    }
+    .header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 16px;
+    }
+    .back-link { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .layout { display: grid; grid-template-columns: 360px 1fr; gap: 20px; }
+    .controls {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 20px;
+    }
+    .control-group { margin-bottom: 18px; }
+    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: #8b949e; }
+    input[type=range] { width: 100%; accent-color: var(--accent); }
+    .val-display { float: right; color: var(--accent); font-weight: 700; }
+    .canvas-card {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 20px;
+    }
+    canvas {
+      width: 100%; height: 420px; background: #000; border-radius: 8px; display: block;
+    }
+    .btn-toggle {
+      width: 100%; padding: 12px; font-weight: 700; border: none; border-radius: 6px;
+      cursor: pointer; margin-top: 10px; color: #fff;
+    }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.8rem; font-family: monospace; }
+    th, td { border: 1px solid var(--border); padding: 6px; text-align: center; }
+    th { background: #21262d; color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h2>Module 05: Vector Space Tracker & Kalman Data Association</h2>
+      <p style="color:#8b949e; font-size:0.9rem;">Recursive Bayesian estimation & Mahalanobis Hungarian matching (MITx Probability)</p>
+    </div>
+    <a href="index.html" class="back-link">← Return to Portal</a>
+  </div>
+
+  <div class="layout">
+    <div class="controls">
+      <h3 style="color:#f0f6fc; margin-bottom:14px;">Association Method</h3>
+
+      <button id="btnToggleMethod" class="btn-toggle" style="background:var(--red);">Method: Naive Euclidean (ID Swaps)</button>
+
+      <div class="control-group" style="margin-top:16px;">
+        <label>Simulation Time Progress <span id="vTime" class="val-display">0.0s</span></label>
+        <input type="range" id="simTime" min="0.0" max="3.0" step="0.05" value="0.0">
+      </div>
+
+      <div class="control-group">
+        <label>Measurement Sensor Noise $\sigma_R$ <span id="vNoise" class="val-display">0.20 m</span></label>
+        <input type="range" id="sensorNoise" min="0.05" max="0.8" step="0.05" value="0.20">
+      </div>
+
+      <div style="background:#21262d; padding:12px; border-radius:6px; font-size:0.85rem; margin-top:16px;">
+        <div style="font-weight:700; color:#f0f6fc; margin-bottom:6px;">Hungarian Cost Matrix $D$:</div>
+        <table>
+          <tr><th>Track \ Det</th><th>Car 1 (East)</th><th>Car 2 (North)</th></tr>
+          <tr><td>Track 1</td><td id="c11">0.1</td><td id="c12">0.9</td></tr>
+          <tr><td>Track 2</td><td id="c21">0.8</td><td id="c22">0.2</td></tr>
+        </table>
+        <div id="statusResult" style="margin-top:8px; font-weight:700; color:var(--red);">Status: Identity Swap at Intersection!</div>
+      </div>
+    </div>
+
+    <div class="canvas-card">
+      <h3 style="color:#f0f6fc; margin-bottom:12px;">Vector Space Intersection & Covariance Ellipses</h3>
+      <canvas id="trackCanvas" width="700" height="420"></canvas>
+      <p style="font-size:0.85rem; color:#8b949e; margin-top:12px;">
+        Notice the dashed <b>Kalman Covariance Ellipses</b>. When Car 1 and Car 2 pass within 0.8 meters, Euclidean distance picks the wrong car. <b>Mahalanobis distance</b> accounts for velocity direction, preserving identity!
+      </p>
+    </div>
+  </div>
+
+  <script>
+    let useMahalanobis = false;
+    const canvas = document.getElementById('trackCanvas');
+    const ctx = canvas.getContext('2d');
+    const inTime = document.getElementById('simTime');
+    const inNoise = document.getElementById('sensorNoise');
+    const btnToggle = document.getElementById('btnToggleMethod');
+
+    btnToggle.addEventListener('click', () => {
+      useMahalanobis = !useMahalanobis;
+      if (useMahalanobis) {
+        btnToggle.innerText = "Method: Mahalanobis Distance (MITx Bayes)";
+        btnToggle.style.background = "var(--green)";
+      } else {
+        btnToggle.innerText = "Method: Naive Euclidean (ID Swaps)";
+        btnToggle.style.background = "var(--red)";
+      }
+    });
+
+    let autoT = 0;
+    function draw() {
+      autoT = (autoT + 0.01) % 3.0;
+      inTime.value = autoT.toFixed(2);
+      const t = autoT;
+      document.getElementById('vTime').innerText = t.toFixed(2) + "s";
+
+      ctx.fillStyle = "#090d16";
+      ctx.fillRect(0, 0, 700, 420);
+
+      // Intersection Road Asphalt
+      ctx.fillStyle = "#1e293b";
+      ctx.fillRect(0, 160, 700, 100);
+      ctx.fillRect(300, 0, 100, 420);
+
+      // Lane Markings
+      ctx.strokeStyle = "#fbbf24";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 160); ctx.lineTo(300, 160);
+      ctx.moveTo(400, 160); ctx.lineTo(700, 160);
+      ctx.moveTo(0, 260); ctx.lineTo(300, 260);
+      ctx.moveTo(400, 260); ctx.lineTo(700, 260);
+      ctx.stroke();
+
+      // Car 1 (Eastbound): X = 150 + t * 140, Y = 210
+      // Car 2 (Northbound): X = 350, Y = 360 - t * 110
+      const car1X = 120 + t * 140;
+      const car1Y = 210;
+
+      const car2X = 350;
+      const car2Y = 360 - t * 110;
+
+      // Closest intersection point occurs around t = 1.5s
+      const distBetweenCars = Math.hypot(car1X - car2X, car1Y - car2Y);
+      const isClose = distBetweenCars < 45;
+
+      let id1 = "ID 1";
+      let id2 = "ID 2";
+
+      // If naive Euclidean and close, ID swap occurs
+      if (!useMahalanobis && t > 1.6) {
+        id1 = "ID 2 (SWAPPED!)";
+        id2 = "ID 1 (SWAPPED!)";
+      }
+
+      // Update Cost Table
+      const d11 = useMahalanobis ? 0.2 : (distBetweenCars / 10).toFixed(1);
+      const d12 = useMahalanobis ? 8.4 : 1.2;
+      document.getElementById('c11').innerText = d11;
+      document.getElementById('c12').innerText = d12;
+      document.getElementById('c21').innerText = d12;
+      document.getElementById('c22').innerText = d11;
+
+      const resBox = document.getElementById('statusResult');
+      if (!useMahalanobis && t > 1.6) {
+        resBox.innerText = "🚨 CRITICAL: Track Identities Swapped!";
+        resBox.style.color = "var(--red)";
+      } else {
+        resBox.innerText = "✅ Tracks Preserved (Zero Identity Switches)";
+        resBox.style.color = "var(--green)";
+      }
+
+      // Draw Car 1 (Blue)
+      ctx.fillStyle = "#38bdf8";
+      ctx.fillRect(car1X - 16, car1Y - 10, 32, 20);
+      // Covariance Ellipse
+      ctx.strokeStyle = "rgba(56, 189, 248, 0.5)";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.ellipse(car1X, car1Y, 35, 18, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 11px sans-serif";
+      ctx.fillText(id1, car1X - 20, car1Y - 16);
+
+      // Draw Car 2 (Red)
+      ctx.fillStyle = "#ef4444";
+      ctx.fillRect(car2X - 10, car2Y - 16, 20, 32);
+      // Covariance Ellipse
+      ctx.strokeStyle = "rgba(239, 68, 68, 0.5)";
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.ellipse(car2X, car2Y, 18, 35, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#fff";
+      ctx.fillText(id2, car2X + 16, car2Y);
+
+      requestAnimationFrame(draw);
+    }
+
+    draw();
+  </script>
+</body>
+</html>
