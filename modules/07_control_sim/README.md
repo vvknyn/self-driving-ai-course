@@ -16,43 +16,51 @@ In this module, you will:
 
 ---
 
-## 📐 Mathematical Formulation
+## 📐 How the Formulas Are Obtained
 
-### 1. The Kinematic Bicycle Model
-We simplify a 4-wheel car into a 2-wheel bicycle with wheelbase $L$ (front axle to rear axle distance):
+### 1. Step-by-Step Derivation & Lyapunov Stability of Stanley Controller
+Let:
+- $e(t)$ be the cross-track error measured from the front axle to the nearest path point.
+- $\theta_e(t) = \psi_{\text{path}} - \psi_{\text{car}}$ be heading error.
+- $\delta(t)$ be the front wheel steering angle.
 
-```
-       Front Axle (Steering δ)
-           ┌───┐
-           │   │ ──► Velocity v
-           └───┘
-             │
-             │ Wheelbase L
-             │
-           ┌───┐
-           │   │ ──► Rear Axle (Heading ψ)
-           └───┘
-```
+The differential kinematic equation for cross-track error rate of change is:
+$$\dot{e}(t) = -v(t) \sin(\theta_e(t) - \delta(t))$$
 
-The differential equations of motion are:
-$$\dot{x} = v \cos(\psi)$$
-$$\dot{y} = v \sin(\psi)$$
-$$\dot{\psi} = \frac{v}{L} \tan(\delta)$$
-$$\dot{v} = a$$
+Sebastian Thrun designed the Stanley steering law to cancel out heading error while adding a non-linear arctangent correction for lateral offset:
+$$\delta(t) = \theta_e(t) + \arctan\left(\frac{k \cdot e(t)}{v(t) + \epsilon}\right)$$
 
-### 2. Sebastian Thrun's Stanley Controller
-The Stanley controller calculates the steering angle $\delta(t)$ at the front axle using two intuitive terms:
-$$\delta(t) = \underbrace{(\psi_{\text{path}} - \psi_{\text{car}})}_{\text{Heading Alignment Error}} + \underbrace{\arctan\left(\frac{k \cdot e(t)}{v(t) + \epsilon}\right)}_{\text{Cross-Track Error Correction}}$$
+Substituting $\delta(t)$ back into $\dot{e}(t)$:
+$$\theta_e(t) - \delta(t) = -\arctan\left(\frac{k \cdot e(t)}{v(t)}\right)$$
+$$\dot{e}(t) = -v(t) \sin\left(-\arctan\left(\frac{k \cdot e(t)}{v(t)}\right)\right)$$
 
-Where:
-- $e(t)$ is the perpendicular distance (cross-track error) from the front axle to the nearest path point.
-- When $e(t)$ is large, $\arctan\left(\frac{k \cdot e}{v}\right) \to \pm \frac{\pi}{2}$ ($90^\circ$), pointing the wheels aggressively back toward the track.
-- As the vehicle converges to the path ($e(t) \to 0$), the correction vanishes and the car matches the road heading $\psi_{\text{path}}$.
+Using the exact trigonometric identity $\sin(\arctan(u)) = \frac{u}{\sqrt{1 + u^2}}$:
+$$\dot{e}(t) = -v(t) \left( -\frac{\frac{k \cdot e}{v}}{\sqrt{1 + \left(\frac{k \cdot e}{v}\right)^2}} \right) = -\frac{k \cdot v(t) \cdot e(t)}{\sqrt{v(t)^2 + k^2 e(t)^2}}$$
 
-### 3. MIT Duckietown Pure Pursuit Controller
-Pure pursuit looks ahead at distance $L_d = k_{\text{look}} \cdot v$:
-$$\delta(t) = \arctan\left(\frac{2 L \sin(\alpha)}{L_d}\right)$$
-Where $\alpha$ is the angle between the vehicle's heading vector and the lookahead point.
+Now, choose the quadratic **Lyapunov Candidate Function**:
+$$V(e) = \frac{1}{2} e(t)^2 \ge 0$$
+Differentiating with respect to time:
+$$\dot{V}(e) = e \cdot \dot{e} = -\frac{k \cdot v(t) \cdot e(t)^2}{\sqrt{v(t)^2 + k^2 e(t)^2}}$$
+
+Because $k > 0$ and $v(t) > 0$:
+$$\dot{V}(e) < 0 \quad \forall e \neq 0$$
+By **Lyapunov's Direct Method**, $\dot{V}$ is strictly negative-definite! This proves mathematically that the cross-track error $e(t)$ converges exponentially to zero from any starting offset.
+
+### 2. Pure Pursuit Law of Sines Derivation (MIT Duckietown)
+Consider a vehicle with wheelbase $L$ steering toward a lookahead point at distance $L_d$ with heading angle $\alpha$.
+The vehicle follows an instantaneous circular arc of radius $R$.
+By the **Law of Sines** on the triangle connecting rear axle, center of curvature, and lookahead point:
+$$\frac{L_d}{\sin(2\alpha)} = \frac{R}{\sin(\frac{\pi}{2} - \alpha)} \implies \frac{L_d}{2 \sin(\alpha) \cos(\alpha)} = \frac{R}{\cos(\alpha)} \implies R = \frac{L_d}{2 \sin(\alpha)}$$
+The path curvature is $\kappa = \frac{1}{R} = \frac{2 \sin(\alpha)}{L_d}$.
+From kinematic bicycle geometry, steering angle $\delta$ satisfies $\tan(\delta) = \frac{L}{R} = L \kappa$:
+$$\delta = \arctan\left(\frac{2 L \sin(\alpha)}{L_d}\right)$$
+
+---
+
+## 📺 Recommended Free Video Tutorials to Learn the Math
+- **Stanley Controller & Proof**: [Sebastian Thrun / Hoffmann DARPA Landmark Paper (IEEE 2007)](https://ai.stanford.edu/~thrun/papers/hoffmann.stanley.control07.pdf)
+- **Lyapunov Stability Theorem**: [Brian Douglas: Introduction to Lyapunov Stability](https://www.youtube.com/watch?v=1Fq-XG198u8)
+- **Pure Pursuit Geometric Derivation**: [MIT Duckietown: Lane Following & Pure Pursuit](https://docs.duckietown.org/)
 
 ---
 

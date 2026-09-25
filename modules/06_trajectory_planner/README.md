@@ -17,7 +17,7 @@ In this module, you will:
 
 ---
 
-## 📐 Mathematical Formulation
+## 📐 How the Formulas Are Obtained
 
 ```
                                   ┌── Candidate 1 (Overtake Left) ── Cost: 18.4
@@ -27,32 +27,36 @@ Ego State [x0, y0, v0, a0] ───────┼── Candidate 2 (Stay in L
                                   └── Candidate 3 (Dodge Right) ──── Cost: 142.0 (COLLISION)
 ```
 
-### 1. Why Quintic (5th-Order) Polynomials?
-A 5th-order polynomial has 6 unknown coefficients:
+### 1. Step-by-Step Derivation of the Quintic Polynomial System
+Why a 5th-order polynomial? Because we have 6 physical boundary conditions to satisfy simultaneously:
+- At start $t=0$: Initial position $s_0$, initial speed $v_0$, initial acceleration $a_0$.
+- At end $t=T$: Target position $s_T$, target speed $v_T$, target acceleration $a_T$.
+
+Let:
 $$s(t) = c_0 + c_1 t + c_2 t^2 + c_3 t^3 + c_4 t^4 + c_5 t^5$$
+Taking derivatives:
+$$\dot{s}(t) = c_1 + 2 c_2 t + 3 c_3 t^2 + 4 c_4 t^3 + 5 c_5 t^4$$
+$$\ddot{s}(t) = 2 c_2 + 6 c_3 t + 12 c_4 t^2 + 20 c_5 t^3$$
+$$\dddot{s}(t) = 6 c_3 + 24 c_4 t + 60 c_5 t^2 \quad \text{(Jerk)}$$
 
-Its derivatives are:
-$$\dot{s}(t) = \text{Velocity: } c_1 + 2 c_2 t + 3 c_3 t^2 + 4 c_4 t^3 + 5 c_5 t^4$$
-$$\ddot{s}(t) = \text{Acceleration: } 2 c_2 + 6 c_3 t + 12 c_4 t^2 + 20 c_5 t^3$$
-$$\dddot{s}(t) = \text{Jerk (Comfort): } 6 c_3 + 24 c_4 t + 60 c_5 t^2$$
+Evaluating at $t = 0$:
+$$s(0) = c_0 = s_0$$
+$$\dot{s}(0) = c_1 = v_0$$
+$$\ddot{s}(0) = 2 c_2 = a_0 \implies c_2 = \frac{a_0}{2}$$
 
-At time $t=0$, initial conditions give:
-$$c_0 = s_0, \quad c_1 = v_0, \quad c_2 = \frac{1}{2} a_0$$
-
-At target planning horizon $t=T$, target boundary conditions $[s_T, v_T, a_T]$ form a solvable $3 \times 3$ linear system for $[c_3, c_4, c_5]$:
+Evaluating at $t = T$ and moving known terms ($c_0, c_1, c_2$) to the right-hand side:
 $$\begin{bmatrix} T^3 & T^4 & T^5 \\ 3 T^2 & 4 T^3 & 5 T^4 \\ 6 T & 12 T^2 & 20 T^3 \end{bmatrix} \begin{bmatrix} c_3 \\ c_4 \\ c_5 \end{bmatrix} = \begin{bmatrix} s_T - (s_0 + v_0 T + \frac{1}{2} a_0 T^2) \\ v_T - (v_0 + a_0 T) \\ a_T - a_0 \end{bmatrix}$$
 
-### 2. Multi-Objective Cost Function (MITx Risk Minimization)
-For each sampled trajectory $\tau$, we compute its expected cost:
-$$J(\tau) = w_{\text{coll}} J_{\text{coll}}(\tau) + w_{\text{lane}} J_{\text{lane}}(\tau) + w_{\text{jerk}} J_{\text{jerk}}(\tau) + w_{\text{speed}} J_{\text{speed}}(\tau)$$
-Where:
-- $J_{\text{coll}} = \sum_{t} \exp\left(-\frac{d(p(t), \text{obstacle})^2}{2 \sigma_{\text{safety}}^2}\right)$ (Gaussian safety bubble).
-- $J_{\text{lane}} = \int_0^T (y(t) - y_{\text{lane}}(x(t)))^2 dt$ (lane centering).
-- $J_{\text{jerk}} = \int_0^T (\dddot{s}(t))^2 dt$ (passenger comfort / motion sickness).
-- $J_{\text{speed}} = \int_0^T (v(t) - v_{\text{target}})^2 dt$ (traffic progress).
+This matrix $A$ has non-zero determinant $\det(A) = 2 T^9$.
+Because $T > 0$, the inverse $A^{-1}$ always exists, giving the unique minimum-jerk trajectory:
+$$\min \int_0^T (\dddot{s}(t))^2 dt$$
 
-The optimal trajectory is selected via:
-$$\tau^* = \arg\min_{\tau \in \mathcal{T}} J(\tau)$$
+---
+
+## 📺 Recommended Free Video Tutorials to Learn the Math
+- **Boundary Value Problems & Trajectory Optimization**: [MIT 6.832: Underactuated Robotics (Prof. Russ Tedrake)](https://underactuated.csail.mit.edu/)
+- **Quintic Frenet Frame Planning**: [Werling et al. ICRA 2010 Landmark Paper](https://www.researchgate.net/publication/224155184_Optimal_Trajectory_Generation_for_Dynamic_Street_Scenarios_in_a_Frenet_Frame)
+- **Calculus of Variations & Jerk**: [3Blue1Brown: Higher Derivatives & Taylor Series](https://www.youtube.com/watch?v=3d6DsjIBzJ4)
 
 ---
 

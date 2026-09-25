@@ -20,36 +20,53 @@ In this module, you will:
 
 ---
 
-## 📐 Mathematical Formulation (MITx Probability Connection)
+## 📐 How the Formulas Are Obtained
 
-### 1. The Kalman Filter as Bayes' Rule
-In MITx Probability, Bayes' rule for continuous random variables is:
-$$f_{X \mid Z}(x \mid z) = \frac{f_{Z \mid X}(z \mid x) \cdot f_X(x)}{f_Z(z)}$$
+### 1. Step-by-Step Derivation of the Kalman Filter (Bayes' Rule with Gaussians)
+In MITx Probability, Bayes' rule states:
+$$p(x \mid z) = \frac{p(z \mid x) p(x)}{p(z)} \propto p(z \mid x) \cdot p(x)$$
 
-When the prior and observation likelihood are multivariate Gaussians:
-- Prior State Belief: $X_{t-1} \sim \mathcal{N}(\mu_{t-1}, \Sigma_{t-1})$
-- Kinematic Motion Model: $X_t = F X_{t-1} + W_t$, where $W_t \sim \mathcal{N}(0, Q)$
-- Sensor Observation: $Z_t = H X_t + V_t$, where $V_t \sim \mathcal{N}(0, R)$
+Let prior belief be Gaussian: $x \sim \mathcal{N}(\mu^-, P^-)$, with PDF:
+$$p(x) \propto \exp\left( -\frac{1}{2} (x - \mu^-)^T (P^-)^{-1} (x - \mu^-) \right)$$
+And measurement likelihood be linear Gaussian $z = Hx + v$, with $v \sim \mathcal{N}(0, R)$:
+$$p(z \mid x) \propto \exp\left( -\frac{1}{2} (z - Hx)^T R^{-1} (z - Hx) \right)$$
 
-**Predict Step (Law of Total Probability):**
-$$\mu_t^- = F \mu_{t-1}$$
-$$\Sigma_t^- = F \Sigma_{t-1} F^T + Q$$
+Multiplying the two PDFs adds their exponents:
+$$J(x) = (x - \mu^-)^T (P^-)^{-1} (x - \mu^-) + (z - Hx)^T R^{-1} (z - Hx)$$
 
-**Update Step (Bayes Conditioning):**
-$$K_t = \Sigma_t^- H^T (H \Sigma_t^- H^T + R)^{-1} \quad \text{(Kalman Gain)}$$
-$$\mu_t = \mu_t^- + K_t (Z_t - H \mu_t^-) \quad \text{(Posterior Mean)}$$
-$$\Sigma_t = (I - K_t H) \Sigma_t^- \quad \text{(Posterior Covariance Contraction)}$$
+By completing the square with respect to $x$:
+The quadratic term in $x$ gives the **posterior covariance inverse (precision matrix)**:
+$$P^{-1} = (P^-)^{-1} + H^T R^{-1} H$$
 
-### 2. Mahalanobis Distance for Data Association
-When matching incoming detections to tracks, Euclidean distance ignores covariance uncertainty. We use the **Mahalanobis Distance** (the number of standard deviations the measurement lies from the track's predicted distribution):
-$$d_M(z, \mu) = \sqrt{(z - H\mu)^T (H \Sigma^- H^T + R)^{-1} (z - H\mu)}$$
-By thresholding $d_M^2 < \chi^2_k(\alpha)$, we mathematically reject improbable false associations!
+Applying the **Woodbury Matrix Identity** $(A + U C V)^{-1} = A^{-1} - A^{-1} U (C^{-1} + V A^{-1} U)^{-1} V A^{-1}$:
+$$P = (I - K H) P^-, \quad \text{where } K = P^- H^T (H P^- H^T + R)^{-1}$$
+
+Setting $\nabla_x J(x) = 0$ yields the **posterior mean update**:
+$$\mu = \mu^- + K (z - H \mu^-)$$
+
+### 2. Derivation of Analytical Road Curvature $\kappa(x)$
+Curvature $\kappa$ is defined as the magnitude of heading angle change per unit arc length:
+$$\kappa = \left| \frac{d\psi}{ds} \right|$$
+By the chain rule: $\frac{d\psi}{ds} = \frac{d\psi/dx}{ds/dx}$.
+From calculus:
+$$ds = \sqrt{dx^2 + dy^2} = \sqrt{1 + (y'(x))^2} dx \implies \frac{ds}{dx} = \sqrt{1 + (y'(x))^2}$$
+Since heading tangent is $\psi(x) = \arctan(y'(x))$:
+$$\frac{d\psi}{dx} = \frac{d}{dx}[\arctan(y')] = \frac{y''(x)}{1 + (y'(x))^2}$$
+Dividing numerator by denominator yields the exact curvature formula used in our spline code:
+$$\kappa(x) = \frac{\frac{y''(x)}{1 + (y'(x))^2}}{\sqrt{1 + (y'(x))^2}} = \frac{|y''(x)|}{(1 + (y'(x))^2)^{3/2}}$$
+
+---
+
+## 📺 Recommended Free Video Tutorials to Learn the Math
+- **Kalman Filter from First Principles**: [Brian Douglas: State-Space & The Kalman Filter](https://www.youtube.com/watch?v=mwn8xhgNpFY)
+- **Gaussian Conditioning & Bayes' Rule**: [MIT 6.041x: Jointly Normal Random Variables](https://ocw.mit.edu/courses/6-041sc-probabilistic-systems-analysis-and-applied-probability-fall-2013/)
+- **Differential Geometry & Curvature**: [Khan Academy: Curvature Formula Derivation](https://www.khanacademy.org/math/multivariable-calculus/multivariable-derivatives/curvature)
 
 ---
 
 ## 🏎️ Why Tesla Does It This Way
 - In Tesla AI Day 2021, Andrei Karpathy showed how the "Spatial RNN" produces clean vector splines for highway lane forks and intersections.
-- The downstream neural planner needs analytical derivatives (tangent angles, curvature $\kappa = \frac{|y''|}{(1 + y'^2)^{3/2}}$) to calculate lateral steering acceleration limits, which cannot be computed from noisy pixel blobs.
+- The downstream neural planner needs analytical derivatives (tangent angles, curvature $\kappa$) to calculate lateral steering acceleration limits, which cannot be computed from noisy pixel blobs.
 
 ---
 

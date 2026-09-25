@@ -19,25 +19,37 @@ In this module, you will:
 
 ---
 
-## 📐 Mathematical Formulation (MITx Probability Connection)
+## 📐 How the Formulas Are Obtained (MITx Probability Proof)
 
-### Why naive loss summation fails:
-If we simply add task losses:
-$$\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{lane}} + \mathcal{L}_{\text{vehicle}} + \mathcal{L}_{\text{freespace}} + \mathcal{L}_{\text{traffic\_light}}$$
-If $\mathcal{L}_{\text{vehicle}} = 50.0$ and $\mathcal{L}_{\text{lane}} = 0.05$, the gradients of the vehicle task are $1000\times$ larger! The shared trunk updates only to please the vehicle task, starving the lane task of any learning.
+### 1. Step-by-Step Derivation of Homoscedastic Multi-Task Loss
+In MITx Probability, when an estimator makes a prediction $f(x; W)$ corrupted by additive Gaussian observation noise $\epsilon \sim \mathcal{N}(0, \sigma^2)$, the observed target $y$ follows:
+$$p(y \mid f(x; W), \sigma) = \frac{1}{\sqrt{2\pi\sigma^2}} \exp\left(-\frac{\|y - f(x; W)\|^2}{2\sigma^2}\right)$$
 
-### The Probabilistic Fix: Gaussian Observation Likelihood
-In MITx Probability, when a model makes a prediction $y$ with Gaussian observation noise $\sigma^2$:
-$$P(y \mid f(x), \sigma) = \frac{1}{\sqrt{2\pi\sigma^2}} \exp\left(-\frac{\|y - f(x)\|^2}{2\sigma^2}\right)$$
-Taking the negative log-likelihood ($-\log P$):
-$$-\log P(y \mid f(x), \sigma) \propto \frac{1}{2\sigma^2} \mathcal{L}(y, f(x)) + \log \sigma$$
+Taking the natural logarithm ($\ln$):
+$$\ln p(y \mid f(x; W), \sigma) = -\frac{\|y - f(x; W)\|^2}{2\sigma^2} - \ln(\sqrt{2\pi\sigma^2}) = -\frac{1}{2\sigma^2} \|y - f(x; W)\|^2 - \ln \sigma - \frac{1}{2}\ln(2\pi)$$
 
-For $M$ simultaneous tasks, our total loss becomes:
-$$\mathcal{L}_{\text{total}}(W, \sigma_1, \dots, \sigma_M) = \sum_{i=1}^M \left( \frac{1}{2\sigma_i^2} \mathcal{L}_i(W) + \log \sigma_i \right)$$
-- If a task is noisy or difficult, the network increases $\sigma_i$, automatically scaling down that task's gradient so it doesn't destabilize the shared trunk.
-- The $\log \sigma_i$ term acts as a regularizer—the network cannot simply set $\sigma_i \to \infty$ to make loss zero!
-- In practice, we parametrize $s_i = \log(\sigma_i^2)$ for numerical stability:
-$$\mathcal{L}_i = \frac{1}{2} \exp(-s_i) \mathcal{L}_i + \frac{1}{2} s_i$$
+To maximize likelihood, we minimize the Negative Log-Likelihood (NLL). Let $\mathcal{L}_i(W) = \|y_i - f_i(x; W)\|^2$ be the task loss for task $i$.
+For $M$ independent tasks, the total negative log-likelihood is:
+$$\mathcal{L}_{\text{total}}(W, \sigma_1, \dots, \sigma_M) = \sum_{i=1}^M \left( \frac{1}{2\sigma_i^2} \mathcal{L}_i(W) + \ln \sigma_i \right)$$
+
+### 2. Numerical Reparametrization for SGD
+If we optimize $\sigma_i$ directly, standard gradient descent could push $\sigma_i \le 0$ or cause numerical instability near $\sigma_i = 0$.
+**The trick**: Define $s_i = \ln(\sigma_i^2)$.
+Then:
+$$\sigma_i^2 = \exp(s_i) \implies \frac{1}{\sigma_i^2} = \exp(-s_i)$$
+$$\ln \sigma_i = \ln\left((\sigma_i^2)^{1/2}\right) = \frac{1}{2}\ln(\sigma_i^2) = \frac{1}{2} s_i$$
+
+Substituting these into the loss yields the exact equation implemented in our code:
+$$\mathcal{L}_{\text{total}}(W, s_1, \dots, s_M) = \sum_{i=1}^M \left( \frac{1}{2}\exp(-s_i) \mathcal{L}_i(W) + \frac{1}{2} s_i \right)$$
+- If task $i$ has high loss, the optimizer increases $s_i$, which scales down that task's gradient via $\exp(-s_i)$.
+- However, the regularizer $+ \frac{1}{2} s_i$ penalizes excessive variance, preventing the network from trivializing all losses!
+
+---
+
+## 📺 Recommended Free Video Tutorials to Learn the Math
+- **Maximum Likelihood Estimation**: [StatQuest: Maximum Likelihood Clearly Explained](https://www.youtube.com/watch?v=XepXtl9YKwc)
+- **Gaussian Probability Density**: [MIT 6.041x: Normal Random Variables](https://ocw.mit.edu/courses/6-041sc-probabilistic-systems-analysis-and-applied-probability-fall-2013/)
+- **Multi-Task Gradient Dynamics**: [Stanford CS231n: Multi-Task Learning](https://cs231n.github.io/)
 
 ---
 

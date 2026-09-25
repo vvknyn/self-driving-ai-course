@@ -20,7 +20,7 @@ In this module, you will:
 
 ---
 
-## 📐 Mathematical Formulation (MITx Probability Connection)
+## 📐 How the Formulas Are Obtained
 
 ```
 2D Camera Image Feature (C)       Categorical Depth Dist P(D=d_k)
@@ -44,27 +44,39 @@ In this module, you will:
         └───────────────────────────────────────────────┘
 ```
 
-### 1. Depth Discretization (The "Lift" Step)
+### 1. The "Lift" Step as Probabilistic Expectation
+A single pixel $(u, v)$ with feature vector $c(u, v) \in \mathbb{R}^C$ corresponds to an entire optical ray in 3D space.
 We discretize the continuous depth range $[D_{\text{min}}, D_{\text{max}}]$ into $D$ bins:
 $$d_k = D_{\text{min}} + k \cdot \Delta d, \quad k \in \{0, 1, \dots, D-1\}$$
-For each 2D feature vector $c \in \mathbb{R}^C$ at pixel $(u, v)$, the network outputs depth logits $\alpha \in \mathbb{R}^D$:
+
+For each feature vector, the network predicts depth logits $\alpha \in \mathbb{R}^D$. Applying Softmax yields categorical probabilities:
 $$P(D = d_k \mid u, v) = \frac{\exp(\alpha_k)}{\sum_{j=1}^D \exp(\alpha_j)}$$
-The outer product yields the lifted frustum tensor of shape $(B, D, H, W, C)$:
-$$F(d_k, u, v) = P(D = d_k \mid u, v) \otimes c(u, v)$$
 
-### 2. Geometry Splatting
-Using camera intrinsics $K$ and extrinsics $[R \mid T]$, each frustum point $(u, v, d_k)$ maps to an exact metric coordinate in vehicle ego space:
-$$P_{\text{ego}} = R^T \left( d_k \cdot K^{-1} \begin{bmatrix} u \\ v \\ 1 \end{bmatrix} - T \right)$$
+By the **Law of Total Probability**, the expected feature representation along the ray at distance $d_k$ is the outer product:
+$$F(d_k, u, v) = P(D = d_k \mid u, v) \otimes c(u, v) \in \mathbb{R}^{D \times H \times W \times C}$$
 
-### 3. Voxel Pooling (The "Shoot" Step)
+### 2. Geometry Splatting Equation
+Each frustum point $(u, v, d_k)$ is unprojected into the camera coordinate frame:
+$$P_c = d_k \cdot K^{-1} \begin{bmatrix} u \\ v \\ 1 \end{bmatrix}$$
+And transformed into the vehicle ego frame via extrinsic inverse $[R \mid T]^{-1}$:
+$$P_{\text{ego}} = R^T (P_c - T)$$
+
+### 3. Voxel Pooling ("Shoot")
 Points falling into the same BEV grid cell $(x_{\text{bev}}, y_{\text{bev}})$ are summed and vertically pooled across $Z$:
 $$\text{BEV}(x, y) = \sum_{z} \sum_{p \in \text{Voxel}(x, y, z)} F(p)$$
 
 ---
 
+## 📺 Recommended Free Video Tutorials to Learn the Math
+- **Linear Transformations & Inverses**: [3Blue1Brown: Inverse Matrices & Column Space](https://www.youtube.com/watch?v=uQhTuRlWM3E)
+- **Categorical & Discrete Random Variables**: [MIT 6.041x: Discrete Probability Distributions](https://ocw.mit.edu/courses/6-041sc-probabilistic-systems-analysis-and-applied-probability-fall-2013/)
+- **Lift-Splat-Shoot Paper Presentation**: [Jonah Philion: ECCV 2020 Talk on LSS](https://www.youtube.com/watch?v=sobq_z6y-i8)
+
+---
+
 ## 🏎️ Why Tesla Does It This Way
 - In 2020, Tesla Autopilot switched completely from per-image heuristic bounding boxes to multi-camera BEV space.
-- Occlusions (e.g. a vehicle visible in the left camera but blocked by a pillar in the front camera) seamlessly merge in the shared BEV grid.
+- Occlusions seamlessly merge in the shared BEV grid.
 - Downstream modules (occupancy, tracking, trajectory planning) can operate in true metric distance (meters) rather than arbitrary image pixels.
 
 ---

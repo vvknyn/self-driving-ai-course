@@ -39,9 +39,11 @@ This course marries the best educational principles from the pioneers of AI and 
 
 1. **FastAI Code-First Flow**: Every module opens with a runnable script that immediately outputs visual driving predictions. No gatekeeping theory before seeing working code.
 2. **Break It & Fix It**: Every module features an intentional bug drill (e.g. calibration pitch perturbation, loss gradient starvation, occupancy memory amnesia, controller latency fishtailing). You break it, observe the failure mode, and engineer the fix.
-3. **Andrew Ng Diagnostic Clarity**: Every equation is paired with tensor dimensions `(B, N_cams, C, H, W) -> (B, X, Y, Z, C)`, coordinate frame conventions, and unit tests.
-4. **Sebastian Thrun Control Foundations**: Grounded in vehicle kinematics, path lattices, cost-map evaluations, and Stanley/MPC steering control.
-5. **Interactive Visual Explainers**: Dedicated, zero-dependency browser-based visual animations and interactive simulators for every major mathematical concept.
+3. **First-Principles Math Derivations**: No formula is presented as magic. Every equation (pinhole similar triangles, Kendall & Gal multi-task MLE loss, LSS expectation outer product, Kalman Bayes conditioning, quintic boundary value linear systems, Stanley Lyapunov stability) is derived step-by-step from foundational physics and probability.
+4. **Curated Free Tutorials**: Each module links directly to world-class free video lectures (3Blue1Brown, MIT OpenCourseWare 6.041x, StatQuest, Brian Douglas Control Lectures, Columbia Vision). Full catalog in [`docs/00_mathematical_foundations_and_tutorial_guide.md`](docs/00_mathematical_foundations_and_tutorial_guide.md).
+5. **Andrew Ng Diagnostic Clarity**: Every equation is paired with tensor dimensions `(B, N_cams, C, H, W) -> (B, X, Y, Z, C)`, coordinate frame conventions, and unit tests.
+6. **Sebastian Thrun Control Foundations**: Grounded in vehicle kinematics, path lattices, cost-map evaluations, and Stanley/MPC steering control.
+7. **Interactive Visual Explainers**: Dedicated, zero-dependency browser-based visual animations and interactive simulators for every major mathematical concept.
 
 ---
 

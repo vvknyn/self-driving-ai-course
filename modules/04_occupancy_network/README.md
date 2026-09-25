@@ -21,24 +21,35 @@ In this module, you will:
 
 ---
 
-## 📐 Mathematical Formulation
+## 📐 How the Formulas Are Obtained
 
-### 1. 3D Voxel Representation
-Let vehicle ego space be bounded by:
-$$X \in [X_{\text{min}}, X_{\text{max}}], \quad Y \in [Y_{\text{min}}, Y_{\text{max}}], \quad Z \in [Z_{\text{min}}, Z_{\text{max}}]$$
-Discretized with voxel resolution $\Delta s = 0.4\text{m}$, creating a 3D grid of shape $(N_x, N_y, N_z)$.
+### 1. Spatial Bernoulli Random Field
+We treat 3D physical space as a collection of independent binary random variables:
+$$O(i_x, i_y, i_z) \sim \text{Bernoulli}(p), \quad p = \sigma(z) = \frac{1}{1 + \exp(-z)}$$
+Where $z$ is the unnormalized network logit.
+The probability mass function is:
+$$P(O = o) = p^o (1 - p)^{1 - o}, \quad o \in \{0, 1\}$$
+Binary Cross-Entropy loss is the exact negative log-likelihood of this Bernoulli distribution:
+$$\mathcal{L}_{\text{BCE}} = -[o \log p + (1 - o) \log(1 - p)]$$
 
-### 2. Spatiotemporal Recurrent Update (ConvGRU)
-At frame $t$, the current perception features $X_t$ and previous hidden memory state $H_{t-1}$ are fused:
+### 2. Spatiotemporal ConvGRU Gating Equations
+A standard GRU operates on 1D vectors. A **ConvGRU** replaces matrix multiplications with 2D/3D spatial convolutions ($*$) so temporal memory retains spatial topology:
 $$\text{Reset Gate: } R_t = \sigma(W_r * X_t + U_r * H_{t-1})$$
 $$\text{Update Gate: } Z_t = \sigma(W_z * X_t + U_z * H_{t-1})$$
-$$\text{Candidate State: } \tilde{H}_t = \tanh(W_h * X_t + U_h * (R_t \odot H_{t-1}))$$
-$$\text{New Hidden Memory: } H_t = (1 - Z_t) \odot H_{t-1} + Z_t \odot \tilde{H}_t$$
+$$\text{Candidate Memory: } \tilde{H}_t = \tanh(W_h * X_t + U_h * (R_t \odot H_{t-1}))$$
+$$\text{Updated Memory: } H_t = (1 - Z_t) \odot H_{t-1} + Z_t \odot \tilde{H}_t$$
 
-### 3. Dual-Head Prediction
-From the updated temporal memory $H_t$:
-$$\text{Occupancy Logits: } \hat{O}_t = \text{Conv}_{\text{occ}}(H_t) \in \mathbb{R}^{N_x \times N_y \times N_z}$$
-$$\text{Velocity Flow: } \vec{V}_t = \text{Conv}_{\text{vel}}(H_t) \in \mathbb{R}^{3 \times N_x \times N_y \times N_z}$$
+### 3. Bayesian Filtering Interpretation (MITx Probability)
+- The update gate $Z_t \in [0, 1]$ acts as a dynamic **Kalman Gain**:
+  - When $Z_t \approx 0$: the network ignores the noisy new visual frame and relies 100% on prior memory $H_{t-1}$ (critical during camera occlusion or sensor glare).
+  - When $Z_t \approx 1$: the network overwrites memory with fresh visual evidence.
+
+---
+
+## 📺 Recommended Free Video Tutorials to Learn the Math
+- **Bernoulli & Binomial Random Variables**: [MIT 6.041x: Bernoulli Processes](https://ocw.mit.edu/courses/6-041sc-probabilistic-systems-analysis-and-applied-probability-fall-2013/)
+- **Recurrent Neural Networks & GRU Gates**: [StatQuest: Recurrent Neural Networks (RNNs) and GRUs](https://www.youtube.com/watch?v=LHXXI4-IEns)
+- **Understanding LSTM/GRU Architectures**: [Christopher Olah: Understanding LSTM Networks](https://colah.github.io/posts/2015-08-Understanding-LSTMs/)
 
 ---
 
