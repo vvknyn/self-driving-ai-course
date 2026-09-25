@@ -1,167 +1,206 @@
-# Module 01: Multi-Camera Geometry & Inverse Perspective Mapping (IPM)
+# Chapter 02: 3D Camera Rig & Inverse Perspective Mapping (IPM)
 
-> "To understand 3D from 2D, you must master the coordinate transforms between photons, sensors, and the metric physical ground."
-
----
-
-## 🟢 Tier 1: Intuition & Mental Models (Andrew Ng Style)
-
-### The Fundamental Dilemma of 2D Vision
-When light hits an automotive camera sensor, the 3D physical world is projected onto a flat 2D plane of pixels. In doing so, **one entire spatial dimension—depth along the optical ray—is completely lost**.
-- An identical $50 \times 50$ pixel patch on an image could represent a $1.8$-meter pedestrian 50 meters away, or an $18$-centimeter smartphone 5 meters away!
-- A self-driving vehicle cannot steer or brake based on pixels. A trajectory planner operates in **metric 3D Cartesian space** (meters, seconds, meters/second).
-
-### What is Inverse Perspective Mapping (IPM)?
-If we make one simplifying assumption—that the road surface ahead is a **flat, horizontal plane** ($Z_{\text{road}} = 0$)—the mathematical projection becomes a bijective (1-to-1) mapping.
-We can computationally "unproject" pixels from the perspective camera image and project them onto the top-down ground plane. This is called **Inverse Perspective Mapping (IPM)** or Bird's-Eye View (BEV) warping.
-
-```
-       PERSPECTIVE CAMERA VIEW                     TOP-DOWN BIRD'S-EYE VIEW (IPM)
-      ┌───────────────────────────┐                 ┌───────────────────────────┐
-      │         \   |   /         │                 │         |       |         │
-      │          \  |  /          │                 │         |       |         │
-      │           \ | /           │   Homography H  │         |  Ego  |         │
-      │   Road     \|/   Sky      │ ──────────────> │         |  Lane |         │
-      │  Lines      V   Horizon   │                 │         |       |         │
-      │            / \            │                 │         |       |         │
-      │           /   \           │                 │         |       |         │
-      └───────────────────────────┘                 └───────────────────────────┘
-       Lines converge at horizon                     Lines are parallel & metric!
-```
-
-### Andrew Ng Diagnostic Table: Camera Geometry Failure Modes
-When deploying camera geometry on physical vehicles, things go wrong. Use this diagnostic table:
-
-| Symptom | Root Cause | Diagnostic Test | Solution |
-|---|---|---|---|
-| Lane lines flare outwards at distance | Camera pitch angle calibrated too high | Inspect horizon line in camera feed | Adjust pitch extrinsic parameter down |
-| Lane lines converge at distance | Camera pitch angle calibrated too low | Calculate road intersection distance | Adjust pitch extrinsic parameter up |
-| Obstacles appear stretched like giant smears | 3D object violates flat ground assumption | Check if bounding box extends above road | Use 3D Occupancy / LSS instead of planar IPM |
-| Severe distance error during hard braking | Chassis dynamic pitch deflection ($\Delta \theta \approx 2^\circ$) | Log IMU pitch gyro during braking | Implement dynamic pitch compensation network |
+> **The Big Question**: *A camera sensor is a flat 2D rectangle of pixels, but an autonomous vehicle operates in a 3D physical world of meters and seconds. When photons strike a camera pixel, the depth dimension along that ray is destroyed. How do we mathematically reverse this optical projection to construct a top-down ground map—and why does a tiny $1.5^\circ$ vehicle suspension bounce cause standard geometry to hallucinate that the road has vanished?*
 
 ---
 
-## 🟡 Tier 2: Code From Scratch (Andrej Karpathy Style)
+## 1. 🚨 The Real-World Dilemma: The Speed Bump Illusion
 
-Let's spell out the exact tensor mechanics. No OpenCV black boxes—just pure linear algebra.
+Imagine driving an autonomous car at 35 mph. You tap the brakes before a speed bump:
+- The car's front springs compress, causing the chassis to pitch downward by just **$1.8^\circ$**.
+- To human eyes, you barely feel the subtle tilt.
+- But to a naive computer vision system assuming a fixed camera:
+  - The horizon line in the image drops.
+  - A painted crosswalk 30 meters ahead appears to suddenly jump **12 meters closer**!
+  - The parallel lane lines violently flare outward into a wide trumpet shape.
 
-### 1. Generating Intrinsic Matrix $K$
-Given camera sensor width $W$, height $H$, and horizontal field of view $\text{HFOV}$:
+```
+Vehicle Chassis Pitch (θ = 1.8° tilt):
+      Camera tilted down
+            \
+             \ Ray hits ground MUCH closer than expected!
+══════════════\═══════════*───────────────────────── Road Surface
+                          ▲
+                    Calculated: 18m
+                    Actual:     30m (40% Distance Error!)
+```
+
+> [!CAUTION]
+> **The Sensitivity of Optical Projection**  
+> At 60 meters distance, an angular calibration error of just $0.5^\circ$ translates to a **$9.4\text{-meter}$ positioning error** in 3D space! If your car trusts uncalibrated camera geometry to plan braking trajectories, it will either stop 10 meters too early or crash into the stopped vehicle ahead.
+
+---
+
+## 2. 💡 The Mental Model: Pinhole Geometry & The Flat Ground Assumption
+
+### The Pinhole Model: Division by Depth
+In optical physics, light passes through an aperture and strikes a sensor plane:
+
+$$u = f_x \frac{X_c}{Z_c} + c_x, \quad v = f_y \frac{Y_c}{Z_c} + c_y$$
+
+Look closely at the denominator: **$Z_c$**.
+Every pixel $(u, v)$ is divided by its depth $Z_c$. This means an infinite number of 3D points along the sightline project to the exact same 2D pixel:
+- A $0.2\text{ m}$ toy car at $2\text{ m}$ depth.
+- A $2.0\text{ m}$ real sedan at $20\text{ m}$ depth.
+- A $20.0\text{ m}$ billboard at $200\text{ m}$ depth.
+
+### The "Tabletop" Trick: Inverse Perspective Mapping (IPM)
+How do we undo division by $Z_c$ without a LiDAR sensor?
+We make one temporary assumption: **The road ahead is a flat planar tabletop ($Z_{\text{ground}} = 0$)**.
+
+If every pixel belongs to the ground plane, the mapping between the 2D image $(u, v)$ and the 2D ground coordinates $(X_w, Y_w)$ becomes a **bijective (1-to-1) projective transformation called a Homography ($H$)**:
+
+$$\begin{bmatrix} u \\ v \\ 1 \end{bmatrix} \sim H \begin{bmatrix} X_w \\ Y_w \\ 1 \end{bmatrix} \iff \begin{bmatrix} X_w \\ Y_w \\ 1 \end{bmatrix} \sim H^{-1} \begin{bmatrix} u \\ v \\ 1 \end{bmatrix}$$
+
+### ❓ Socratic Challenge: What happens to a 3D box truck under IPM?
+What happens if an object violates the flat-ground assumption (e.g., a 3-meter tall delivery truck)?
+- The tires touch the road at $d = 15\text{ m}$ (projected accurately).
+- But the roof of the truck is 3 meters in the air!
+- The IPM ray passes through the roof and keeps traveling until it hits the imaginary flat ground **75 meters behind the truck**!
+- Result: IPM stretches the 3D truck into an enormous 60-meter smear across all lanes. This is why planar IPM works for painted lane lines, but fails for 3D obstacles!
+
+---
+
+## 3. 🧪 Lab Mission: Hands-On Simulator Experiments
+
+Scroll to the **Interactive Camera Geometry & IPM Studio** at the top of this chapter:
+
+1. **Experiment 1 (The Pitch Flare Disaster)**:
+   - Observe the top-down BEV reconstruction of the two parallel highway lane lines.
+   - Adjust the **Camera Pitch Angle** slider from $0.0^\circ$ to $+2.5^\circ$.
+   - *Observation*: Notice how the parallel lines in the top-down view violently flare outward into a hyperbolic curve!
+   - Now adjust the pitch slider to $-2.0^\circ$. The parallel lines cross each other into a sharp triangle.
+2. **Experiment 2 (Dynamic Pitch Compensation)**:
+   - Toggle **Dynamic IMU Suspension Compensation** to `ON`.
+   - Now move the vehicle speed and braking slider to induce pitch.
+   - *Observation*: The real-time transformation matrix dynamically cancels the chassis pitch angle $\Delta \theta(t)$, keeping the lane lines perfectly parallel in BEV space!
+
+---
+
+## 4. 🛠️ The Karpathy Build: Camera Rig & Homography from Scratch
+
+Here is the linear algebra implemented in pure Python and NumPy with zero black box OpenCV functions:
+
 ```python
 import numpy as np
 
-def compute_intrinsics(width: int, height: int, hfov_deg: float) -> np.ndarray:
-    """Computes the 3x3 pinhole intrinsic camera matrix K."""
-    hfov_rad = np.deg2rad(hfov_deg)
-    # Focal length in pixels: fx = (W/2) / tan(HFOV/2)
-    fx = (width / 2.0) / np.tan(hfov_rad / 2.0)
-    fy = fx  # Square pixels assumption
-    cx = width / 2.0
-    cy = height / 2.0
-    
-    K = np.array([
+def make_intrinsics_matrix(fx: float, fy: float, cx: float, cy: float) -> np.ndarray:
+    """Builds 3x3 camera intrinsic matrix K."""
+    return np.array([
         [fx,  0.0, cx],
         [0.0, fy,  cy],
         [0.0, 0.0, 1.0]
-    ], dtype=np.float32)
-    return K
-```
+    ], dtype=np.float64)
 
-### 2. Homography Unprojection from Scratch
-Given intrinsic matrix $K$, rotation matrix $R$, and camera translation $T = [X, Y, Z]^T$:
-```python
-def compute_ipm_homography(K: np.ndarray, R: np.ndarray, T: np.ndarray) -> np.ndarray:
+def euler_to_rotation_matrix(roll: float, pitch: float, yaw: float) -> np.ndarray:
     """
-    Computes the 3x3 ground-plane planar homography H.
-    Maps ego-ground coordinates [X_ego, Y_ego, 1]^T to pixel coordinates [s*u, s*v, s]^T.
+    Computes 3x3 orthogonal rotation matrix R = Rz(yaw) * Ry(pitch) * Rx(roll).
+    Angles in radians.
     """
-    # In ego space, Z_ego = 0 for road plane.
-    # Extrinsic matrix [R | T] drops its 3rd column!
-    r1 = R[:, 0:1] # 1st column of rotation
-    r2 = R[:, 1:2] # 2nd column of rotation
-    t  = T.reshape(3, 1)
-    
-    # Planar extrinsic: 3x3 matrix
-    M_planar = np.hstack([r1, r2, t])
-    
-    # Homography H = K * [r1, r2, t]
-    H = K @ M_planar
-    return H
+    # Roll (rotation around X axis)
+    Rx = np.array([
+        [1.0, 0.0, 0.0],
+        [0.0, np.cos(roll), -np.sin(roll)],
+        [0.0, np.sin(roll),  np.cos(roll)]
+    ])
+    # Pitch (rotation around Y axis)
+    Ry = np.array([
+        [ np.cos(pitch), 0.0, np.sin(pitch)],
+        [ 0.0,           1.0, 0.0],
+        [-np.sin(pitch), 0.0, np.cos(pitch)]
+    ])
+    # Yaw (rotation around Z axis)
+    Rz = np.array([
+        [np.cos(yaw), -np.sin(yaw), 0.0],
+        [np.sin(yaw),  np.cos(yaw), 0.0],
+        [0.0,          0.0,         1.0]
+    ])
+    return Rz @ Ry @ Rx
 
-def project_pixel_to_ground(H: np.ndarray, u: float, v: float) -> tuple[float, float]:
-    """Inverse maps a single pixel (u, v) back to physical ground coordinate (X_ego, Y_ego)."""
-    H_inv = np.linalg.inv(H)
-    pixel_homogeneous = np.array([u, v, 1.0], dtype=np.float32)
-    ground_homogeneous = H_inv @ pixel_homogeneous
-    
-    # Normalize by scale factor (3rd homogeneous component)
-    X_ego = ground_homogeneous[0] / ground_homogeneous[2]
-    Y_ego = ground_homogeneous[1] / ground_homogeneous[2]
-    return float(X_ego), float(Y_ego)
+def compute_ground_homography(K: np.ndarray, R: np.ndarray, t: np.ndarray) -> np.ndarray:
+    """
+    Computes 3x3 Planar Homography H mapping ground (X, Y, 1) -> image (u, v, 1).
+    Assumes ground plane is Z_world = 0.
+    """
+    # Columns of rotation matrix
+    r1 = R[:, 0:1]  # X axis
+    r2 = R[:, 1:2]  # Y axis
+    # H = K * [r1, r2, t]
+    Rt_ground = np.hstack([r1, r2, t.reshape(3, 1)])
+    H = K @ Rt_ground
+    return H / H[2, 2]  # Normalize scale
+
+def unproject_pixel_to_ground(H_inv: np.ndarray, u: float, v: float) -> tuple[float, float]:
+    """Unprojects a 2D image pixel onto the metric 3D ground plane (X, Y in meters)."""
+    p_img = np.array([u, v, 1.0], dtype=np.float64)
+    p_ground = H_inv @ p_img
+    x_metric = p_ground[0] / p_ground[2]
+    y_metric = p_ground[1] / p_ground[2]
+    return float(x_metric), float(y_metric)
 ```
 
 ---
 
-## 🔴 Tier 3: Mathematical Derivations & Proofs (Thrun / MITx)
+## 5. 📐 Mathematical Rigor: The Transformation Chain
 
-### 1. Pinhole Projection from Similar Triangles
-- **Starting Point**: A point in 3D camera coordinates $P_c = [X_c, Y_c, Z_c]^T$ emits a light ray through an aperture at $(0, 0, 0)$ hitting the sensor plane at focal distance $f$.
-- **Proof**:
-  By similar triangles between the optical axis ($Z_c$) and horizontal sensor plane ($X_c$):
-  $$\frac{x_{\text{sensor}}}{f} = \frac{X_c}{Z_c} \implies x_{\text{sensor}} = f \frac{X_c}{Z_c}$$
-  Converting physical metric sensor coordinates (meters) to image pixel indices $(u, v)$ with pixel pitch $(s_x, s_y)$ pixels/meter and optical center $(c_x, c_y)$:
-  $$u = s_x x_{\text{sensor}} + c_x = (s_x f) \frac{X_c}{Z_c} + c_x = f_x \frac{X_c}{Z_c} + c_x$$
-  $$v = s_y y_{\text{sensor}} + c_y = (s_y f) \frac{Y_c}{Z_c} + c_y = f_y \frac{Y_c}{Z_c} + c_y$$
-  In homogeneous coordinates:
-  $$\begin{bmatrix} s \cdot u \\ s \cdot v \\ s \end{bmatrix} = \begin{bmatrix} f_x & 0 & c_x \\ 0 & f_y & c_y \\ 0 & 0 & 1 \end{bmatrix} \begin{bmatrix} X_c \\ Y_c \\ Z_c \end{bmatrix} = K \cdot P_c$$
+A metric point $\mathbf{P}_w = [X_w, Y_w, Z_w]^T$ in the global ground frame undergoes four successive transformations to become pixel $(u, v)$:
 
-### 2. Planar Homography Invertibility Proof
-- **Theorem**: The 3D-to-2D projection of points lying on a plane $\Pi$ into a pinhole camera is a projectivity (homography) $H \in \mathbb{R}^{3 \times 3}$, and is invertible if the camera center does not lie on $\Pi$.
-- **Proof**:
-  Let the road plane in ego coordinates be defined by $Z_{\text{ego}} = 0$.
-  The general camera projection is:
-  $$\begin{bmatrix} s \cdot u \\ s \cdot v \\ s \end{bmatrix} = K [R \mid T] \begin{bmatrix} X_e \\ Y_e \\ Z_e \\ 1 \end{bmatrix} = K \begin{bmatrix} r_1 & r_2 & r_3 & T \end{bmatrix} \begin{bmatrix} X_e \\ Y_e \\ 0 \\ 1 \end{bmatrix} = K \begin{bmatrix} r_1 & r_2 & T \end{bmatrix} \begin{bmatrix} X_e \\ Y_e \\ 1 \end{bmatrix}$$
-  Let $H = K [r_1 \mid r_2 \mid T]$. Since $K$ is non-singular ($\det(K) = f_x f_y \neq 0$), and $[r_1 \mid r_2]$ are orthonormal columns of a rotation matrix with camera height $T_z = h > 0$, the columns of $[r_1 \mid r_2 \mid T]$ are linearly independent.
-  Thus, $\det(H) \neq 0$. Therefore, $H^{-1}$ exists uniquely, allowing exact 2D planar unprojection:
-  $$\begin{bmatrix} X_e \\ Y_e \\ 1 \end{bmatrix} = H^{-1} \begin{bmatrix} s \cdot u \\ s \cdot v \\ s \end{bmatrix}$$
-
----
-
-## 🎓 Tier 4: Cutting-Edge Research & PhD Track
-
-### 1. The Death of Handcrafted Calibration: Online Self-Calibration Networks
-In real driving, camera extrinsics drift continuously due to:
-1. **Dynamic load changes**: Passengers getting in and out change suspension pitch by $\pm 1.5^\circ$.
-2. **Thermal expansion**: Summer heat versus winter cold warps camera mounting brackets on the windshield.
-3. **Pavement vibrations**: High-frequency chatter degrades extrinsic alignment.
-
-**Modern Literature Solutions**:
-- **Extrinsic Calibration Networks**: Neural networks trained to predict roll, pitch, and yaw perturbations $[\Delta \phi, \Delta \theta, \Delta \psi]$ dynamically from video streams by minimizing photometric reprojection error across overlapping cameras.
-- **BARF: Bundle-Adjusting Neural Radiance Fields** (Lin et al., ICCV 2021) and **SC-NeRF**: Jointly optimizes neural scene representations and camera calibration parameters directly from raw video without checkerboard targets.
-
-### 2. Open PhD Research Questions
-- *How can multi-camera temporal networks maintain metric scale consistency when driving down steep $15\%$ mountain gradients where the flat road plane assumption completely collapses?*
-- *Can we formulate a continuous Lie Algebra $\mathfrak{se}(3)$ Kalman filter that estimates dynamic chassis deflection simultaneously with ego-motion velocity?*
-
----
-
-## 🟣 Tier 5: Real-World Hardware & Practical Robotics
-
-### Calibrating Your Own $20 Desk Webcam
-You do not need industrial LiDAR or a \$100,000 sensor rig. To calibrate any USB webcam:
-1. Print a standard $9 \times 6$ checkerboard pattern on regular A4 paper.
-2. Mount the pattern on flat cardboard.
-3. Capture 15 images from varying angles using OpenCV:
-```python
-import cv2
-import numpy as np
-
-# Find chessboard corners
-criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-objp = np.zeros((6*9, 3), np.float32)
-objp[:, :2] = np.mgrid[0:9, 0:6].T.reshape(-1, 2) * 0.025  # 25mm square size
-
-# Calibrate camera to obtain K and distortion coefficients [k1, k2, p1, p2, k3]
-# ret, K, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
 ```
-4. Feed the resulting $K$ matrix directly into `modules/01_camera_geometry/camera_model.py`!
+World Coordinates [Xw, Yw, Zw]
+       │
+       ▼  [Extrinsic Transform: R, t]
+Camera 3D Coordinates [Xc, Yc, Zc] = R * Pw + t
+       │
+       ▼  [Perspective Division: 1 / Zc]
+Normalized Ray Coordinates [xc, yc, 1] = [Xc/Zc, Yc/Zc, 1]
+       │
+       ▼  [Intrinsic Matrix: K]
+Image Pixel Coordinates [u, v, 1]^T = K * [xc, yc, 1]^T
+```
+
+### The Planar Homography Simplification
+When $Z_w = 0$ (road surface):
+
+$$\begin{bmatrix} X_c \\ Y_c \\ Z_c \end{bmatrix} = \mathbf{r}_1 X_w + \mathbf{r}_2 Y_w + \mathbf{r}_3 (0) + \mathbf{t} = \begin{bmatrix} \mathbf{r}_1 & \mathbf{r}_2 & \mathbf{t} \end{bmatrix} \begin{bmatrix} X_w \\ Y_w \\ 1 \end{bmatrix}$$
+
+Multiplying by intrinsic matrix $K$:
+
+$$s \begin{bmatrix} u \\ v \\ 1 \end{bmatrix} = K \begin{bmatrix} \mathbf{r}_1 & \mathbf{r}_2 & \mathbf{t} \end{bmatrix} \begin{bmatrix} X_w \\ Y_w \\ 1 \end{bmatrix} = H \begin{bmatrix} X_w \\ Y_w \\ 1 \end{bmatrix}$$
+
+Because $H \in \mathbb{R}^{3 \times 3}$ is invertible, any point on the ground can be reconstructed via:
+
+$$\mathbf{p}_{\text{ground}} = H^{-1} \mathbf{p}_{\text{image}}$$
+
+---
+
+## 6. 🩺 Andrew Ng's Diagnostic Field Guide
+
+| Observed Symptom | Underlying Mathematical Mechanism | Verification Test | Production Fix |
+| :--- | :--- | :--- | :--- |
+| **Lane lines flare outwards at distance** | **Camera Pitch Over-Estimation**: The calibrated pitch angle is higher than physical reality, causing rays to intersect the ground too early. | Check if distant lane width measures $> 3.7\text{ m}$ (standard highway width). | Recalibrate extrinsic pitch $\theta_{\text{pitch}}$ downward in increments of $0.1^\circ$. |
+| **Lane lines converge into a triangle ahead** | **Camera Pitch Under-Estimation**: The calibrated pitch angle is lower than reality, projecting ground points too far away. | Check if distant lane width measures $< 3.7\text{ m}$. | Recalibrate extrinsic pitch $\theta_{\text{pitch}}$ upward. |
+| **Distance errors oscillate during highway driving** | **Chassis Dynamic Pitch / Brake Squat**: Acceleration lifts the front end; braking compresses the front suspension. | Cross-correlate distance estimation error with longitudinal accelerometer $a_x(t)$. | Ingest chassis IMU pitch rate $\dot{\theta}$ and wheel height sensors into dynamic homography matrix $H(t)$. |
+
+---
+
+## 7. 🎯 Self-Check: Test Your Mental Model
+
+<details>
+<summary><b>Q1: If a camera has focal length $f_x = 1000\text{ px}$ and optical center $c_x = 960\text{ px}$, what is the horizontal angle of an object detected at pixel $u = 1460$?</b></summary>
+
+<br>
+
+**Answer**: 
+From the pinhole projection formula:
+$$u - c_x = f_x \tan(\theta) \implies 1460 - 960 = 500 = 1000 \cdot \tan(\theta)$$
+$$\tan(\theta) = \frac{500}{1000} = 0.5 \implies \theta = \arctan(0.5) \approx 26.57^\circ$$
+The object is located $26.57^\circ$ to the right of the camera's optical centerline.
+</details>
+
+<details>
+<summary><b>Q2: Why can't planar IPM be used to calculate the 3D bounding box dimensions of an oncoming semi-truck?</b></summary>
+
+<br>
+
+**Answer**: Because planar IPM is strictly a 2D-to-2D projection conditioned on the flat ground assumption ($Z_{\text{road}} = 0$). An oncoming semi-truck has height ($Z_{\text{height}} \approx 3.5\text{ m}$). Rays that hit the top of the truck do not touch the road; unprojecting them with $H^{-1}$ projects them far into the distance behind the truck, catastrophically warping its geometry. 3D bounding boxes require dense depth estimation, Bird's-Eye View (BEV) frustum transforms, or 3D Occupancy Networks.
+</details>

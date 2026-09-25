@@ -1,154 +1,229 @@
-# Module 07: Closed-Loop Control & Kinematics (Sebastian Thrun & Duckietown)
+# Chapter 08: Closed-Loop Control & Vehicle Kinematics
 
-> "A controller connects abstract coordinate trajectories to physical tires rolling on asphalt."
-
----
-
-## 🟢 Tier 1: Intuition & Diagnostics (Andrew Ng Style)
-
-### Why Open-Loop Control Always Crashes
-Imagine aiming your car down a straight highway lane, setting the steering wheel perfectly straight, and closing your eyes.
-Within 5 seconds, slight tire imbalances, wind gusts, or road crowns will nudge the car 10 centimeters off-center.
-Because errors accumulate over time, an open-loop vehicle will veer off the road and crash.
-
-**Closed-Loop Control**:
-Every 10 to 20 milliseconds, the vehicle measures its actual position relative to the planned path and computes corrective steering:
-- **Cross-Track Error ($e$)**: How many meters the car is to the left or right of the centerline.
-- **Heading Error ($\theta_e$)**: The angular difference between the car's nose and the road's direction.
-
-### The Two Titans of Robotics: Stanley vs Pure Pursuit
-- **Stanley Controller** (Sebastian Thrun / Stanford DARPA Grand Challenge): Measures error at the **front axle**. It directly sums heading alignment error with an arctangent cross-track correction. Known for razor-sharp tracking on roads.
-- **Pure Pursuit Controller** (MIT Duckietown / Carnegie Mellon): Measures error at the **rear axle**. It fits a smooth circular arc from the rear wheels to a "carrot" lookahead point $L_d$ ahead of the car. Known for extreme smoothness and simplicity.
-
-```
-       STANLEY CONTROLLER (Front Axle)               PURE PURSUIT CONTROLLER (Rear Axle)
-      Path  ─────────────────────────               Path  ─────────────● Lookahead Carrot
-                   ^ e (front error)                                  /
-                   │                                                /  Circular
-             [Front Axle]                                         /    Arc
-                  │                                        [Front Wheels]
-                  │ Car Body                                      │
-                  │                                        [Rear Wheels]
-             [Rear Axle]                                        (Fits arc to carrot)
-```
-
-### Andrew Ng Diagnostic Table: Steering & Control Failures
-
-| Symptom | Root Cause | Diagnostic Test | Solution |
-|---|---|---|---|
-| High-speed fishtailing / wild side-to-side oscillation | Actuator latency $\tau$ introduces phase lag $\omega \tau$ | Test tracking at 20 km/h vs 80 km/h | Add Smith Predictor or reduce Stanley gain $k$ at high speeds |
-| Car cuts the inside curb of tight corners | Pure pursuit lookahead distance $L_d$ set too large | Measure distance to path apex during turn | Dynamically scale lookahead: $L_d = \max(L_{\text{min}}, k_v \cdot v)$ |
-| Car settles into permanent 10cm offset to one side | Road banking / cross-wind creates steady-state bias | Check if CTE error does not converge to zero | Add an Integral term ($K_i \int e \, dt$) to create PID-Stanley |
-| Steering violently snaps left-and-right at near-zero speed | Division by zero: $\arctan\left(\frac{k e}{v}\right)$ as $v \to 0$ | Stop vehicle and inspect commanded steering angle | Add velocity softening parameter $\epsilon = 0.5\text{ m/s}$ in denominator |
+> **The Big Question**: *A self-driving car can compute the most beautiful mathematical trajectory in the world. But if the steering actuator commands turn the wheels even $1^\circ$ too aggressively at 70 mph, the car enters an uncontrollable sinusoidal death wobble that throws passengers across the road. How do we mathematically command physical steering actuators to track a millimeter-precise path through rain, speed variations, and tire dynamics?*
 
 ---
 
-## 🟡 Tier 2: Code From Scratch (Andrej Karpathy Style)
+## 1. 🚨 The Real-World Dilemma: The 70 MPH Death Wobble
 
-Let's build a Kinematic Bicycle Model and both controllers from scratch in raw NumPy.
+Imagine building a basic lateral steering controller for an autonomous vehicle:
+- You measure cross-track error $e(t)$ (how many meters you are away from the lane center).
+- You implement a standard Proportional (P) controller: $\delta = k \cdot e$.
+  - If you are $0.5\text{ m}$ to the right, turn left by $5^\circ$.
+  - If you are $0.5\text{ m}$ to the left, turn right by $5^\circ$.
+
+### The Parking Lot vs The Highway
+- In a parking lot at **$5\text{ mph}$ ($2.2\text{ m/s}$)**: The car smoothly glides into the center of the lane.
+- On the freeway at **$75\text{ mph}$ ($33.5\text{ m/s}$)**:
+  - The car drifts $0.2\text{ m}$ to the right.
+  - The controller turns the steering wheel left by $2^\circ$.
+  - Because velocity is high, the car shoots across the lane in **$0.15\text{ seconds}$**.
+  - By the time the steering motor reverses, the car has overshot $0.4\text{ m}$ to the left!
+  - It snaps back harder, overshooting by $0.8\text{ m}$, then $1.6\text{ m}$!
+  - In less than 3 seconds, the car is in a violent, divergent **death wobble** that rolls the vehicle!
+
+```
+Cross-Track Error e(t) at 75 mph (Naive P-Controller):
+   e(t) ▲
+        │         ╭──╮               ╭──────╮ (Crash!)
+        │        ╭╯  ╰╮             ╭╯      ╰──► Divergent Oscillation!
+   0.0m ┼───────┼──────┼───────────┼───────────► Time (t)
+        │      ╭╯      ╰╮         ╭╯
+        │     ╭╯        ╰╮       ╭╯
+        ▼    ╭╯          ╰───────╯
+```
+
+> [!CAUTION]
+> **Why Linear Control Fails in Automotive Systems**  
+> Vehicle heading change rate is governed by $\dot{\psi} = \frac{v}{L} \tan(\delta)$. **Lateral dynamics are multiplicatively proportional to speed ($v$)**. A steering command that produces a safe $0.1\text{ m/s}^2$ lateral acceleration at 10 mph produces a lethal $5.0\text{ m/s}^2$ sideways slide at 70 mph!
+
+---
+
+## 2. 💡 The Mental Model: The Kinematic Bicycle & The Stanley Controller
+
+### The Kinematic Bicycle Model
+A full 4-wheel passenger car with suspension geometry is mathematically complex. But for lateral steering control below $0.4g$ lateral acceleration, we collapse the two front wheels into a single virtual wheel and the two rear wheels into a single rear wheel:
+
+```
+            Front Wheel (Steered by δ)
+                   \
+                    \
+                     ══════════════ [Wheelbase L] ══════════════
+                                                               │
+                                                               │
+                                                       Rear Wheel (Fixed)
+```
+
+- Wheelbase $L$: Distance between front and rear axles (e.g. $2.8\text{ m}$).
+- Heading angle $\psi$: Orientation of the car chassis.
+- Steering angle $\delta$: Angle of the front steered tire.
+
+### The Sebastian Thrun Breakthrough: The Stanley Controller
+In 2005, Sebastian Thrun and his Stanford team won the historic **DARPA Grand Challenge** by inventing the **Stanley Controller**.
+
+Instead of measuring error at the rear axle or center of gravity, Stanley measures cross-track error $e(t)$ **at the front axle**:
+
+```
+                              Front Axle (Error e measured HERE)
+                                     │
+                 Cross-Track Error e │
+          ═══════════════════════════* ◄── Steering command points HERE
+         Path Centerline
+```
+
+The Stanley steering law combines two independent terms:
+1. **Heading Alignment**: $\theta_e = \psi_{\text{path}} - \psi_{\text{car}}$ (aligns wheels parallel to road).
+2. **Non-Linear Cross-Track Correction**: Steers wheels toward the path center, **damped by speed in the denominator**:
+
+$$\delta(t) = \theta_e(t) + \arctan\left( \frac{k \cdot e(t)}{v(t) + k_{\text{soft}}} \right)$$
+
+Look at the denominator: **$v(t) + k_{\text{soft}}$**:
+- At **low speed** ($v = 2\text{ m/s}$): $\frac{k \cdot e}{2}$ is large. The wheels turn aggressively to park.
+- At **high speed** ($v = 35\text{ m/s}$): $\frac{k \cdot e}{35}$ is tiny! The controller automatically turns down its steering gain, **completely eliminating high-speed oscillations**!
+- At **zero speed** ($v = 0$): $k_{\text{soft}}$ prevents division by zero!
+
+---
+
+## 3. 🧪 Lab Mission: Hands-On Simulator Experiments
+
+Scroll to the **Interactive Closed-Loop Control Studio** at the top of this chapter:
+
+1. **Experiment 1 (The Speed Instability Demonstration)**:
+   - Set **Velocity ($v$)** to `30 m/s` (67 mph).
+   - Set **Stanley Damping Parameter ($k_{\text{soft}}$)** to `0.0` and turn off velocity scaling.
+   - Click **Run Simulation**.
+   - *Observation*: Watch the car enter a violent sinusoidal oscillation, swinging outside the lane boundaries.
+2. **Experiment 2 (Activating Stanley Speed Damping)**:
+   - Reset the car. Enable **Stanley Speed Damping** ($k = 0.8, k_{\text{soft}} = 1.0$).
+   - Run the simulation again at `30 m/s`.
+   - *Observation*: The car tracks the curved S-bend lane with millimeter precision! Cross-track error stays below $0.03\text{ m}$.
+3. **Experiment 3 (Actuator Limits & Steering Saturation)**:
+   - Set **Max Steering Limit ($\delta_{\max}$)** to $10^\circ$ and drive through a sharp hairpin curve.
+   - *Observation*: The actuator saturates, demonstrating why kinematic controllers must know physical hardware limits.
+
+---
+
+## 4. 🛠️ The Karpathy Build: Stanley Controller from Scratch
+
+Here is the exact kinematic simulation and controller implemented in pure Python:
 
 ```python
 import numpy as np
 
 class KinematicBicycleModel:
     """
-    Standard Ackermann Steering Kinematic Bicycle Model.
-    Wheelbase L: distance between front and rear axles.
+    Bicycle kinematic motion model.
+    State: [x, y, yaw, v]
     """
-    def __init__(self, L: float = 2.8, dt: float = 0.05):
-        self.L = L
-        self.dt = dt
-        self.x = 0.0
-        self.y = 0.0
-        self.psi = 0.0 # Heading angle in radians
-        self.v = 0.0   # Forward speed in m/s
+    def __init__(self, x=0.0, y=0.0, yaw=0.0, v=0.0, L=2.87):
+        self.x = x
+        self.y = y
+        self.yaw = yaw      # Radians
+        self.v = v          # m/s
+        self.L = L          # Wheelbase in meters
 
-    def step(self, accel: float, delta: float):
-        """Integrates motion using 4th-order Runge-Kutta or Euler integration."""
-        # Clamp front wheel steering to physical rack limits (+/- 35 degrees)
-        delta = np.clip(delta, -np.deg2rad(35), np.deg2rad(35))
+    def update(self, throttle_acc: float, steer_delta: float, dt: float = 0.05):
+        """Advances physical state by time step dt using forward Euler."""
+        # 1. Update positions based on current heading and velocity
+        self.x += self.v * np.cos(self.yaw) * dt
+        self.y += self.v * np.sin(self.yaw) * dt
         
-        # State derivatives
-        dx = self.v * np.cos(self.psi)
-        dy = self.v * np.sin(self.psi)
-        dpsi = (self.v / self.L) * np.tan(delta)
-        dv = accel
+        # 2. Update heading based on front steering angle delta
+        self.yaw += (self.v / self.L) * np.tan(steer_delta) * dt
+        
+        # 3. Update velocity based on acceleration
+        self.v += throttle_acc * dt
+        self.v = max(0.0, self.v)  # No reverse in forward model
 
-        # Euler forward integration
-        self.x += dx * self.dt
-        self.y += dy * self.dt
-        self.psi += dpsi * self.dt
-        self.v += dv * self.dt
-
-def stanley_control(car: KinematicBicycleModel, target_x: float, target_y: float, 
-                    target_psi: float, k: float = 0.85, eps: float = 0.5) -> float:
+class StanleyController:
     """
-    Sebastian Thrun's Stanley Steering Controller.
-    Computes steering angle delta for the front axle.
+    Front-axle Stanley lateral tracking controller.
+    Ref: Hoffmann et al. (Stanford Racing Team, 2007)
     """
-    # 1. Front axle position
-    fx = car.x + car.L * np.cos(car.psi)
-    fy = car.y + car.L * np.sin(car.psi)
+    def __init__(self, k: float = 0.8, k_soft: float = 1.0, max_steer_deg: float = 35.0):
+        self.k = k
+        self.k_soft = k_soft
+        self.max_steer = np.deg2rad(max_steer_deg)
 
-    # 2. Heading alignment error (normalized to [-pi, pi])
-    heading_err = target_psi - car.psi
-    heading_err = np.arctan2(np.sin(heading_err), np.cos(heading_err))
-
-    # 3. Cross-track error vector from path to front axle
-    dx = fx - target_x
-    dy = fy - target_y
-    # Signed cross-track error: positive if car is to the right of path
-    cte = np.sin(target_psi) * dx - np.cos(target_psi) * dy
-
-    # 4. Stanley control law with low-speed softening epsilon
-    cte_term = np.arctan2(k * -cte, car.v + eps)
-    cmd_delta = heading_err + cte_term
-    return float(cmd_delta)
+    def compute_steering(self, vehicle: KinematicBicycleModel, 
+                               path_x: float, path_y: float, path_yaw: float) -> float:
+        """
+        Computes front-wheel steering command delta.
+        """
+        # 1. Calculate front axle coordinates
+        fx = vehicle.x + vehicle.L * np.cos(vehicle.yaw)
+        fy = vehicle.y + vehicle.L * np.sin(vehicle.yaw)
+        
+        # 2. Heading error normalized to [-pi, pi]
+        heading_error = path_yaw - vehicle.yaw
+        heading_error = (heading_error + np.pi) % (2 * np.pi) - np.pi
+        
+        # 3. Cross-track error (vector from path point to front axle)
+        dx = fx - path_x
+        dy = fy - path_y
+        # Cross product with path heading vector gives signed cross-track error
+        cross_track_error = -dx * np.sin(path_yaw) + dy * np.cos(path_yaw)
+        
+        # 4. Stanley control law with velocity damping in denominator
+        crosstrack_steering = np.arctan2(self.k * cross_track_error, 
+                                        vehicle.v + self.k_soft)
+        
+        steer_cmd = heading_error + crosstrack_steering
+        
+        # 5. Strict actuator hardware clamp
+        return float(np.clip(steer_cmd, -self.max_steer, self.max_steer))
 ```
 
 ---
 
-## 🔴 Tier 3: Mathematical Derivations & Proofs (Sebastian Thrun / Lyapunov)
+## 5. 📐 Mathematical Rigor: Non-Linear Lyapunov Stability Proof
 
-### 1. Complete Lyapunov Direct Method Proof for Stanley Stability
-- **Starting Point**: Let $e(t)$ be the signed cross-track error at the front axle. From the kinematic bicycle geometry, the error rate of change is:
-  $$\dot{e}(t) = -v(t) \sin(\theta_e(t) - \delta(t))$$
-- **Substituting the Stanley Law**:
-  The Stanley steering command is $\delta = \theta_e + \arctan\left(\frac{k \cdot e}{v}\right)$, meaning:
-  $$\theta_e - \delta = -\arctan\left(\frac{k \cdot e}{v}\right)$$
-  Using the exact trigonometric identity $\sin(\arctan(u)) = \frac{u}{\sqrt{1 + u^2}}$:
-  $$\sin\left(-\arctan\left(\frac{ke}{v}\right)\right) = -\frac{\frac{ke}{v}}{\sqrt{1 + \left(\frac{ke}{v}\right)^2}} = -\frac{k \cdot e}{\sqrt{v^2 + k^2 e^2}}$$
-- **Error Dynamics**:
-  $$\dot{e}(t) = -v \left(-\frac{k \cdot e}{\sqrt{v^2 + k^2 e^2}}\right) = -\frac{k \cdot v(t) \cdot e(t)}{\sqrt{v(t)^2 + k^2 e(t)^2}}$$
-- **Lyapunov Stability Candidate**:
-  Choose the continuously differentiable, positive-definite candidate function:
-  $$V(e) = \frac{1}{2} e^2 > 0 \quad (\forall e \neq 0)$$
-  Taking the time derivative:
-  $$\dot{V}(e) = e \cdot \dot{e} = -\frac{k \cdot v(t) \cdot e^2}{\sqrt{v(t)^2 + k^2 e(t)^2}}$$
-  For all $v(t) > 0$, $k > 0$, and $e \neq 0$:
-  $$\dot{V}(e) < 0 \quad \text{strictly!}$$
-  By **Lyapunov's Direct Method for Non-Autonomous Systems**, the origin $e = 0$ is **globally asymptotically stable**. Furthermore, for small $e \ll v/k$, $\dot{e} \approx -k \cdot e$, proving **exponential convergence** with time constant $\tau_{\text{conv}} = 1/k$!
+Why is the Stanley controller mathematically guaranteed to converge to the path without oscillating?
 
----
+Consider the rate of change of cross-track error $\dot{e}(t)$ as the vehicle travels with velocity $v$:
 
-## 🎓 Tier 4: Cutting-Edge Research & PhD Track
+$$\dot{e}(t) = -v \sin(\theta_e - \delta)$$
 
-### 1. Model Predictive Control (MPC) vs. End-to-End Neural Control
-- **The Limit of Stanley/Pure Pursuit**: Classical controllers assume linear tire adhesion. If a vehicle hydroplanes on ice or takes an evasive maneuver with lateral acceleration $a_{\text{lat}} > 0.6\text{g}$, the tires saturate (governed by Pacejka's Non-linear Magic Formula). Stanley will over-steer into a spin!
-- **Nonlinear Model Predictive Control (NMPC)**: Solves an online quadratic program (QP) over a receding horizon of 2 seconds, explicitly penalizing tire slip angles and actuator slew rates.
-- **Model Predictive Path Integral (MPPI)**: GPU-parallelized stochastic sampling (running 4,096 rollout simulations concurrently via PyTorch/CUDA) to achieve drift control and extreme obstacle avoidance without analytical gradients.
+Substitute the Stanley steering law $\delta = \theta_e + \arctan\left(\frac{ke}{v}\right)$:
 
-### 2. Open PhD Research Questions
-- *How can neural network end-to-end driving policies guarantee stability under unmodeled actuator delays without falling victim to high-frequency oscillation?*
-- *Can we synthesize neural Control Barrier Functions (CBFs) that formally prevent tire slip saturation during emergency obstacle evasion on wet pavement?*
+$$\dot{e}(t) = -v \sin\left( \theta_e - \left( \theta_e + \arctan\left(\frac{ke}{v}\right) \right) \right) = -v \sin\left( -\arctan\left(\frac{ke}{v}\right) \right)$$
+
+Using the identity $\sin(\arctan(u)) = \frac{u}{\sqrt{1 + u^2}}$:
+
+$$\dot{e}(t) = -v \left( -\frac{\frac{ke}{v}}{\sqrt{1 + (ke/v)^2}} \right) = -\frac{k e(t)}{\sqrt{1 + \left(\frac{k e(t)}{v}\right)^2}}$$
+
+For small cross-track errors ($ke \ll v$), the square root denominator $\approx 1$, yielding:
+
+$$\dot{e}(t) \approx -k \cdot e(t) \implies e(t) = e(0) \cdot e^{-k t}$$
+
+This is an **exponentially decaying differential equation**! The error decays to zero at an exponential rate determined strictly by gain $k$, with **zero imaginary roots and zero oscillatory overshoot**!
 
 ---
 
-## 🟣 Tier 5: Real-World Hardware & Practical Robotics
+## 6. 🩺 Andrew Ng's Diagnostic Field Guide
 
-### Tuning Controllers on Low-Cost Hardware (Duckiebot / RC Car)
-When deploying on an actual physical chassis:
-1. **Actuator Slew Rate Limiting**: Electric servos cannot teleport from $-30^\circ$ to $+30^\circ$ instantly. Typical limit: $\dot{\delta}_{\text{max}} \approx 35^\circ/\text{s}$. Enforce this in software to avoid burning servo gears!
-2. **Steering Trim Calibration**: Even with $\delta = 0$, physical wheel alignment is never perfect. Include a software calibration offset:
-   $$\delta_{\text{physical}} = \delta_{\text{command}} + \delta_{\text{trim}}$$
-3. **Deadband Compensation**: Cheap RC servos have $1\text{--}2^\circ$ of mechanical deadband around center. If commanded $|\delta| < 1.0^\circ$, output 0 to prevent motor jitter.
+| Observed Symptom | Underlying Mathematical Mechanism | Verification Test | Production Fix |
+| :--- | :--- | :--- | :--- |
+| **Steady-state cross-track offset on banked highways** | **Gravitational Lateral Force**: Banked roads produce constant lateral acceleration $g \sin(\phi)$ that pure P-terms cannot cancel. | Measure mean cross-track error over 10 seconds of constant banking. | Add an integral anti-windup term ($K_i \int e \, dt$) or feedforward banking gravity compensation. |
+| **Vehicle cuts corners aggressively on sharp curves** | **Preview Horizon Missing**: Front axle tracks current target point instead of looking ahead along the path curve. | Compare trajectory curvature $\kappa_{\text{path}}$ to vehicle path. | Add curvature feedforward: $\delta_{\text{ff}} = \arctan(L \cdot \kappa)$. |
+| **Violent steering shudder at near-zero speeds ($v < 0.2\text{ m/s}$)** | **Singularity at Zero Velocity**: Division by $v$ explodes when $k_{\text{soft}} = 0$. | Check if steering command spikes when stopping at a red light. | Set $k_{\text{soft}} \ge 1.0\text{ m/s}$ and deadband steering when $v < 0.1\text{ m/s}$. |
+
+---
+
+## 7. 🎯 Self-Check: Test Your Mental Model
+
+<details>
+<summary><b>Q1: Why does the Stanley controller measure cross-track error at the FRONT axle rather than the REAR axle?</b></summary>
+
+<br>
+
+**Answer**: Because the front wheels are the steered wheels. If you measure error at the front axle, turning the steering wheel directly changes the rate of change of that error $\dot{e}(t)$ with zero lag. If you measure error at the rear axle, the front wheels must turn first, rotate the vehicle body, and only then translate the rear axle—introducing a non-minimum phase zero and physical transport delay that causes control instability.
+</details>
+
+<details>
+<summary><b>Q2: What is the physical meaning of parameter $k_{\text{soft}}$ in the Stanley equation?</b></summary>
+
+<br>
+
+**Answer**: $k_{\text{soft}}$ has units of velocity ($\text{m/s}$). It prevents numerical singularity ($\frac{ke}{0}$) when the vehicle comes to a complete stop, and limits the maximum steering sensitivity at low speeds, preventing the steering motor from aggressively hunting when creeping through intersections.
+</details>

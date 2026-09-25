@@ -1,164 +1,196 @@
-# Module 05: Vector Space Tracking, Kalman Filtering & Online HD Maps
+# Chapter 06: Vector Space Tracking & Multi-Object Association
 
-> "Zero pre-recorded HD maps. The vehicle must construct its own HD vector map on the fly in real-time." — Elon Musk
-
----
-
-## 🟢 Tier 1: Intuition & Diagnostics (Andrew Ng Style)
-
-### Why Can't We Plan Directly from Raw Detections?
-Imagine your neural network detects a lead vehicle at distance $X=25\text{m}$.
-- On Frame 100: It sees the car at $25.2\text{m}$.
-- On Frame 101: A truck momentarily blocks the view; detection disappears!
-- On Frame 102: The car reappears at $24.8\text{m}$.
-
-If your planner reacted to raw detections, the vehicle would slam on the brakes on Frame 100, accelerate aggressively on Frame 101, and panic on Frame 102.
-Furthermore, **raw 2D/3D detections do not provide velocity!** A single static bounding box cannot tell you whether a car is parked or reversing at 50 km/h.
-
-We need **Recursive State Estimation**:
-1. Maintain persistent object tracks across temporary occlusions.
-2. Estimate full kinematic state vectors: position $(x, y)$ **and** velocity $(v_x, v_y)$.
-3. Assign incoming detections to existing tracks without causing **Identity Switches**.
-
-```
-    DETECTION FLICKER (RAW SENSORS)               KALMAN FILTER ESTIMATION (VECTOR SPACE)
-    t=1: [Car Detected at 20m]                    t=1: State = 20.0m, v = 0.0 m/s
-    t=2: [LOST - 0 Detections!]   ─────────────>  t=2: State = 20.6m, v = 14.1 m/s (Propagated!)
-    t=3: [Car Detected at 21.2m]                  t=3: State = 21.2m, v = 14.2 m/s (Fused!)
-    Result: Spastic phantom braking               Result: Butter-smooth cruise control
-```
-
-### Andrew Ng Diagnostic Table: Tracking & Association Failures
-
-| Symptom | Root Cause | Diagnostic Test | Solution |
-|---|---|---|---|
-| Two cars cross at an intersection and swap track IDs | Naive Euclidean distance association | Measure distance between tracks during closest approach ($d < 1.0\text{m}$) | Use Mahalanobis distance gating ($d_M^2 \le 5.99$) |
-| Covariance matrix $P$ blows up to infinity | Process noise $Q$ too high relative to measurement frequency | Inspect trace $\text{Tr}(P)$ over time | Re-tune process noise covariance $Q$; check sensor timestamp delta $\Delta t$ |
-| Track lags behind the physical car during hard braking | Constant velocity model assumes zero acceleration | Calculate innovation residual $y = z - H\mu^-$ | Implement Extended Kalman Filter (EKF) with constant acceleration or turn-rate |
-| Phantom tracks persist for 10 seconds after obstacle leaves | Death threshold (max missed frames) set too high | Check track lifetime when $z$ is absent | Delete unassigned tracks after $M_{\text{missed}} \ge 3$ consecutive frames |
+> **The Big Question**: *In video frame 101, your camera detects a white sedan at coordinates $(15.2, 2.1)$. In frame 102, camera noise places a detection at $(15.9, 2.3)$. How does the vehicle mathematically prove that this is the exact same sedan continuing along its path rather than a brand-new obstacle—and how does a Kalman filter filter out sensor jitter to calculate exact physical velocity?*
 
 ---
 
-## 🟡 Tier 2: Code From Scratch (Andrej Karpathy Style)
+## 1. 🚨 The Real-World Dilemma: The Identity Swap & Velocity Jitter Trap
 
-Let's build a self-contained 2D Kalman Filter and Hungarian Data Associator in raw NumPy.
+Every sensor in the real world is noisy:
+- Camera detection coordinates jitter by $\pm 0.3\text{ m}$ from frame to frame due to rolling shutter and suspension vibration.
+- If you compute velocity using simple naive finite differences:
+  $$v_x = \frac{x_t - x_{t-1}}{\Delta t}$$
+  At $\Delta t = 0.033\text{ s}$ (30 FPS), a tiny measurement noise of $\Delta x = 0.4\text{ m}$ produces a calculated velocity spike of:
+  $$v = \frac{0.4}{0.033} = \mathbf{12.1\text{ m/s}} \approx \mathbf{27\text{ mph!}}$$
+- A stationary car waiting at a red light will appear to violently vibrate forward and backward at 27 mph, causing your autonomous planner to slam on the brakes!
+
+### The Multi-Object Association Dilemma
+Now imagine highway traffic with 6 identical silver sedans driving closely together:
+- When two cars overtake and cross paths, how does the vehicle ensure it doesn't swap their identities (Track ID Switch)?
+- If Track ID 14 (a car turning away safely) swaps with Track ID 15 (a car cutting directly into your lane), the vehicle will fail to brake in time.
+
+```
+Frame t:                             Frame t+1:
+  Track 1 (Fast) ──►                   Track 1 ──┐
+                     CROSSING                    ├──► ??? Identity Swap!
+  Track 2 (Slow) ──►                   Track 2 ──┘
+```
+
+---
+
+## 2. 💡 The Mental Model: The Kalman Filter & Mahalanobis Distance
+
+### The Kalman Filter: Physics Prediction + Sensor Correction
+Think of how you track a baseball in flight:
+1. **Physics Prediction (Internal Model)**: When you blink your eyes, you know the ball doesn't teleport. You use high school kinematics ($\mathbf{x} = \mathbf{x}_0 + \mathbf{v} t$) to predict where the ball *should* be.
+2. **Sensor Measurement (Observation)**: You open your eyes and see a blurry shape near your predicted point.
+3. **Optimal Fusion (Kalman Gain)**: You weigh your physics prediction against your visual measurement based on **which one has less uncertainty**.
+
+```
+State Uncertainty (Covariance P):
+      Prediction Step (Uncertainty Grows): 
+             [─────── Uncertainty Blob ───────]
+      Measurement Fusion (Uncertainty Contracts):
+                     [── Tight Belief ──]
+```
+
+### Why Euclidean Distance Fails for Tracking
+If a detected vehicle was traveling at 65 mph in the center lane:
+- In the next frame, finding the detection $1.5\text{ m}$ further along the lane is **completely expected** (consistent with high velocity).
+- But finding the detection $1.5\text{ m}$ *perpendicular* across the lane divider means the car just made an aggressive emergency swerve!
+
+Naive Euclidean distance treats both errors identically ($1.5\text{ m}$).  
+**Mahalanobis Distance** warps space using the covariance matrix $S$:
+
+$$d_M = \sqrt{(\mathbf{z} - \hat{\mathbf{z}})^T S^{-1} (\mathbf{z} - \hat{\mathbf{z}})}$$
+
+It measures distance in units of **standard deviations along the ellipse of motion**, making association robust to velocity and heading!
+
+---
+
+## 3. 🧪 Lab Mission: Hands-On Simulator Experiments
+
+Scroll to the **Interactive Vector Space Tracker Studio** at the top of this chapter:
+
+1. **Experiment 1 (Sensor Noise vs Filtered State)**:
+   - Turn **Measurement Noise ($\sigma_{\text{meas}}$)** up to `1.5m`.
+   - Watch the raw red detection dots bounce erratically across the lane.
+   - *Observation*: Look at the solid green Kalman filter trajectory. Despite the violent measurement jitter, the filtered velocity vector remains smooth and steady!
+2. **Experiment 2 (Tracking Through Occlusion)**:
+   - Click the **Occlude Target (3s)** button. The red sensor detections stop completely.
+   - *Observation*: The green tracker continues to advance forward monotonically using pure physical kinematics ($\mathbf{x} = F \mathbf{x}$). Notice how the blue covariance ellipse steadily expands, reflecting growing uncertainty until the sensor re-acquires the car!
+
+---
+
+## 4. 🛠️ The Karpathy Build: 2D Kalman Filter from Scratch
+
+Here is the exact linear-quadratic estimation engine implemented in pure Python with zero black box libraries:
 
 ```python
 import numpy as np
 
-class KalmanVehicleTrack:
+class KalmanFilter2D:
     """
-    2D Linear Kalman Filter for Vehicle State Tracking.
-    State vector: x = [pos_x, pos_y, vel_x, vel_y]^T
+    Constant-Velocity 2D Kalman Filter tracking position [x, y] and velocity [vx, vy].
+    State vector: x = [px, py, vx, vy]^T
     """
-    def __init__(self, track_id: int, init_x: float, init_y: float):
-        self.track_id = track_id
-        # State vector
-        self.x = np.array([init_x, init_y, 0.0, 0.0], dtype=np.float64)
+    def __init__(self, dt: float = 0.05, std_pos: float = 0.5, std_vel: float = 1.0):
+        self.dt = dt
         
-        # Initial state covariance P (high uncertainty on velocities)
-        self.P = np.diag([1.0, 1.0, 10.0, 10.0])
+        # State transition matrix F: px' = px + dt * vx
+        self.F = np.array([
+            [1.0, 0.0, dt,  0.0],
+            [0.0, 1.0, 0.0, dt ],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0]
+        ])
         
-        # Measurement matrix H (we measure position x, y directly)
+        # Measurement matrix H: we only observe position [px, py]
         self.H = np.array([
             [1.0, 0.0, 0.0, 0.0],
             [0.0, 1.0, 0.0, 0.0]
-        ], dtype=np.float64)
+        ])
         
-        # Sensor measurement noise covariance R
-        self.R = np.diag([0.25, 0.25])
+        # State estimation covariance matrix P
+        self.P = np.eye(4) * 10.0
         
-        # Process noise covariance Q
-        self.Q = np.diag([0.05, 0.05, 0.5, 0.5])
-        self.missed_frames = 0
+        # Process noise covariance Q (kinematic acceleration uncertainty)
+        self.Q = np.eye(4) * 0.1
+        
+        # Measurement noise covariance R (sensor resolution uncertainty)
+        self.R = np.eye(2) * (std_pos ** 2)
+        
+        # Estimated state
+        self.x = np.zeros((4, 1))
 
-    def predict(self, dt: float):
-        """Kinematic state propagation: x_t = F * x_{t-1}"""
-        F = np.array([
-            [1.0, 0.0,  dt, 0.0],
-            [0.0, 1.0, 0.0,  dt],
-            [0.0, 0.0, 1.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0]
-        ], dtype=np.float64)
-        
-        self.x = F @ self.x
-        self.P = F @ self.P @ F.T + self.Q
-        self.missed_frames += 1
-
-    def compute_mahalanobis(self, z: np.ndarray) -> float:
-        """Computes statistical Mahalanobis distance squared to incoming detection z."""
-        innovation = z - (self.H @ self.x)
-        S = self.H @ self.P @ self.H.T + self.R
-        d_m_sq = float(innovation.T @ np.linalg.inv(S) @ innovation)
-        return d_m_sq
+    def predict(self):
+        """Propagates state and covariance forward using physics model."""
+        self.x = self.F @ self.x
+        self.P = self.F @ self.P @ self.F.T + self.Q
+        return self.x
 
     def update(self, z: np.ndarray):
-        """Bayesian conditioning: fuses sensor measurement z into track belief."""
-        y = z - (self.H @ self.x)
-        S = self.H @ self.P @ self.H.T + self.R
-        K = self.P @ self.H.T @ np.linalg.inv(S) # Kalman Gain
+        """
+        Fuses noisy measurement z = [px_meas, py_meas]^T into belief state.
+        """
+        # Innovation (measurement residual)
+        y = z.reshape(2, 1) - self.H @ self.x
         
+        # Innovation covariance S
+        S = self.H @ self.P @ self.H.T + self.R
+        
+        # Optimal Kalman Gain K
+        K = self.P @ self.H.T @ np.linalg.inv(S)
+        
+        # Updated state estimate
         self.x = self.x + K @ y
+        
+        # Updated covariance estimate (Joseph form for stability)
         I = np.eye(4)
         self.P = (I - K @ self.H) @ self.P
-        self.missed_frames = 0
+        return self.x
 ```
 
 ---
 
-## 🔴 Tier 3: Mathematical Derivations & Proofs (MITx Probability)
+## 5. 📐 Mathematical Rigor: The Kalman Filter Equations
 
-### 1. Bayesian Derivation of the Kalman Filter Update
-- **Starting Point**: Let the prior state belief be $x \sim \mathcal{N}(\mu^-, P^-)$. The likelihood of sensor observation $z$ is $z \mid x \sim \mathcal{N}(Hx, R)$.
-- **Proof via Product of Gaussians**:
-  By Bayes' Rule:
-  $$p(x \mid z) \propto p(z \mid x) \cdot p(x)$$
-  $$\propto \exp\left( -\frac{1}{2} \left[ (z - Hx)^T R^{-1} (z - Hx) + (x - \mu^-)^T (P^-)^{-1} (x - \mu^-) \right] \right)$$
-  Expanding the quadratic terms in $x$:
-  $$J(x) = x^T (H^T R^{-1} H + (P^-)^{-1}) x - 2 x^T (H^T R^{-1} z + (P^-)^{-1} \mu^-) + \text{const}$$
-  Completing the square, the posterior precision matrix is:
-  $$P^{-1} = (P^-)^{-1} + H^T R^{-1} H$$
-  Applying the **Woodbury Matrix Identity** to invert $P^{-1}$:
-  $$P = (I - K H) P^-, \quad \text{where } K = P^- H^T (H P^- H^T + R)^{-1}$$
-  The posterior mean is:
-  $$\mu = \mu^- + K (z - H \mu^-)$$
+### Phase 1: Prediction (Time Update)
+$$\mathbf{x}_{k \mid k-1} = F_k \mathbf{x}_{k-1 \mid k-1}$$
+$$P_{k \mid k-1} = F_k P_{k-1 \mid k-1} F_k^T + Q_k$$
 
-### 2. Analytical Road Curvature $\kappa(x)$ Proof
-- **Theorem**: For a cubic lane polynomial $y(x) = c_0 + c_1 x + c_2 x^2 + c_3 x^3$, road curvature is given by:
-  $$\kappa(x) = \frac{|2 c_2 + 6 c_3 x|}{\left(1 + (c_1 + 2 c_2 x + 3 c_3 x^2)^2\right)^{3/2}}$$
-- **Proof**:
-  Curvature is defined as the angular rate of change with respect to arc length: $\kappa = |\frac{d\psi}{ds}|$.
-  Since $\psi(x) = \arctan(y'(x))$, by the chain rule:
-  $$\frac{d\psi}{dx} = \frac{y''(x)}{1 + (y'(x))^2}$$
-  From the differential line element $ds = \sqrt{1 + (y'(x))^2} \, dx$:
-  $$\kappa(x) = \frac{d\psi/dx}{ds/dx} = \frac{\frac{y''(x)}{1 + (y'(x))^2}}{\sqrt{1 + (y'(x))^2}} = \frac{|y''(x)|}{(1 + (y'(x))^2)^{3/2}}$$
-  Substituting $y'(x) = c_1 + 2 c_2 x + 3 c_3 x^2$ and $y''(x) = 2 c_2 + 6 c_3 x$ completes the proof.
+### Phase 2: Correction (Measurement Update)
+$$\mathbf{y}_k = \mathbf{z}_k - H_k \mathbf{x}_{k \mid k-1} \quad \text{(Innovation)}$$
+$$S_k = H_k P_{k \mid k-1} H_k^T + R_k \quad \text{(Innovation Covariance)}$$
+$$K_k = P_{k \mid k-1} H_k^T S_k^{-1} \quad \text{(Optimal Kalman Gain)}$$
+$$\mathbf{x}_{k \mid k} = \mathbf{x}_{k \mid k-1} + K_k \mathbf{y}_k$$
+$$P_{k \mid k} = (I - K_k H_k) P_{k \mid k-1}$$
+
+> [!NOTE]
+> **Bayesian Contraction Theorem**  
+> Notice that the updated covariance $P_{k|k} = (I - K H) P_{k|k-1}$ is strictly smaller than the prior covariance $P_{k|k-1}$. In probability theory, observing independent information **always contracts entropy and reduces uncertainty**!
 
 ---
 
-## 🎓 Tier 4: Cutting-Edge Research & PhD Track
+## 6. 🩺 Andrew Ng's Diagnostic Field Guide
 
-### 1. Vectorized Online HD Map Construction: MapTR (ICCV 2023)
-Traditional self-driving systems relied on pre-mapped centimeter-accurate HD Maps. When construction changes lane geometry, pre-recorded maps cause fatal collisions.
-- **MapTR & MapTRv2 (ICCV 2023 / TPAMI 2024)**: Models lane dividers and road boundaries as **structured point sets** learned via hierarchical bipartite matching queries.
-- Generates fully vectorized cubic lane splines in real time directly from surround video at 35 FPS, completely eliminating the need for pre-surveyed HD maps!
-
-### 2. Graph Neural Network (GNN) Tracking
-Classic Kalman tracking treats each object independently.
-- In dense traffic, vehicles interact: when Lead Car A brakes, Following Car B must brake.
-- Modern research uses **Spatio-Temporal Graph Neural Networks** where nodes represent tracked agents and edges represent interaction attention, predicting joint future covariances over time.
+| Observed Symptom | Underlying Mathematical Mechanism | Verification Test | Production Fix |
+| :--- | :--- | :--- | :--- |
+| **Track ID switches when two vehicles pass each other** | **Euclidean Gating Overlap**: Naive association gates overlap during close proximity. | Compute cross-track Mahalanobis distance between tracks $i$ and $j$. | Use Hungarian Algorithm (Munkres) with joint cost incorporating appearance embeddings (Re-ID). |
+| **Filter diverges or covariance $P$ becomes non-positive definite** | **Numerical Roundoff in Covariance**: The update $(I - KH)P$ loses symmetry due to floating point error. | Check eigenvalues of $P$; if any $\lambda_i \le 0$, filter has collapsed. | Use Joseph Form: $P = (I - KH)P(I - KH)^T + KRK^T$, or force symmetry: $P = \frac{1}{2}(P + P^T)$. |
+| **Filtered position lags several meters behind turning cars** | **Process Noise $Q$ Underestimated**: The constant-velocity model refuses to believe the car is accelerating or turning. | Measure innovation residual magnitude $\|\mathbf{y}\|$ during maneuvers. | Increase acceleration variance in $Q$ or upgrade to an Unscented Kalman Filter (UKF) with a bicycle motion model. |
 
 ---
 
-## 🟣 Tier 5: Real-World Hardware & Practical Robotics
+## 7. 🎯 Self-Check: Test Your Mental Model
 
-### Multi-Sensor Latency Synchronization
-In physical robotics (e.g. Comma 3X or Duckiebot):
-- Camera frames arrive with $33\text{ ms}$ exposure latency.
-- IMU gyro updates arrive at $200\text{ Hz}$ ($5\text{ ms}$ interval).
-- Wheel speed encoders arrive asynchronously via CAN bus.
+<details>
+<summary><b>Q1: What happens to the Kalman Gain $K$ if sensor measurement noise becomes infinitely large ($R \to \infty$)?</b></summary>
 
-**The Solution**: Maintain a circular timestamp buffer. When a delayed camera measurement arrives with timestamp $t_{\text{cam}} = t_{\text{now}} - 45\text{ms}$:
-1. Roll back the Kalman state to $t_{\text{cam}}$.
-2. Execute the `update()` step with the new detection.
-3. Fast-forward the state back to $t_{\text{now}}$ by re-applying the buffered IMU and wheel odometry updates!
+<br>
+
+**Answer**: 
+From the Kalman Gain formula:
+$$K = P H^T (H P H^T + R)^{-1}$$
+As $R \to \infty$, the term $(H P H^T + R)^{-1} \to 0$, causing $K \to 0$.  
+The updated state becomes $\mathbf{x} = \mathbf{x}_{\text{pred}} + 0 \cdot \mathbf{y} = \mathbf{x}_{\text{pred}}$.  
+The filter completely ignores the noisy sensor and relies $100\%$ on its physical kinematic prediction!
+</details>
+
+<details>
+<summary><b>Q2: Why is the state vector $\mathbf{x}$ tracked in the global metric world frame rather than the vehicle's ego-camera frame?</b></summary>
+
+<br>
+
+**Answer**: If tracks are stored in the ego-camera frame, whenever your own car accelerates, brakes, or turns its steering wheel, every other object in the world will appear to accelerate or rotate in the opposite direction! Tracking in the stationary metric world frame decouples the motion of external vehicles from the ego-car's own driving maneuvers.
+</details>
