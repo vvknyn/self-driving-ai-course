@@ -9,41 +9,40 @@ A hands-on, production-grade course and open-source codebase for mastering moder
 
 ---
 
-## 🎯 Pedagogical Philosophy
+## 🎯 Pedagogical Lineage: 5 Teaching Styles Unified
 
-This course marries the best educational principles from the pioneers of AI and robotics:
+This course marries the educational principles from the greatest minds in AI and robotics:
 
 ```
-  ┌────────────────────────────────────────────────────────────────────────┐
-  │                                                                        │
-  │   Andrew Ng's Rigor             Sebastian Thrun's Robotics             │
-  │   - Mathematical clarity        - Kinematic bicycle dynamics           │
-  │   - Explicit tensor dimensions  - Stanley & MPC controllers            │
-  │   - Assert-based unit tests     - Kalman state estimation              │
-  │                                                                        │
-  │                    \                  /                                │
-  │                     ▼                ▼                                 │
-  │            ┌──────────────────────────────────┐                        │
-  │            │     MINI-FSD COURSE ENGINE       │                        │
-  │            └──────────────────────────────────┘                        │
-  │                     ▲                ▲                                 │
-  │                    /                  \                                │
-  │                                                                        │
-  │   FastAI Intuitive Code-First   Tesla FSD Vision Architecture          │
-  │   - Run & see output in 60s     - Zero-LiDAR multi-camera rig          │
-  │   - "Break It & Fix It" drills  - BEV metric space + 3D Occupancy      │
-  │   - Concepts earned on real data- Vector space scene graph             │
-  │                                                                        │
-  └────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                  THE PEDAGOGICAL LINEAGE                                    │
+├─────────────────────────┬───────────────────────────────────────────────────────────────────┤
+│ 📐 Andrew Ng            │ Intuition first, diagnostic trees, bias/variance error analysis.  │
+├─────────────────────────┼───────────────────────────────────────────────────────────────────┤
+│ 🛠️ Andrej Karpathy      │ "Code from scratch", inspect every tensor, demystify the black box│
+├─────────────────────────┼───────────────────────────────────────────────────────────────────┤
+│ 🏎️ Sebastian Thrun      │ Probabilistic robotics, kinematic bicycle models, Stanley control.│
+├─────────────────────────┼───────────────────────────────────────────────────────────────────┤
+│ 🦆 MIT Duckietown       │ Tactile real-world robotics, low-cost hardware, camera calibration│
+├─────────────────────────┼───────────────────────────────────────────────────────────────────┤
+│ 🎓 OpenDriveLab (UniAD) │ Planning-oriented paradigm: perception exists only to serve control│
+└─────────────────────────┴───────────────────────────────────────────────────────────────────┘
 ```
 
-1. **FastAI Code-First Flow**: Every module opens with a runnable script that immediately outputs visual driving predictions. No gatekeeping theory before seeing working code.
-2. **Break It & Fix It**: Every module features an intentional bug drill (e.g. calibration pitch perturbation, loss gradient starvation, occupancy memory amnesia, controller latency fishtailing). You break it, observe the failure mode, and engineer the fix.
-3. **First-Principles Math Derivations**: No formula is presented as magic. Every equation (pinhole similar triangles, Kendall & Gal multi-task MLE loss, LSS expectation outer product, Kalman Bayes conditioning, quintic boundary value linear systems, Stanley Lyapunov stability) is derived step-by-step from foundational physics and probability.
-4. **Curated Free Tutorials**: Each module links directly to world-class free video lectures (3Blue1Brown, MIT OpenCourseWare 6.041x, StatQuest, Brian Douglas Control Lectures, Columbia Vision). Full catalog in [`docs/00_mathematical_foundations_and_tutorial_guide.md`](docs/00_mathematical_foundations_and_tutorial_guide.md).
-5. **Andrew Ng Diagnostic Clarity**: Every equation is paired with tensor dimensions `(B, N_cams, C, H, W) -> (B, X, Y, Z, C)`, coordinate frame conventions, and unit tests.
-6. **Sebastian Thrun Control Foundations**: Grounded in vehicle kinematics, path lattices, cost-map evaluations, and Stanley/MPC steering control.
-7. **Interactive Visual Explainers**: Dedicated, zero-dependency browser-based visual animations and interactive simulators for every major mathematical concept.
+---
+
+## 🧭 Just-In-Time (JIT) Multi-Depth Learning
+
+Whether you are a college student with basic calculus, an engineer wanting to build a physical robot, or an aspiring researcher applying for a top-tier PhD, **you choose your depth Just-In-Time**:
+
+- 🟢 **Tier 1: Intuition & Diagnostics (Andrew Ng Style)**: 30,000-ft mental models, analogies, failure mode tables.
+- 🟡 **Tier 2: Code From Scratch (Andrej Karpathy Style)**: Pure PyTorch/NumPy, explicit tensor shape tracing `(B, N, C, H, W) -> (B, X, Y, Z)`, zero black boxes.
+- 🔴 **Tier 3: Mathematical Derivations & Proofs (Sebastian Thrun / MITx 6.041x)**: First-principles proofs from probability axioms, Bayes' rule, Lyapunov stability theorems.
+- 🎓 **Tier 4: Cutting-Edge Research & PhD Track (CVPR 2023–2026)**: UniAD, VAD, Tesla FSD v12 End-to-End foundation models, 3D Gaussian Splatting, open PhD research problems.
+- 🟣 **Tier 5: Real-World Hardware & Robotics (Duckietown / Comma AI)**: Zero-electronics hardware roadmap, $30 USB webcam calibration, 80 Hz embedded latency budgeting.
+
+> 📖 Read the full guide: [**Just-In-Time Depth Learning Guide (`docs/00_jit_depth_learning_guide.md`)**](docs/00_jit_depth_learning_guide.md)  
+> 🔬 Research frontier: [**Cutting-Edge Research & PhD Roadmap (`docs/09_cutting_edge_research_and_phd_roadmap.md`)**](docs/09_cutting_edge_research_and_phd_roadmap.md)
 
 ---
 
@@ -51,16 +50,16 @@ This course marries the best educational principles from the pioneers of AI and 
 
 The course is structured into 9 modules (Module 0 through 8). Each module is a **fully functional, standalone project**, yet all modules chain together to form the unified end-to-end Mini-FSD pipeline.
 
-| Module | Title | Key Concepts | Hands-On Project | Interactive Visual Explainer |
+| Module | Title | Key Concepts & JIT Tiers | Hands-On Project | Interactive Visual Explainer |
 |---|---|---|---|---|
 | **00** | **The Driving ML Gym** | Tensors, autograd, backpropagation, focal loss, transfer learning, data loaders | Fine-tune a real-time driving scene classifier on multi-class road crops | [`00_ml_gym`](modules/00_ml_gym/) |
 | **01** | **Camera Rig & Multi-View Geometry** | Pinhole model, intrinsics $K$, extrinsics $[R \mid T]$, lens distortion, Inverse Perspective Mapping (IPM) | Calibrate a 3-camera rig (Front, Left, Right) & warp road to metric ground plane | [`01_camera_geometry_ipm.html`](visual_explainers/01_camera_geometry_ipm.html) |
-| **02** | **Semantic Perception (HydraNet)** | Shared backbone, branched multi-task heads, multi-task uncertainty loss weighting | Build a 4-head driving network (lanes, vehicles, freespace, traffic lights) | [`02_hydranet_architecture.html`](visual_explainers/02_hydranet_architecture.html) |
+| **02** | **Semantic Perception (HydraNet)** | Shared backbone, branched multi-task heads, homoscedastic uncertainty loss weighting (MLE) | Build a 4-head driving network (lanes, vehicles, freespace, depth) | [`02_hydranet_architecture.html`](visual_explainers/02_hydranet_architecture.html) |
 | **03** | **Bird's-Eye View (BEV) Transformation** | Monocular depth ambiguity, Lift-Splat-Shoot (LSS), frustum voxelization, vertical pooling | Lift 2D multi-camera features into a top-down metric BEV feature map | [`03_lift_splat_shoot_bev.html`](visual_explainers/03_lift_splat_shoot_bev.html) |
 | **04** | **3D Occupancy & Temporal Dynamics** | 3D voxel grids, Spatiotemporal GRU fusion, dynamic motion flow vectors $(\Delta x, \Delta y, \Delta z)$ | Train a temporal occupancy network to track visible and occluded obstacles | [`04_occupancy_network_3d.html`](visual_explainers/04_occupancy_network_3d.html) |
 | **05** | **Vector Space Tracking & HD Maps** | Kalman filtering, Hungarian bipartite matching, cubic spline lane graph extraction | Build an online HD-map-free vector scene graph with persistent object IDs | [`05_vector_space_tracker.html`](visual_explainers/05_vector_space_tracker.html) |
-| **06** | **Learned Trajectory Planning** | Quintic polynomial sampling, lattice planners, multi-objective cost evaluation | Generate candidate path fanouts and select optimal collision-free trajectories | [`06_trajectory_planner.html`](visual_explainers/06_trajectory_planner.html) |
-| **07** | **Closed-Loop Control & Kinematics** | Bicycle vehicle dynamics, Pure Pursuit, Stanley lateral control, Model Predictive Control (MPC) | Drive through complex obstacle courses and highway merges in closed-loop sim | [`07_closed_loop_simulator.html`](visual_explainers/07_closed_loop_simulator.html) |
+| **06** | **Learned Trajectory Planning** | Quintic polynomial sampling, lattice planners, multi-objective cost evaluation (UniAD) | Generate candidate path fanouts and select optimal collision-free trajectories | [`06_trajectory_planner.html`](visual_explainers/06_trajectory_planner.html) |
+| **07** | **Closed-Loop Control & Kinematics** | Bicycle vehicle dynamics, Pure Pursuit, Stanley lateral control, Lyapunov stability | Drive through complex obstacle courses and highway merges in closed-loop sim | [`07_closed_loop_simulator.html`](visual_explainers/07_closed_loop_simulator.html) |
 | **08** | **Capstone: Full Mini-FSD Integration** | End-to-end pipeline wiring, sensor-to-actuation streaming, failure diagnostics | Run the complete multi-cam → BEV → Occupancy → Planner → Controller pipeline | [`08_fsd_dashboard.html`](visual_explainers/08_fsd_dashboard.html) |
 
 ---
@@ -105,6 +104,14 @@ Each module is self-contained under `modules/XX_name/` with four essential files
 
 ---
 
+## 🛠️ Course Architecture & Synthesis Blueprint
+
+Want to create a similar world-class, production-grade course for another scientific or engineering domain (e.g., **Computational Biology**, **Quantum Computing**, **Robotics**, **Quantitative Finance**)?
+
+Read the **[Generalized Course Generation Master Prompt](docs/COURSE_GENERATION_PROMPT_TEMPLATE.md)** — a field-agnostic meta-prompt encoding the 5 Titans Pedagogy, JIT Multi-Depth tiers, strict anti-hallucination protocols, and mobile interactive visual explainers.
+
+---
+
 ## 📂 Repository Structure
 
 ```
@@ -120,7 +127,9 @@ self-driving-ai-course/
 │   ├── 05_vector_space_tracking.md    # Kalman Filtering & Vector Lane Graphs
 │   ├── 06_trajectory_planning.md      # Quintic Splines & Cost-Map Optimization
 │   ├── 07_control_and_kinematics.md   # Stanley, Pure Pursuit, and MPC Formulations
-│   └── 08_fsd_system_architecture.md  # End-to-End System Integration & FSD V12
+│   ├── 08_fsd_system_architecture.md  # End-to-End System Integration & FSD V12
+│   ├── 09_cutting_edge_research_and_phd_roadmap.md # SOTA Literature & PhD Horizons
+│   └── COURSE_GENERATION_PROMPT_TEMPLATE.md # Generalized Master Meta-Prompt for Any Course
 ├── modules/                           # Standalone executable projects
 │   ├── 00_ml_gym/                     # FastAI ML Primer for Autonomous Driving
 │   ├── 01_camera_geometry/            # Multi-Camera Rig Calibration & IPM

@@ -2,13 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Module 08: End-to-End FSD Mission Control Dashboard</title>
   <style>
     :root {
       --bg: #090d16; --panel: #131b26; --border: #232f3e; --text: #c9d1d9;
       --accent: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body {
       background: var(--bg); color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -17,25 +18,46 @@
     .header {
       display: flex; justify-content: space-between; align-items: center;
       margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 10px;
+      flex-wrap: wrap; gap: 10px;
     }
     .back-link { color: var(--accent); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
     .cam-strip {
-      display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 12px; margin-bottom: 14px;
+      display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 12px; margin-bottom: 14px;
+    }
+    @media (max-width: 850px) {
+      body { padding: 12px; }
+      .cam-strip {
+        display: flex; overflow-x: auto; gap: 10px; padding-bottom: 6px;
+        scroll-snap-type: x mandatory;
+      }
+      .cam-box {
+        min-width: 220px; flex: 1 0 220px; scroll-snap-align: start;
+      }
     }
     .cam-box {
       background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
       padding: 8px; position: relative;
     }
     .cam-label {
-      position: absolute; top: 12px; left: 14px; background: rgba(0,0,0,0.7);
-      padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; color: #fff;
+      position: absolute; top: 12px; left: 14px; background: rgba(0,0,0,0.75);
+      padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; color: #fff;
     }
-    .cam-canvas { width: 100%; height: 140px; background: #000; border-radius: 4px; display: block; }
-    .main-grid { display: grid; grid-template-columns: 1fr 340px; gap: 14px; }
+    .cam-canvas {
+      width: 100%; height: auto; aspect-ratio: 280 / 140;
+      background: #000; border-radius: 4px; display: block;
+    }
+    .main-grid { display: grid; grid-template-columns: 1fr 320px; gap: 14px; }
+    @media (max-width: 850px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
     .bev-card {
       background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px;
     }
-    .bev-canvas { width: 100%; height: 440px; background: #050811; border-radius: 6px; display: block; }
+    .bev-canvas {
+      width: 100%; height: auto; aspect-ratio: 750 / 440; max-height: 440px;
+      background: #050811; border-radius: 6px; display: block;
+      touch-action: none; cursor: pointer;
+    }
     .telemetry-card {
       background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px;
       display: flex; flex-direction: column; gap: 14px;
@@ -46,16 +68,17 @@
     }
     .gauge-val { font-size: 2.2rem; font-weight: 800; color: #f0f6fc; font-family: monospace; }
     .gauge-unit { font-size: 0.85rem; color: #8b949e; text-transform: uppercase; }
-    .wheel-container { text-align: center; margin: 10px 0; }
-    .wheel-canvas { width: 120px; height: 120px; display: inline-block; }
-    .stat-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 4px 0; }
+    .wheel-container { text-align: center; margin: 6px 0; }
+    .wheel-canvas { width: 110px; height: 110px; display: inline-block; }
+    .stat-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .stat-row:last-child { border-bottom: none; }
   </style>
 </head>
 <body>
   <div class="header">
     <div>
-      <h2 style="color:#f0f6fc; font-size:1.3rem;">Module 08: End-to-End FSD Mission Control Dashboard</h2>
-      <p style="color:#8b949e; font-size:0.8rem;">Multi-Cam Vision → BEV Lifting → 3D Occupancy → Vector Tracking → Trajectory Plan → Actuation</p>
+      <h2 style="color:#f0f6fc; font-size:1.25rem;">Module 08: End-to-End FSD Mission Control Dashboard</h2>
+      <p style="color:#8b949e; font-size:0.82rem;">Multi-Cam Vision → BEV Lifting → 3D Occupancy → Vector Tracking → Trajectory Plan → Actuation</p>
     </div>
     <a href="index.html" class="back-link">← Return to Portal</a>
   </div>
@@ -79,11 +102,14 @@
   <!-- Main Viewport: BEV Vector Space + Cockpit Telemetry -->
   <div class="main-grid">
     <div class="bev-card">
-      <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
         <h3 style="color:#f0f6fc; font-size:1.05rem;">Unified BEV Vector Space & Planned Trajectory</h3>
         <span style="font-size:0.8rem; color:#3fb950; font-weight:700;">● AUTONOMOUS FSD ACTIVE</span>
       </div>
       <canvas id="bevMain" class="bev-canvas" width="750" height="440"></canvas>
+      <p style="font-size:0.8rem; color:#8b949e; margin-top:8px;">
+        💡 <b>Tap the BEV viewport</b> or the hazard button below to inject/clear debris on the road and observe the autonomous swerve trajectory!
+      </p>
     </div>
 
     <div class="telemetry-card">
@@ -93,7 +119,7 @@
       </div>
 
       <div class="wheel-container">
-        <canvas id="wheelCanvas" class="wheel-canvas" width="120" height="120"></canvas>
+        <canvas id="wheelCanvas" class="wheel-canvas" width="110" height="110"></canvas>
         <div style="font-size:0.8rem; color:#8b949e; margin-top:4px;">
           Steering: <b id="dispSteer" style="color:var(--accent);">0.0°</b>
         </div>
@@ -107,7 +133,7 @@
         <div class="stat-row"><span>Status:</span><b style="color:var(--green);">0 Collisions (Safe)</b></div>
       </div>
 
-      <button id="btnScenario" style="padding:10px; background:#1f6feb; border:none; border-radius:6px; color:#fff; font-weight:700; cursor:pointer;">
+      <button id="btnScenario" style="padding:12px; background:#1f6feb; border:none; border-radius:6px; color:#fff; font-weight:700; cursor:pointer; font-size:0.85rem;">
         🔄 Inject Road Hazard (Debris at 25m)
       </button>
     </div>
@@ -117,15 +143,26 @@
     const cvsL = document.getElementById('camLeft').getContext('2d');
     const cvsF = document.getElementById('camFront').getContext('2d');
     const cvsR = document.getElementById('camRight').getContext('2d');
-    const cvsB = document.getElementById('bevMain').getContext('2d');
+    const bevCanvas = document.getElementById('bevMain');
+    const cvsB = bevCanvas.getContext('2d');
     const cvsW = document.getElementById('wheelCanvas').getContext('2d');
 
     let simTime = 0;
     let hazardActive = false;
-    document.getElementById('btnScenario').addEventListener('click', () => {
+    const btnScenario = document.getElementById('btnScenario');
+
+    function toggleHazard() {
       hazardActive = !hazardActive;
-      document.getElementById('btnScenario').innerText = hazardActive ? "Clear Road Hazard" : "🔄 Inject Road Hazard (Debris at 25m)";
-    });
+      btnScenario.innerText = hazardActive ? "Clear Road Hazard" : "🔄 Inject Road Hazard (Debris at 25m)";
+      btnScenario.style.background = hazardActive ? "var(--red)" : "#1f6feb";
+    }
+
+    btnScenario.addEventListener('click', toggleHazard);
+    bevCanvas.addEventListener('click', toggleHazard);
+    bevCanvas.addEventListener('touchstart', e => {
+      toggleHazard();
+      e.preventDefault();
+    }, { passive: false });
 
     function drawCamera(ctx, w, h, angleOffset, name) {
       ctx.fillStyle = "#1e293b";

@@ -2,44 +2,49 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Module 02: HydraNet Multi-Task Architecture & Uncertainty Balancer</title>
   <style>
     :root {
       --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #c9d1d9;
       --accent: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922; --purple: #bc8cff;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body {
       background: var(--bg); color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      padding: 24px;
+      padding: 16px;
     }
     .header {
       display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 16px;
+      margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px;
+      flex-wrap: wrap; gap: 10px;
     }
-    .back-link { color: var(--accent); text-decoration: none; font-weight: 600; }
-    .layout { display: grid; grid-template-columns: 360px 1fr; gap: 20px; }
+    .back-link { color: var(--accent); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+    .layout { display: grid; grid-template-columns: 320px 1fr; gap: 16px; }
+    @media (max-width: 850px) {
+      .layout { grid-template-columns: 1fr; }
+    }
     .controls {
       background: var(--panel); border: 1px solid var(--border);
-      border-radius: 10px; padding: 20px;
+      border-radius: 10px; padding: 16px;
     }
-    .control-group { margin-bottom: 16px; }
+    .control-group { margin-bottom: 14px; }
     label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: #8b949e; }
-    input[type=range] { width: 100%; accent-color: var(--accent); }
+    input[type=range] { width: 100%; height: 28px; accent-color: var(--accent); }
     .val-display { float: right; color: var(--accent); font-weight: 700; }
     .canvas-card {
       background: var(--panel); border: 1px solid var(--border);
-      border-radius: 10px; padding: 20px;
+      border-radius: 10px; padding: 14px;
     }
     canvas {
-      width: 100%; height: 420px; background: #000; border-radius: 8px; display: block;
+      width: 100%; height: auto; aspect-ratio: 700 / 420; background: #000; border-radius: 8px; display: block;
     }
     .btn-toggle {
-      width: 100%; padding: 12px; font-weight: 700; border: none; border-radius: 6px;
-      cursor: pointer; margin-top: 10px; color: #fff;
+      width: 100%; min-height: 44px; padding: 10px; font-weight: 700; border: none; border-radius: 8px;
+      cursor: pointer; margin-top: 8px; color: #fff; font-size: 0.9rem;
     }
-    .bars { margin-top: 20px; }
+    .bars { margin-top: 16px; }
     .bar-row { margin-bottom: 10px; }
     .bar-label { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 4px; }
     .bar-track { height: 10px; background: #21262d; border-radius: 5px; overflow: hidden; }
@@ -49,18 +54,18 @@
 <body>
   <div class="header">
     <div>
-      <h2>Module 02: HydraNet Architecture & Homoscedastic Loss Balancer</h2>
-      <p style="color:#8b949e; font-size:0.9rem;">Shared convolutional trunk with multi-task perception heads (Andrei Karpathy / Tesla AI Day)</p>
+      <h2 style="font-size:clamp(1.1rem, 3vw, 1.4rem); color:#f0f6fc;">Module 02: HydraNet Architecture & Loss Balancer</h2>
+      <p style="color:#8b949e; font-size:0.8rem;">Shared trunk with multi-task perception heads (Tesla AI Day)</p>
     </div>
     <a href="index.html" class="back-link">← Return to Portal</a>
   </div>
 
   <div class="layout">
     <div class="controls">
-      <h3 style="color:#f0f6fc; margin-bottom:14px;">Task Loss Scales</h3>
+      <h3 style="color:#f0f6fc; margin-bottom:12px; font-size:1.05rem;">Task Loss Scales</h3>
 
       <div class="control-group">
-        <label>Lane Segmentation Loss $\mathcal{L}_{\text{lane}}$ <span id="vLane" class="val-display">0.25</span></label>
+        <label>Lane Mask Loss $\mathcal{L}_{\text{lane}}$ <span id="vLane" class="val-display">0.25</span></label>
         <input type="range" id="lossLane" min="0.05" max="2.0" step="0.05" value="0.25">
       </div>
 
@@ -70,13 +75,13 @@
       </div>
 
       <div class="control-group">
-        <label>Vehicle Bounding Box MSE $\mathcal{L}_{\text{veh}}$ <span id="vVeh" class="val-display">35.0</span></label>
+        <label>Vehicle Box MSE $\mathcal{L}_{\text{veh}}$ <span id="vVeh" class="val-display">35.0</span></label>
         <input type="range" id="lossVeh" min="1.0" max="60.0" step="1.0" value="35.0">
         <p style="font-size:0.75rem; color:#8b949e; margin-top:4px;">Notice: Bounding box MSE is naturally ~100x larger than cross entropy!</p>
       </div>
 
       <div class="control-group">
-        <label>Traffic Light Classification $\mathcal{L}_{\text{TL}}$ <span id="vTL" class="val-display">0.15</span></label>
+        <label>Traffic Light Loss $\mathcal{L}_{\text{TL}}$ <span id="vTL" class="val-display">0.15</span></label>
         <input type="range" id="lossTL" min="0.05" max="1.0" step="0.05" value="0.15">
       </div>
 
@@ -104,9 +109,9 @@
     </div>
 
     <div class="canvas-card">
-      <h3 style="color:#f0f6fc; margin-bottom:12px;">Animated HydraNet Feature Flow</h3>
+      <h3 style="color:#f0f6fc; margin-bottom:10px; font-size:1rem;">Animated HydraNet Feature Flow</h3>
       <canvas id="netCanvas" width="700" height="420"></canvas>
-      <p style="font-size:0.85rem; color:#8b949e; margin-top:12px;">
+      <p style="font-size:0.8rem; color:#8b949e; margin-top:10px;">
         In <b>Uncertainty Mode</b>, the network uses MITx Maximum Likelihood: $\mathcal{L}_{\text{tot}} = \sum \frac{1}{2\sigma_i^2}\mathcal{L}_i + \log\sigma_i$.
         The vehicle variance $\sigma^2$ increases automatically, scaling down its gradient so all heads train equally!
       </p>
@@ -154,7 +159,6 @@
       let gTL = lTL;
 
       if (isBalanced) {
-        // Kendall & Gal: effective weight ~ 1 / loss
         gLane = 1.0;
         gFree = 1.0;
         gVeh = 1.0;
@@ -187,8 +191,6 @@
       ctx.fillStyle = "#090d16";
       ctx.fillRect(0, 0, 700, 420);
 
-      // Shared Trunk
-      const trunkX = 140;
       const trunkY = 210;
       ctx.fillStyle = "#1e293b";
       ctx.strokeStyle = "#38bdf8";
@@ -207,13 +209,11 @@
       ctx.fillStyle = "#8b949e";
       ctx.fillText("(B, 128, H/8, W/8)", 70, 235);
 
-      // Camera Input Box
       ctx.fillStyle = "#334155";
       ctx.beginPath();
       ctx.roundRect(10, 190, 20, 40, 4);
       ctx.fill();
 
-      // 4 Heads on the Right
       const heads = [
         { name: "Lane Mask Head", y: 70, color: "#fbbf24", pct: pLane },
         { name: "Freespace Head", y: 160, color: "#3fb950", pct: pFree },
@@ -222,7 +222,6 @@
       ];
 
       heads.forEach(h => {
-        // Wire connection from trunk to head
         ctx.strokeStyle = h.color;
         ctx.lineWidth = Math.max(1, (h.pct / 100) * 8);
         ctx.beginPath();
@@ -230,7 +229,6 @@
         ctx.bezierCurveTo(340, trunkY, 340, h.y, 440, h.y);
         ctx.stroke();
 
-        // Animated pulse along wire
         const pulseT = (animTime * 1.5) % 1.0;
         const pulseX = 220 + (440 - 220) * pulseT;
         const pulseY = trunkY + (h.y - trunkY) * pulseT;
@@ -239,7 +237,6 @@
         ctx.arc(pulseX, pulseY, 3, 0, Math.PI * 2);
         ctx.fill();
 
-        // Head Box
         ctx.fillStyle = "#161b22";
         ctx.strokeStyle = h.color;
         ctx.lineWidth = 2;
@@ -253,7 +250,7 @@
         ctx.fillText(h.name, 455, h.y - 4);
         ctx.font = "11px monospace";
         ctx.fillStyle = h.color;
-        ctx.fillText(`Gradient Share: ${h.pct.toFixed(1)}%`, 455, h.y + 14);
+        ctx.fillText(`Gradient: ${h.pct.toFixed(1)}%`, 455, h.y + 14);
       });
 
       requestAnimationFrame(draw);

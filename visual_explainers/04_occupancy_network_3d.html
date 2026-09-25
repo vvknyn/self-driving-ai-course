@@ -2,58 +2,69 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Module 04: 3D Occupancy Network & Spatiotemporal Memory</title>
   <style>
     :root {
       --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #c9d1d9;
       --accent: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body {
       background: var(--bg); color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      padding: 24px;
+      padding: 16px;
     }
     .header {
       display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 16px;
+      margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px;
+      flex-wrap: wrap; gap: 10px;
     }
-    .back-link { color: var(--accent); text-decoration: none; font-weight: 600; }
-    .layout { display: grid; grid-template-columns: 360px 1fr; gap: 20px; }
+    .back-link { color: var(--accent); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+    .layout { display: grid; grid-template-columns: 340px 1fr; gap: 16px; }
+    @media (max-width: 850px) {
+      .layout { grid-template-columns: 1fr; }
+      body { padding: 12px; }
+    }
     .controls {
       background: var(--panel); border: 1px solid var(--border);
-      border-radius: 10px; padding: 20px;
+      border-radius: 10px; padding: 16px;
     }
-    .control-group { margin-bottom: 18px; }
+    .control-group { margin-bottom: 16px; }
     label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: #8b949e; }
-    input[type=range] { width: 100%; accent-color: var(--accent); }
+    input[type=range] { width: 100%; height: 28px; accent-color: var(--accent); }
     .val-display { float: right; color: var(--accent); font-weight: 700; }
     .canvas-card {
       background: var(--panel); border: 1px solid var(--border);
-      border-radius: 10px; padding: 20px;
+      border-radius: 10px; padding: 16px;
     }
     canvas {
-      width: 100%; height: 420px; background: #000; border-radius: 8px; display: block; cursor: grab;
+      width: 100%; height: auto; aspect-ratio: 700 / 420; max-height: 420px;
+      background: #000; border-radius: 8px; display: block; cursor: grab;
+      touch-action: none;
     }
     canvas:active { cursor: grabbing; }
     .btn-action {
-      width: 100%; padding: 10px; background: #238636; color: #fff; border: none;
-      border-radius: 6px; font-weight: 700; cursor: pointer; margin-top: 10px;
+      width: 100%; padding: 12px; background: #238636; color: #fff; border: none;
+      border-radius: 6px; font-weight: 700; cursor: pointer; margin-top: 10px; font-size: 0.85rem;
+    }
+    .legend-row {
+      display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 0.8rem;
     }
   </style>
 </head>
 <body>
   <div class="header">
     <div>
-      <h2>Module 04: 3D Occupancy Network & Spatiotemporal Memory</h2>
-      <p style="color:#8b949e; font-size:0.9rem;">Discretized 3D voxel volume + dynamic motion flow vectors (Ashok Elluswamy / Tesla AI Day 2022)</p>
+      <h2 style="font-size:1.25rem;">Module 04: 3D Occupancy Network & Spatiotemporal Memory</h2>
+      <p style="color:#8b949e; font-size:0.85rem;">Discretized 3D voxel volume + dynamic motion flow vectors (Ashok Elluswamy / Tesla AI Day 2022)</p>
     </div>
     <a href="index.html" class="back-link">← Return to Portal</a>
   </div>
 
   <div class="layout">
     <div class="controls">
-      <h3 style="color:#f0f6fc; margin-bottom:14px;">3D Voxel Controls</h3>
+      <h3 style="color:#f0f6fc; margin-bottom:14px; font-size:1.05rem;">3D Voxel Controls</h3>
 
       <div class="control-group">
         <label>Orbit Camera Yaw <span id="vRot" class="val-display">35°</span></label>
@@ -72,14 +83,14 @@
       <div id="statusBox" style="background:#21262d; padding:12px; border-radius:6px; font-size:0.85rem; font-family:monospace; margin-top:16px;">
         <div>Temporal State: <b id="lblMemory" style="color:var(--green);">ConvGRU Active</b></div>
         <div>Lead Car Belief: <b id="lblProb" style="color:var(--green);">94.2%</b></div>
-        <div style="font-size:0.75rem; color:#8b949e; margin-top:6px;">Drag mouse on 3D viewport to orbit camera.</div>
+        <div style="font-size:0.75rem; color:#8b949e; margin-top:6px;">💡 Drag mouse or touch on 3D viewport to orbit camera.</div>
       </div>
     </div>
 
     <div class="canvas-card">
-      <h3 style="color:#f0f6fc; margin-bottom:12px;">3D Isometric Voxel Viewer</h3>
+      <h3 style="color:#f0f6fc; margin-bottom:12px; font-size:1.05rem;">3D Isometric Voxel Viewer</h3>
       <canvas id="occCanvas" width="700" height="420"></canvas>
-      <div style="display:flex; gap:16px; margin-top:10px; font-size:0.8rem;">
+      <div class="legend-row">
         <span style="color:#38bdf8;">■ Ego Car</span>
         <span style="color:#ef4444;">■ Dynamic Vehicle (with Velocity Arrow)</span>
         <span style="color:#fbbf24;">■ Concrete Barrier</span>
@@ -100,17 +111,40 @@
     let isOccluded = false;
     let yawDeg = 35;
     let isDragging = false;
-    let lastMouseX = 0;
+    let lastClientX = 0;
 
-    canvas.addEventListener('mousedown', e => { isDragging = true; lastMouseX = e.clientX; });
+    canvas.addEventListener('mousedown', e => { isDragging = true; lastClientX = e.clientX; });
     window.addEventListener('mouseup', () => isDragging = false);
     window.addEventListener('mousemove', e => {
       if (isDragging) {
-        yawDeg += (e.clientX - lastMouseX) * 0.5;
+        yawDeg += (e.clientX - lastClientX) * 0.5;
+        if (yawDeg > 180) yawDeg -= 360;
+        if (yawDeg < -180) yawDeg += 360;
         inRot.value = yawDeg;
-        lastMouseX = e.clientX;
+        lastClientX = e.clientX;
       }
     });
+
+    canvas.addEventListener('touchstart', e => {
+      if (e.touches.length > 0) {
+        isDragging = true;
+        lastClientX = e.touches[0].clientX;
+      }
+      e.preventDefault();
+    }, { passive: false });
+
+    window.addEventListener('touchmove', e => {
+      if (isDragging && e.touches.length > 0) {
+        yawDeg += (e.touches[0].clientX - lastClientX) * 0.5;
+        if (yawDeg > 180) yawDeg -= 360;
+        if (yawDeg < -180) yawDeg += 360;
+        inRot.value = yawDeg;
+        lastClientX = e.touches[0].clientX;
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchend', () => isDragging = false);
 
     btnToggleMem.addEventListener('click', () => {
       memoryActive = !memoryActive;

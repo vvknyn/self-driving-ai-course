@@ -2,63 +2,80 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Module 07: Closed-Loop Driving Simulator (Stanley vs Pure Pursuit)</title>
   <style>
     :root {
       --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #c9d1d9;
       --accent: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body {
       background: var(--bg); color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      padding: 24px;
+      padding: 16px;
     }
     .header {
       display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 16px;
+      margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px;
+      flex-wrap: wrap; gap: 10px;
     }
-    .back-link { color: var(--accent); text-decoration: none; font-weight: 600; }
-    .layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; }
+    .back-link { color: var(--accent); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+    .layout { display: grid; grid-template-columns: 340px 1fr; gap: 16px; }
+    @media (max-width: 850px) {
+      .layout { grid-template-columns: 1fr; }
+      body { padding: 12px; }
+    }
     .controls {
       background: var(--panel); border: 1px solid var(--border);
-      border-radius: 10px; padding: 20px;
+      border-radius: 10px; padding: 16px;
     }
     .control-group { margin-bottom: 16px; }
     label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: #8b949e; }
-    input[type=range] { width: 100%; accent-color: var(--accent); }
+    input[type=range] { width: 100%; height: 28px; accent-color: var(--accent); }
     .val-display { float: right; color: var(--accent); font-weight: 700; }
     .canvas-card {
       background: var(--panel); border: 1px solid var(--border);
-      border-radius: 10px; padding: 20px;
+      border-radius: 10px; padding: 16px;
     }
     canvas {
-      width: 100%; height: 380px; background: #000; border-radius: 8px; display: block;
+      width: 100%; height: auto; aspect-ratio: 700 / 380; max-height: 380px;
+      background: #000; border-radius: 8px; display: block;
+      touch-action: none;
     }
     .btn-mode {
       width: 100%; padding: 10px; border: 1px solid var(--border);
       background: #21262d; color: var(--text); border-radius: 6px; font-weight: 700;
-      cursor: pointer; margin-bottom: 8px;
+      cursor: pointer; margin-bottom: 8px; font-size: 0.85rem;
     }
     .btn-mode.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .mobile-steer-bar {
+      display: flex; gap: 12px; margin-top: 12px;
+    }
+    .btn-steer {
+      flex: 1; padding: 14px; font-size: 1rem; font-weight: 700;
+      background: #21262d; border: 1px solid var(--border); border-radius: 8px;
+      color: #fff; cursor: pointer; user-select: none; -webkit-user-select: none;
+    }
+    .btn-steer:active { background: var(--accent); }
   </style>
 </head>
 <body>
   <div class="header">
     <div>
-      <h2>Module 07: Closed-Loop Driving Simulator (Stanley vs Pure Pursuit)</h2>
-      <p style="color:#8b949e; font-size:0.9rem;">Kinematic bicycle dynamics & live cross-track error telemetry (Sebastian Thrun / Duckietown)</p>
+      <h2 style="font-size:1.25rem;">Module 07: Closed-Loop Driving Simulator (Stanley vs Pure Pursuit)</h2>
+      <p style="color:#8b949e; font-size:0.85rem;">Kinematic bicycle dynamics & live cross-track error telemetry (Sebastian Thrun / Duckietown)</p>
     </div>
     <a href="index.html" class="back-link">← Return to Portal</a>
   </div>
 
   <div class="layout">
     <div class="controls">
-      <h3 style="color:#f0f6fc; margin-bottom:14px;">Controller Selection</h3>
+      <h3 style="color:#f0f6fc; margin-bottom:14px; font-size:1.05rem;">Controller Selection</h3>
 
       <button id="btnStanley" class="btn-mode active">1. Stanley Controller (Thrun)</button>
-      <button id="btnPurePursuit" class="btn-mode">2. Pure Pursuit (Duckietown)</button>
-      <button id="btnManual" class="btn-mode">3. Manual Keyboard (Arrow Keys)</button>
+      <button id="btnPP" class="btn-mode">2. Pure Pursuit (Duckietown)</button>
+      <button id="btnManual" class="btn-mode">3. Manual Drive (Buttons / Keys)</button>
 
       <div class="control-group" style="margin-top:16px;">
         <label>Cruise Speed $v$ <span id="vSpeed" class="val-display">45 km/h</span></label>
@@ -80,10 +97,17 @@
     </div>
 
     <div class="canvas-card">
-      <h3 style="color:#f0f6fc; margin-bottom:10px;">Simulation Track (S-Curve & Hairpin)</h3>
+      <h3 style="color:#f0f6fc; margin-bottom:10px; font-size:1.05rem;">Simulation Track (S-Curve & Hairpin)</h3>
       <canvas id="simCanvas" width="700" height="380"></canvas>
+      
+      <!-- Mobile On-Screen Steering Bar -->
+      <div id="touchSteerBar" class="mobile-steer-bar">
+        <button id="btnSteerLeft" class="btn-steer">◀ Steer Left</button>
+        <button id="btnSteerRight" class="btn-steer">Steer Right ▶</button>
+      </div>
+
       <p style="font-size:0.8rem; color:#8b949e; margin-top:8px;">
-        The green dot shows the <b>front axle</b> tracking point. The yellow dashed line is the ground truth lane centerline.
+        💡 The green dot shows the <b>front axle</b> tracking point. The yellow dashed line is the ground truth lane centerline. In Manual Drive mode, hold the buttons or touch the left/right halves of the canvas to steer!
       </p>
     </div>
   </div>
@@ -97,12 +121,42 @@
     let steerHistory = [];
 
     const btnStanley = document.getElementById('btnStanley');
-    const btnPP = document.getElementById('btnPurePursuit');
+    const btnPP = document.getElementById('btnPP');
     const btnManual = document.getElementById('btnManual');
     const btnLatency = document.getElementById('btnLatency');
 
     const inSpeed = document.getElementById('carSpeed');
     const inGain = document.getElementById('kGain');
+
+    const btnSteerLeft = document.getElementById('btnSteerLeft');
+    const btnSteerRight = document.getElementById('btnSteerRight');
+
+    let touchLeftPressed = false;
+    let touchRightPressed = false;
+
+    // Button touch handlers
+    const setupSteerBtn = (btn, setFn) => {
+      ['mousedown', 'touchstart'].forEach(evt => btn.addEventListener(evt, e => { setFn(true); e.preventDefault(); }));
+      ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(evt => btn.addEventListener(evt, () => setFn(false)));
+    };
+    setupSteerBtn(btnSteerLeft, val => touchLeftPressed = val);
+    setupSteerBtn(btnSteerRight, val => touchRightPressed = val);
+
+    // Canvas touch steering in manual mode
+    canvas.addEventListener('touchstart', e => {
+      if (mode === 'manual' && e.touches.length > 0) {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.touches[0].clientX - rect.left;
+        if (mx < rect.width / 2) touchLeftPressed = true;
+        else touchRightPressed = true;
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchend', () => {
+      touchLeftPressed = false;
+      touchRightPressed = false;
+    });
 
     btnStanley.addEventListener('click', () => setMode('stanley'));
     btnPP.addEventListener('click', () => setMode('pure_pursuit'));
@@ -172,8 +226,8 @@
         const alpha = Math.atan2(lookaheadY - carY, lookaheadX - carX) - carPsi;
         cmdDelta = Math.atan2(2 * L * Math.sin(alpha), 60);
       } else {
-        if (keys['ArrowLeft']) cmdDelta = -0.45;
-        else if (keys['ArrowRight']) cmdDelta = 0.45;
+        if (keys['ArrowLeft'] || touchLeftPressed) cmdDelta = -0.45;
+        else if (keys['ArrowRight'] || touchRightPressed) cmdDelta = 0.45;
         else cmdDelta = 0.0;
       }
 
