@@ -14,8 +14,10 @@ Status: **lecture path** for `notebooks/00_driving_ml_gym.ipynb`, generated from
 ## Pedagogy
 
 - **Course direction:** FastAI-style top-down — working crop classifier before full theory stack.
-- **Inside the module:** MicroMasters-style bottom-up per topic: **Theory → Demo → Check**, then load-bearing fills only after beats 2–7 teach the mechanisms.
-- **First principles** live in the spine; assignments force applying them in `.py` fills and written cells.
+- **Inside each beat:** **What** (definition or formula) plus **Why** (intuition) inside the Theory markdown cell, then **Demo**, then **Check**. MicroMasters-style bottom-up per topic; load-bearing fills only after beats 2–7 teach the mechanisms.
+- **Why blocks:** Every major concept gets a greppable `**Why — short name.**` paragraph of about 3–6 sentences: why the idea exists (driving or learning problem), why this mathematical or engineering shape, and one concrete driving sentence when it fits.
+- **Fills after motivation:** `focal_loss` after beat 7’s Why on the objective; `minority_recall` and `build_error_gallery` in beat 8 after the inspection Whys.
+- **First principles** live in the spine (including a Why before beat 0); assignments force applying them in `.py` fills and written cells.
 
 ### Governing principles
 
@@ -37,7 +39,7 @@ Status: **lecture path** for `notebooks/00_driving_ml_gym.ipynb`, generated from
 | 7 | The loss is the objective | focal factor derivation, numeric table, **fill `focal_loss`** |
 | 8 | Inspect and ship | **fill `minority_recall`**, **from-scratch `build_error_gallery`**, break-it, pytest, artifacts |
 
-Each beat uses **Theory**, **Demo**, and **Check** subsections. Checks are answered by the following code cell (assert + print) so headless execution passes.
+Each beat uses **Theory** (What + Why), **Demo**, and **Check** subsections. Checks are answered by the following code cell (assert + print) so headless execution passes.
 
 ## Scaffold vs fill vs from-scratch
 
