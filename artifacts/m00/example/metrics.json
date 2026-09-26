@@ -1,0 +1,20 @@
+{
+  "run_id": "example",
+  "seed": 0,
+  "loss_name": "cross_entropy",
+  "epochs": 6,
+  "train_loss": 0.85,
+  "val_loss": 0.92,
+  "val_accuracy": 0.78,
+  "per_class_recall": {
+    "clear_road": 0.9,
+    "lead_vehicle": 0.75,
+    "pedestrian": 0.33,
+    "lane_marking": 0.75
+  },
+  "minority_class": 2,
+  "minority_recall": null,
+  "num_train": 74,
+  "num_val": 21,
+  "image_shape": [3, 64, 64]
+}

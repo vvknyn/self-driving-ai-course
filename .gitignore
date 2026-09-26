@@ -24,3 +24,11 @@ wheels/
 outputs/
 *.jpg
 *.png
+!data/m00_sample/*.png
+!data/m01_sample/*.png
+artifacts/m00/*
+!artifacts/m00/.gitkeep
+!artifacts/m00/example/
+artifacts/m01/*
+!artifacts/m01/.gitkeep
+!artifacts/m01/example/

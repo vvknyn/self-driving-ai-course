@@ -1,3 +1,5 @@
+> **Optional appendix 00b** — not the default Week 1 chapter. Start at [`modules/00_ml_gym`](../00_ml_gym/) and [`notebooks/00_driving_ml_gym.ipynb`](../../notebooks/00_driving_ml_gym.ipynb).
+
 # Chapter 00: Neural Networks, Autograd & Gradient Descent from Scratch
 
 > *"What I cannot create, I do not understand."* — Richard Feynman
