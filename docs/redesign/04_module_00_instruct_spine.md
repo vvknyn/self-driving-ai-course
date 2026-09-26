@@ -16,6 +16,7 @@ Status: **lecture path** for `notebooks/00_driving_ml_gym.ipynb`, generated from
 - **Course direction:** FastAI-style top-down — working crop classifier before full theory stack.
 - **Inside each beat:** **What** (definition or formula) plus **Why** (intuition) inside the Theory markdown cell, then **Demo**, then **Check**. MicroMasters-style bottom-up per topic; load-bearing fills only after beats 2–7 teach the mechanisms.
 - **Why blocks:** Every major concept gets a greppable `**Why — short name.**` paragraph of about 3–6 sentences: why the idea exists (driving or learning problem), why this mathematical or engineering shape, and one concrete driving sentence when it fits.
+- **Math:** Unicode and plain prose, readable in GitHub preview and Colab with no MathJax. Write `Y = ReLU(X Wᵀ + b)` and `W₂(W₁x) = (W₂ W₁)x`. Do not emit `\(...\)`, `$$`, or `\mathrm`.
 - **Fills after motivation:** `focal_loss` after beat 7’s Why on the objective; `minority_recall` and `build_error_gallery` in beat 8 after the inspection Whys.
 - **First principles** live in the spine (including a Why before beat 0); assignments force applying them in `.py` fills and written cells.
 

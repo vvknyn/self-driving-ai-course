@@ -215,7 +215,7 @@ Learned BEV/LSS (Module 03), full 8-cam Tesla rig.
 
 Every load-bearing fill is paired with:
 - A markdown cell stating the principle
-- A test that a wrong-but-running implementation can fail (e.g. focal with \(\gamma=0\) equals CE; \(H\) with identity \(R\) wrong for pitched cam)
+- A test that a wrong-but-running implementation can fail (e.g. focal with γ = 0 equals CE; H with identity R wrong for pitched cam)
 - A short free-response: apply the principle to explain a failure mode we inject
 
 ---
