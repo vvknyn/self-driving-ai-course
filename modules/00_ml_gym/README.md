@@ -25,11 +25,16 @@ A day counts when you export an artifact or pass the tests for a fill you wrote.
 
 ## Practice
 
-- Explain `(B, C, H, W)` in one sentence each
-- Train a tiny CNN on checked-in driving crops
-- Compare cross-entropy vs focal loss on minority recall
-- Export metrics and inspect an error gallery
-- Run the break-it demo on accuracy vs minority recall
+Follow the notebook beats in order:
+
+- **Images as numbers** — `(B, C, H, W)` and PNG → tensor
+- **Classification as scores** — softmax and cross-entropy
+- **Neuron and layer** — ReLU and why depth needs a bend
+- **The train loop** — forward, loss, backward, step
+- **Why convolutions** — `DrivingClassifier` stem / stage2 / pool / fc
+- **Metrics that lie** — accuracy vs pedestrian recall
+- **The loss is the objective** — focal loss fill
+- **Inspect and ship** — minority recall fill, error gallery from scratch
 
 Notebook: [`notebooks/00_driving_ml_gym.ipynb`](../../notebooks/00_driving_ml_gym.ipynb)
 
@@ -42,9 +47,8 @@ Notebook: [`notebooks/00_driving_ml_gym.ipynb`](../../notebooks/00_driving_ml_gy
 
 ## Derive
 
-- Softmax → cross-entropy: minimize negative log probability of the true class.
-- Focal modulating factor `(1 - p_t)^gamma` down-weights easy examples.
-- Optional autograd appendix: [`modules/00_nn_scratch`](../00_nn_scratch/) (not the default Week 1 path).
+- Softmax → cross-entropy (beat 2); focal modulating factor `(1 - p_t)^gamma` (beat 7).
+- Optional autograd appendix: [`modules/00_nn_scratch`](../00_nn_scratch/) and `notebooks/00_neural_networks_and_autograd.ipynb` (not the default Week 1 path).
 
 ## Commands
 

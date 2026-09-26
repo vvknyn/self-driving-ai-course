@@ -117,16 +117,7 @@ solutions/00_ml_gym/        # reference fills (not imported by default)
 
 ### Colab flow
 
-1. Principle boxes for (1)(2)(3)
-2. Run cold-open gallery on sample frames
-3. Inspect class counts (principle 2 foreshadow)
-4. Train CE baseline → confusion matrix
-5. **Fill:** `focal_loss` from the formula (must match math cell)
-6. Retrain → compare minority recall (**Fill:** metric)
-7. **From scratch:** `build_error_gallery(...)`
-8. Written cell: “Which principle did focal loss apply?”
-9. Break-it + pytest
-10. Export `artifacts/m00/run_*/`
+The Week 1 **lecture path** is the instruct spine in [`04_module_00_instruct_spine.md`](04_module_00_instruct_spine.md): beats **0–8** with **theory → demo → check** per topic; **`focal_loss`**, **`minority_recall`**, and **`build_error_gallery`** fills only after beats 2–7. Principles (1)(2)(3), session card, break-it, pytest, and artifact export are unchanged in intent.
 
 ### Rubric
 
@@ -149,6 +140,8 @@ Cameras, IPM, multitask heads, writing autograd.
 ---
 
 ## Module 01 — Cameras & IPM (Week 2)
+
+Module 01 will receive the same **instruct density** (theory → demo → check → fill) in a later pass. This redesign does **not** rewrite `notebooks/01_cameras_and_ipm.ipynb`.
 
 ### Governing first principles
 
@@ -240,7 +233,7 @@ Every load-bearing fill is paired with:
 - No randn-as-driving
 - No essay-only README as the course
 - No “production-grade” claims
-- Notebook is dense: principle → run → fill → test → artifact
+- Notebook is dense: principle → theory beat → demo → check → fill → test → artifact
 - Student must *apply* principles in fills and written cells
 
 ---
