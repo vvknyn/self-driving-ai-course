@@ -1,6 +1,8 @@
-# LearnFSD Modules 00–01 — Locked Design
+# Zero2FSD Modules 00–01 — Locked Design
 
 Status: **build from this doc**. Tweaks welcome after Week 1 Colab is walkable.
+
+Product name is Zero2FSD (drafted as LearnFSD). The site may still be at https://vivekn.xyz/learnfsd until a redirect.
 
 ## Audience & bar
 

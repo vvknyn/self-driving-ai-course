@@ -1,6 +1,8 @@
-# Module 00 — Driving ML Gym
+# Zero2FSD — Module 00 — Driving ML Gym
 
 ## Session card
+
+Zero2FSD · Week 1
 
 **Today's win:** See pedestrian recall, not just accuracy, on the checked-in crops.
 

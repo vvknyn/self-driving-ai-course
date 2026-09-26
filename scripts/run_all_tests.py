@@ -19,7 +19,7 @@ def run_tests() -> int:
     modules_dir = os.path.join(repo_root, "modules")
 
     print("\n" + "=" * 75)
-    print("LearnFSD test suite — one subprocess per module")
+    print("Zero2FSD test suite — one subprocess per module")
     print("=" * 75)
 
     module_dirs: list[str] = []

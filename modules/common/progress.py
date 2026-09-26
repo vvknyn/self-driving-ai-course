@@ -391,6 +391,7 @@ def come_back_cue(module_id: str) -> str:
 
 def session_card_text(module_id: str) -> str:
     """Markdown session card for module READMEs and notebooks."""
+    week_label = {"m00": "Week 1", "m01": "Week 2"}.get(module_id, module_id)
     win = TODAYS_WIN.get(module_id, "Apply today's principle in code, then inspect the artifact.")
     stack_lines = []
     for mid in MODULE_ORDER:
@@ -400,6 +401,7 @@ def session_card_text(module_id: str) -> str:
 
     return (
         f"## Session card\n\n"
+        f"Zero2FSD · {week_label}\n\n"
         f"**Today's win:** {win}\n\n"
         f"**Time:** 25 / 55 / 90 minutes\n\n"
         f"{STREAK_SENTENCE}\n\n"

@@ -1,1 +1,1 @@
-"""Shared utilities for LearnFSD modules."""
+"""Shared utilities for Zero2FSD modules."""

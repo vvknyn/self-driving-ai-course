@@ -25,7 +25,7 @@ def _code(source: str) -> nbf.NotebookNode:
 def build_m00() -> nbf.NotebookNode:
     cells = [
         _md(
-            "# Week 1 — Driving ML Gym\n\n"
+            "# Zero2FSD — Week 1 — Driving ML Gym\n\n"
             "This notebook is the **lecture path** for Week 1.\n\n"
             "- **Scaffold** (~60–70%): data loading, model, cross-entropy training loop\n"
             "- **Fill**: implement `focal_loss` and `minority_recall` in the module `.py` files\n"
@@ -326,7 +326,7 @@ def build_m00() -> nbf.NotebookNode:
 def build_m01() -> nbf.NotebookNode:
     cells = [
         _md(
-            "# Week 2 — Cameras & IPM\n\n"
+            "# Zero2FSD — Week 2 — Cameras & IPM\n\n"
             "**1-camera IPM is required before the 3-camera stitch.** "
             "Student fills live in the module `.py` files.\n\n"
             "Synthetic calibrated frames are checked in under `data/m01_sample` (CC0), "

@@ -1,6 +1,6 @@
-# Learner progress
+# Zero2FSD learner progress
 
-Local engagement state for Modules 00–09. Same rules as the design doc (`docs/redesign/03_modules_00_01_design.md`, section **Engagement & habit loop**).
+Local engagement state for Zero2FSD Modules 00–09 (drafted as LearnFSD). Same rules as the design doc (`docs/redesign/03_modules_00_01_design.md`, section **Engagement & habit loop**).
 
 - **Schema:** [`schema.json`](schema.json)
 - **Example:** [`learner.example.json`](learner.example.json) — illustration only; the trainer does not overwrite this file.

@@ -1,6 +1,8 @@
-# Module 01 — Cameras & IPM
+# Zero2FSD — Module 01 — Cameras & IPM
 
 ## Session card
+
+Zero2FSD · Week 2
 
 **Today's win:** Warp one camera to the ground plane, then measure how pitch error grows with range.
 
