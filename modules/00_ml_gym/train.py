@@ -189,6 +189,18 @@ def main(cfg: TrainConfig | None = None) -> dict:
     with metrics_path.open("w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
 
+    _modules_root = Path(__file__).resolve().parents[1]
+    if str(_modules_root) not in sys.path:
+        sys.path.insert(0, str(_modules_root))
+    from common.progress import record_event
+
+    record_event(
+        "m00",
+        "artifact_exported",
+        artifacts=[str(metrics_path)],
+        next_session_minutes=25,
+    )
+
     _save_confusion_matrix(
         model, val_loader, device, cfg.num_classes, artifacts_root / "confusion_matrix.png"
     )

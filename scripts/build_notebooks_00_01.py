@@ -3,9 +3,15 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import nbformat as nbf
+
+_REPO = Path(__file__).resolve().parents[1]
+if str(_REPO / "modules") not in sys.path:
+    sys.path.insert(0, str(_REPO / "modules"))
+from common.progress import come_back_cue, session_card_text
 
 
 def _md(source: str) -> nbf.NotebookNode:
@@ -27,6 +33,25 @@ def build_m00() -> nbf.NotebookNode:
             "Optional autograd appendix: `modules/00_nn_scratch` (treat as **appendix 00b**, not the default chapter).\n\n"
             "The crops are **synthetic checked-in PNGs** under `data/m00_sample` (CC0 license), "
             "not random `torch.randn` tensors."
+        ),
+        _md(
+            session_card_text("m00").strip()
+            + "\n\nXP is not awarded for opening this notebook."
+        ),
+        _code(
+            "import sys\nfrom pathlib import Path\n\n"
+            "repo = Path.cwd()\nif not (repo / 'modules' / '00_ml_gym').exists():\n"
+            "    repo = repo.parent\n"
+            "sys.path.insert(0, str(repo / 'modules'))\n"
+            "from common.progress import format_stack\n\n"
+            "progress_path = repo / 'artifacts' / 'progress.json'\n"
+            "if progress_path.is_file():\n"
+            "    import json\n"
+            "    with progress_path.open() as f:\n"
+            "        progress = json.load(f)\n"
+            "    print(format_stack(progress))\n"
+            "else:\n"
+            "    print('No progress file yet. Opening this notebook awards 0 XP.')"
         ),
         _md(
             "**Principle 1 — Model as function.**\n\n"
@@ -274,6 +299,24 @@ def build_m00() -> nbf.NotebookNode:
             "print('metrics path:', metrics_path)\n"
             "print('minority_recall field:', metrics['minority_recall'])"
         ),
+        _md(
+            "**Come back cue**\n\n"
+            f"{come_back_cue('m00')}\n\n"
+            "Suggested slot: 25 minutes. 55 or 90 if you are also writing the principle cells."
+        ),
+        _code(
+            "import sys\nimport json\nfrom pathlib import Path\n\n"
+            "repo = Path.cwd()\nif not (repo / 'modules' / '00_ml_gym').exists():\n"
+            "    repo = repo.parent\n"
+            "sys.path.insert(0, str(repo / 'modules'))\n"
+            "from common.progress import come_back_cue\n\n"
+            "print(come_back_cue('m00'))\n"
+            "progress_path = repo / 'artifacts' / 'progress.json'\n"
+            "if progress_path.is_file():\n"
+            "    with progress_path.open() as f:\n"
+            "        xp = json.load(f).get('xp', 0)\n"
+            "    print(f'XP so far: {xp}')"
+        ),
     ]
     nb = nbf.v4.new_notebook(cells=cells)
     nb.metadata["kernelspec"] = {"display_name": "Python 3", "language": "python", "name": "python3"}
@@ -288,6 +331,25 @@ def build_m01() -> nbf.NotebookNode:
             "Student fills live in the module `.py` files.\n\n"
             "Synthetic calibrated frames are checked in under `data/m01_sample` (CC0), "
             "not captured from a real vehicle rig."
+        ),
+        _md(
+            session_card_text("m01").strip()
+            + "\n\nXP is not awarded for opening this notebook."
+        ),
+        _code(
+            "import sys\nfrom pathlib import Path\n\n"
+            "repo = Path.cwd()\nif not (repo / 'modules' / '01_camera_geometry').exists():\n"
+            "    repo = repo.parent\n"
+            "sys.path.insert(0, str(repo / 'modules'))\n"
+            "from common.progress import format_stack\n\n"
+            "progress_path = repo / 'artifacts' / 'progress.json'\n"
+            "if progress_path.is_file():\n"
+            "    import json\n"
+            "    with progress_path.open() as f:\n"
+            "        progress = json.load(f)\n"
+            "    print(format_stack(progress))\n"
+            "else:\n"
+            "    print('No progress file yet. Opening this notebook awards 0 XP.')"
         ),
         _md(
             "**Principle 1 — Pinhole projection.**\n\n"
@@ -483,6 +545,24 @@ def build_m01() -> nbf.NotebookNode:
             "Scaffold tests always run. "
             "`test_assignment_solutions.py` imports `solutions/01_camera_geometry`; "
             "student fill tests skip until implemented and fail if the implementation is wrong."
+        ),
+        _md(
+            "**Come back cue**\n\n"
+            f"{come_back_cue('m01')}\n\n"
+            "Suggested slot: 25 minutes. 55 or 90 if you are also writing the principle cells."
+        ),
+        _code(
+            "import sys\nimport json\nfrom pathlib import Path\n\n"
+            "repo = Path.cwd()\nif not (repo / 'modules' / '01_camera_geometry').exists():\n"
+            "    repo = repo.parent\n"
+            "sys.path.insert(0, str(repo / 'modules'))\n"
+            "from common.progress import come_back_cue\n\n"
+            "print(come_back_cue('m01'))\n"
+            "progress_path = repo / 'artifacts' / 'progress.json'\n"
+            "if progress_path.is_file():\n"
+            "    with progress_path.open() as f:\n"
+            "        xp = json.load(f).get('xp', 0)\n"
+            "    print(f'XP so far: {xp}')"
         ),
     ]
     nb = nbf.v4.new_notebook(cells=cells)

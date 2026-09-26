@@ -32,3 +32,4 @@ artifacts/m00/*
 artifacts/m01/*
 !artifacts/m01/.gitkeep
 !artifacts/m01/example/
+artifacts/progress.json

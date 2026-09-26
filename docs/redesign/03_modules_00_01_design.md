@@ -240,3 +240,17 @@ Every load-bearing fill is paired with:
 - No “production-grade” claims
 - Notebook is dense: principle → run → fill → test → artifact
 - Student must *apply* principles in fills and written cells
+
+---
+
+## Engagement & habit loop
+
+Each module README and notebook opens with a **session card**: today’s win (one sentence), estimated minutes (25 / 55 / 90), a streak call-to-action, and a **your stack so far** checklist from m00 through m09.
+
+**XP is earned only for real work:** tests green, artifact exported, or a non-empty principle-written cell. Opening the notebook awards 0 XP.
+
+**Streak:** A day counts only if at least one assignment cell is filled **and** the tests for that island pass, **or** an artifact was written. A missed day resets the count to 1 on the next real session (honest wording, not punitive). Set `pause_week: true` to freeze `streak_days` (no increment, no reset) until cleared.
+
+**Unlock vanity, not content:** `next_module_id` is always the next module even at 0 XP. Badges (“Imbalance Slayer”, “Pitch Detective”) are cosmetic and tied to rubric events, not a content gate.
+
+At the end of each notebook, a **come-back cue** gives one exact next action plus a suggested slot (example: “Tomorrow: 25-min error-gallery review”).

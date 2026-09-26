@@ -1,5 +1,26 @@
 # Module 00 — Driving ML Gym
 
+## Session card
+
+**Today's win:** See pedestrian recall, not just accuracy, on the checked-in crops.
+
+**Time:** 25 / 55 / 90 minutes
+
+A day counts when you export an artifact or pass the tests for a fill you wrote. Opening the notebook does not. Set pause_week to true if you need a week off; the count stays where it is.
+
+**Your stack so far**
+
+- [ ] m00 — Driving ML Gym
+- [ ] m01 — Cameras & IPM
+- [ ] m02 — HydraNet
+- [ ] m03 — BEV transform
+- [ ] m04 — Occupancy
+- [ ] m05 — Vector tracking
+- [ ] m06 — Planning
+- [ ] m07 — Control
+- [ ] m08 — Capstone
+- [ ] m09 — System architecture
+
 ## Practice
 
 - Explain `(B, C, H, W)` in one sentence each
