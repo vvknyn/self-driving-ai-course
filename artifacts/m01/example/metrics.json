@@ -1,0 +1,10 @@
+{
+  "run_id": "example",
+  "note": "example schema for module 01 artifacts",
+  "ipm_mean_reprojection_error_px": 0.12,
+  "pitch_shift_m": {"10": null, "20": null, "40": null},
+  "outputs": {
+    "ground_bev": "artifacts/m01/example/ground_bev.png",
+    "calib_json": "artifacts/m01/example/calib.json"
+  }
+}

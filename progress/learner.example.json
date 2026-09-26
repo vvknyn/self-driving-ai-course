@@ -1,0 +1,28 @@
+{
+  "learner_id": "local",
+  "pause_week": false,
+  "streak_days": 1,
+  "xp": 10,
+  "badges": [],
+  "modules_touched": [
+    "m00"
+  ],
+  "updated_at": "2026-09-25T18:30:00+00:00",
+  "sessions": [
+    {
+      "module_id": "m00",
+      "completed_at": "2026-09-25T18:30:00+00:00",
+      "streak_days": 1,
+      "principles_applied": [],
+      "artifacts_shipped": [
+        "artifacts/m00/example/metrics.json"
+      ],
+      "next_session_minutes": 25,
+      "next_module_id": "m01",
+      "xp_awarded": 10,
+      "events": [
+        "artifact_exported"
+      ]
+    }
+  ]
+}

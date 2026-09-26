@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero2fsd.local/progress.schema.json",
+  "title": "Zero2FSD learner progress",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "learner_id",
+    "pause_week",
+    "streak_days",
+    "xp",
+    "badges",
+    "modules_touched",
+    "updated_at",
+    "sessions"
+  ],
+  "properties": {
+    "learner_id": {
+      "type": "string"
+    },
+    "pause_week": {
+      "type": "boolean"
+    },
+    "streak_days": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "xp": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "badges": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "modules_touched": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^m0[0-9]$"
+      }
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sessions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/session"
+      }
+    }
+  },
+  "$defs": {
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "module_id",
+        "completed_at",
+        "streak_days",
+        "principles_applied",
+        "artifacts_shipped",
+        "next_session_minutes",
+        "next_module_id"
+      ],
+      "properties": {
+        "module_id": {
+          "type": "string",
+          "pattern": "^m0[0-9]$"
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "streak_days": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "principles_applied": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "artifacts_shipped": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "next_session_minutes": {
+          "type": "integer",
+          "enum": [25, 55, 90]
+        },
+        "next_module_id": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^m0[0-9]$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "xp_awarded": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,5 +1,7 @@
 # 📓 Interactive Jupyter Notebooks for Autonomous Driving Course
 
+**Zero2FSD Week 1–2 notebooks:** [`00_driving_ml_gym.ipynb`](./00_driving_ml_gym.ipynb) (Week 1) and [`01_cameras_and_ipm.ipynb`](./01_cameras_and_ipm.ipynb) (Week 2).
+
 Every chapter in the Self-Driving AI course is available as a **standalone, self-contained Jupyter Notebook** runnable in **Google Colab with 1-click** (no GPU required, zero local installation).
 
 | Chapter | Notebook Title | Google Colab | Source File |
