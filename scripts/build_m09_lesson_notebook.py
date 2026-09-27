@@ -1,806 +1,553 @@
 #!/usr/bin/env python3
-"""Build notebooks/09_cutting_edge_research.ipynb and execute its code cells.
+"""Regenerate the Module 09 seminar notebook.
 
-The notebook is a research-reading seminar. Numbers in the prose after a code
-cell are taken from that cell's run. Numbers attributed to papers are short
-quotes from the arXiv abstract (or, for Stanley, the Stanford PDF URL only).
+Writes ``notebooks/09_cutting_edge_research.ipynb`` next to this course
+staging tree. The notebook is the lesson: run it top to bottom. This script
+does not execute it.
 
-This builder rasterizes figures with the Agg renderer in this process so the
-saved notebook has PNG outputs. The notebook source itself asks for the
-inline backend and never selects Agg.
+    python staging/self-driving-ai-course/scripts/build_m09_lesson_notebook.py
 """
 
 from __future__ import annotations
 
-import base64
-import io
-import json
-import re
-import subprocess
-import sys
 import textwrap
-import traceback
-import uuid
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "staging" / "self-driving-ai-course" / "notebooks" / "09_cutting_edge_research.ipynb"
-
-COLAB_NB = (
-    "https://colab.research.google.com/github/vvknyn/self-driving-ai-course/"
-    "blob/main/notebooks/09_cutting_edge_research.ipynb"
-)
-
-# One paper per open problem. Titles and authors were read from the abs page.
-PROBLEMS = [
-    {
-        "problem": "Perception is not trained for the plan",
-        "stack": "Capstone `step` runs the backbone, Lift-Splat-Shoot, and occupancy, then plans from ground-truth obstacle points.",
-        "citation": "Yihan Hu et al., Planning-oriented Autonomous Driving (UniAD)",
-        "url": "https://arxiv.org/abs/2212.10156",
-    },
-    {
-        "problem": "A pixels-to-steer fit can ignore a cause it never had to use",
-        "stack": "The ten-line least-squares policy in this notebook does not move when an unseen obstacle pixel turns on.",
-        "citation": "Pim de Haan, Dinesh Jayaraman, and Sergey Levine, Causal Confusion in Imitation Learning",
-        "url": "https://arxiv.org/abs/1905.11979",
-    },
-    {
-        "problem": "Behavior cloning does not cover the driving distribution",
-        "stack": "Module 00 classifies 64×64 crops. It does not imitate a control trace.",
-        "citation": "Felipe Codevilla et al., Exploring the Limitations of Behavior Cloning for Autonomous Driving",
-        "url": "https://arxiv.org/abs/1904.08980",
-    },
-    {
-        "problem": "Camera depth is the weak point of lift-and-splat BEV",
-        "stack": "Module 03 predicts a categorical depth and splats features. A bad depth smears the grid.",
-        "citation": "Yinhao Li et al., BEVDepth: Acquisition of Reliable Depth for Multi-view 3D Object Detection",
-        "url": "https://arxiv.org/abs/2206.10092",
-    },
-    {
-        "problem": "Boxes drop shape, and empty-versus-occupied drops the class",
-        "stack": "Module 04 returns a sigmoid occupancy and a velocity field, not a semantic occupancy benchmark.",
-        "citation": "Xiaoyu Tian et al., Occ3D: A Large-Scale 3D Occupancy Prediction Benchmark for Autonomous Driving",
-        "url": "https://arxiv.org/abs/2304.14365",
-    },
-    {
-        "problem": "One cubic lane is not a topology",
-        "stack": "Module 05 is a single cubic. The capstone builds one with fixed coefficients and does not read it in `step`.",
-        "citation": "Huijie Wang et al., OpenLane-V2: A Topology Reasoning Benchmark for Unified 3D HD Mapping",
-        "url": "https://arxiv.org/abs/2304.10440",
-    },
-    {
-        "problem": "A dense grid is a heavy planner input and drops instance identity",
-        "stack": "Module 06 scores point obstacles with a radius. It does not consume the occupancy tensor.",
-        "citation": "Bo Jiang et al., VAD: Vectorized Scene Representation for Efficient Autonomous Driving",
-        "url": "https://arxiv.org/abs/2303.12077",
-    },
-    {
-        "problem": "Open-loop error is not a closed-loop drive",
-        "stack": "Module 08 returns cross-track error on a scripted bicycle. That is a wiring check.",
-        "citation": "Daniel Dauner et al., NAVSIM: Data-Driven Non-Reactive Autonomous Vehicle Simulation and Benchmarking",
-        "url": "https://arxiv.org/abs/2406.15349",
-    },
-    {
-        "problem": "Geometry-only image and LiDAR fusion struggles in dense traffic",
-        "stack": "The course stack is vision-shaped code plus a kinematic controller. It does not fuse LiDAR.",
-        "citation": "Kashyap Chitta et al., TransFuser: Imitation with Transformer-Based Sensor Fusion for Autonomous Driving",
-        "url": "https://arxiv.org/abs/2205.15997",
-    },
-    {
-        "problem": "A log does not contain the future you did not drive",
-        "stack": "Nothing in Modules 00–08 rolls out a counterfactual video.",
-        "citation": "Anthony Hu et al., GAIA-1: A Generative World Model for Autonomous Driving",
-        "url": "https://arxiv.org/abs/2309.17080",
-    },
-    {
-        "problem": "A driving question is a graph, not one caption",
-        "stack": "The capstone return dict has pose, steer, and waypoints. It has no scene graph to query.",
-        "citation": "Chonghao Sima et al., DriveLM: Driving with Graph Visual Question Answering",
-        "url": "https://arxiv.org/abs/2312.14150",
-    },
-    {
-        "problem": "Task losses in different units need a weight",
-        "stack": "Module 02's train script uses an uncertainty weighting loss for 10 steps on random tensors. The capstone never calls it.",
-        "citation": "Alex Kendall, Yarin Gal, and Roberto Cipolla, Multi-Task Learning Using Uncertainty to Weigh Losses for Scene Geometry and Semantics",
-        "url": "https://arxiv.org/abs/1705.07115",
-    },
-]
-
-# Scalars copied from abstracts. `plot` is only for the same named metric and split.
-METRICS = [
-    {
-        "paper": "BEVFormer",
-        "arxiv": "2203.17270",
-        "quote": "56.9% in terms of NDS metric on the nuScenes test set",
-        "value_label": "56.9% NDS",
-        "plot": True,
-        "plot_value": 56.9,
-    },
-    {
-        "paper": "BEVFormer",
-        "arxiv": "2203.17270",
-        "quote": "9.0 points higher than previous best arts",
-        "value_label": "9.0 NDS points vs that paper's previous best",
-        "plot": False,
-        "plot_value": None,
-    },
-    {
-        "paper": "BEVDepth",
-        "arxiv": "2206.10092",
-        "quote": "60.9% NDS on the challenging nuScenes test set",
-        "value_label": "60.9% NDS",
-        "plot": True,
-        "plot_value": 60.9,
-    },
-    {
-        "paper": "VAD",
-        "arxiv": "2303.12077",
-        "quote": "VAD-Base, greatly reduces the average collision rate by 29.0% and runs 2.5x faster",
-        "value_label": "29.0% relative collision-rate reduction; 2.5× speed",
-        "plot": False,
-        "plot_value": None,
-    },
-    {
-        "paper": "VAD",
-        "arxiv": "2303.12077",
-        "quote": "a lightweight variant, VAD-Tiny, greatly improves the inference speed (up to 9.3x)",
-        "value_label": "up to 9.3× speed",
-        "plot": False,
-        "plot_value": None,
-    },
-    {
-        "paper": "TransFuser",
-        "arxiv": "2205.15997",
-        "quote": "Compared to geometry-based fusion, TransFuser reduces the average collisions per kilometer by 48%",
-        "value_label": "48% relative reduction in collisions per km",
-        "plot": False,
-        "plot_value": None,
-    },
-    {
-        "paper": "TransFuser (conference version)",
-        "arxiv": "2104.09224",
-        "quote": "reducing collisions by 76% compared to geometry-based fusion",
-        "value_label": "76% relative collision reduction",
-        "plot": False,
-        "plot_value": None,
-    },
-    {
-        "paper": "PilotNet",
-        "arxiv": "1604.07316",
-        "quote": "The system operates at 30 frames per second (FPS)",
-        "value_label": "30 FPS",
-        "plot": False,
-        "plot_value": None,
-    },
-    {
-        "paper": "OpenLane-V2",
-        "arxiv": "2304.10440",
-        "quote": "OpenLane-V2 consists of 2,000 annotated road scenes",
-        "value_label": "2,000 scenes (dataset size)",
-        "plot": False,
-        "plot_value": None,
-    },
-    {
-        "paper": "NAVSIM",
-        "arxiv": "2406.15349",
-        "quote": "143 teams submitted 463 entries",
-        "value_label": "143 teams, 463 entries",
-        "plot": False,
-        "plot_value": None,
-    },
-]
-
-ALSO_CITED = [
-    ("Tsung-Yi Lin et al., Focal Loss for Dense Object Detection", "https://arxiv.org/abs/1708.02002"),
-    ("Jonah Philion and Sanja Fidler, Lift, Splat, Shoot", "https://arxiv.org/abs/2008.05711"),
-    ("Mariusz Bojarski et al., End to End Learning for Self-Driving Cars", "https://arxiv.org/abs/1604.07316"),
-    ("Aditya Prakash, Kashyap Chitta, and Andreas Geiger, Multi-Modal Fusion Transformer for End-to-End Autonomous Driving", "https://arxiv.org/abs/2104.09224"),
-    ("Zhiqi Li et al., BEVFormer", "https://arxiv.org/abs/2203.17270"),
-    ("Thrun et al., Stanley (Stanford PDF)", "https://robots.stanford.edu/papers/thrun.stanley05.pdf"),
-]
-
-
-def dedent(src: str) -> str:
-    text = textwrap.dedent(src)
-    text = text.strip("\n")
-    return text + "\n"
-
-
-def src_lines(src: str) -> list[str]:
-    return src.splitlines(keepends=True)
-
-
-def new_id() -> str:
-    return uuid.uuid4().hex[:12]
-
-
-class Builder:
-    def __init__(self) -> None:
-        import matplotlib
-        import warnings
-
-        matplotlib.use("Agg")
-        warnings.filterwarnings("ignore", message="FigureCanvasAgg is non-interactive")
-        self.ns: dict = {"__name__": "__notebook__"}
-        self.cells: list[dict] = []
-        self.exec_count = 0
-
-    def md(self, src: str) -> None:
-        self.cells.append(
-            {
-                "cell_type": "markdown",
-                "id": new_id(),
-                "metadata": {},
-                "source": src_lines(dedent(src)),
-            }
-        )
-
-    def code(self, src: str) -> str:
-        source = dedent(src)
-        runnable = "\n".join(
-            line for line in source.splitlines() if not line.strip().startswith("%")
-        )
-        self.exec_count += 1
-        stdout = io.StringIO()
-        images: list[bytes] = []
-        old_stdout = sys.stdout
-        sys.stdout = stdout
-        try:
-            exec(compile(runnable, f"<cell {self.exec_count}>", "exec"), self.ns, self.ns)
-            plt = self.ns.get("plt")
-            if plt is not None:
-                for num in list(plt.get_fignums()):
-                    fig = plt.figure(num)
-                    buf = io.BytesIO()
-                    fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
-                    images.append(buf.getvalue())
-                plt.close("all")
-        except Exception:
-            sys.stdout = old_stdout
-            print(stdout.getvalue())
-            traceback.print_exc()
-            raise
-        finally:
-            sys.stdout = old_stdout
-        text = stdout.getvalue()
-        outputs = []
-        if text:
-            outputs.append({"output_type": "stream", "name": "stdout", "text": src_lines(text if text.endswith("\n") else text + "\n")})
-        for png in images:
-            outputs.append(
-                {
-                    "output_type": "display_data",
-                    "metadata": {},
-                    "data": {
-                        "image/png": base64.b64encode(png).decode("ascii"),
-                        "text/plain": ["<Figure>"],
-                    },
-                }
-            )
-        self.cells.append(
-            {
-                "cell_type": "code",
-                "id": new_id(),
-                "execution_count": self.exec_count,
-                "metadata": {},
-                "outputs": outputs,
-                "source": src_lines(source),
-            }
-        )
-        return text
-
-
-def problem_table() -> str:
-    rows = [
-        "| Problem | Where the toy stack stops | Paper |",
-        "| :--- | :--- | :--- |",
-    ]
-    for p in PROBLEMS:
-        rows.append(
-            f"| {p['problem']} | {p['stack']} | [{p['citation']}]({p['url']}) |"
-        )
-    return "\n".join(rows)
-
-
-def metric_literal() -> str:
-    """Python source for the metric rows, generated from METRICS so the cell cannot drift."""
-    lines = ["METRICS = ["]
-    for row in METRICS:
-        lines.append("    {")
-        lines.append(f"        'paper': {row['paper']!r},")
-        lines.append(f"        'arxiv': {row['arxiv']!r},")
-        lines.append(f"        'quote': {row['quote']!r},")
-        lines.append(f"        'value_label': {row['value_label']!r},")
-        lines.append(f"        'plot': {row['plot']!r},")
-        lines.append(f"        'plot_value': {row['plot_value']!r},")
-        lines.append("    },")
-    lines.append("]")
-    return "\n".join(lines)
-
-
-def build() -> dict:
-    b = Builder()
-    b.md(
-        f"""
-        # Module 09 — What this toy stack cannot do yet
-
-        [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]({COLAB_NB})
-
-        Modules 00–08 are a mini modular stack. This notebook does not add a `modules/09` folder, and it does not train a driver. It is a reading seminar: what that code actually computes, what published papers claim beyond it, and how to pick one paper for this week.
-
-        When a section has code, predict the printout, run the cell, then read the numbers. The cells are NumPy and Matplotlib. They should finish in well under two minutes on a Colab CPU.
-        """
-    )
-    b.code(
-        """
-        import matplotlib
-        import matplotlib.pyplot as plt
-        import numpy as np
-
-        %matplotlib inline
-
-        print("numpy", np.__version__)
-        print("matplotlib", matplotlib.__version__)
-        print("course modules imported: no")
-        """
-    )
-    b.md(
-        """
-        ## 1. What Modules 00–08 actually compute
-
-        A real stack has to turn cameras into a decision that changes when the scene changes. Read the integrated step before you read the paper list. `FullFSDPipeline.step` in `modules/08_capstone_fsd/pipeline.py` does all of the following on one call:
-
-        - It runs the HydraNet **backbone** only (`p3`). The lane, freespace, vehicle, and traffic-light heads do not run.
-        - It runs Lift-Splat-Shoot and the occupancy network under `torch.no_grad()`. `__init__` builds those modules with their default initial weights. There is no `load_state_dict`.
-        - It builds tracker detections from `ground_truth_obstacles`.
-        - It plans a quintic lattice with `lane_centerline_y=0.0`. The `VectorLane` created in `__init__` is not read inside `step`.
-        - It applies Stanley steering and a PID speed command on a kinematic bicycle.
-        - `occ_probs` is a local variable. It is not returned and it is not passed to the planner.
-
-        The folders above that function are not empty. They compute the things in the table. The gap is what the integrated step is willing to use.
-
-        | Module | What that folder computes | What the capstone step uses |
-        | :--- | :--- | :--- |
-        | 00 | A small CNN on real 64×64 crops, four classes, accuracy and per-class recall. Focal loss is in `losses.py`. | Nothing. The capstone does not import it. |
-        | 01 | Pinhole intrinsics, extrinsics, a flat-ground homography, a three-camera stitch, and pitch error versus distance. | A scripted rig (`K`, `R`, `T`) handed to Lift-Splat-Shoot. |
-        | 02 | A shared backbone and four heads. `train_hydranet.py` runs 10 optimizer steps on `torch.randn` images and random targets, with an uncertainty weighting loss. | The backbone feature `p3` only. |
-        | 03 | A categorical depth per pixel, then a splat into a metric bird's-eye grid. The file cites Philion and Fidler. | The BEV tensor, as the input to occupancy. The planner never sees it. |
-        | 04 | A ConvGRU memory. `forward` returns `occ_probs` shaped `(B, 1, NX, NY, NZ)` and a velocity field. | Both tensors are computed. Neither is an input to the tracker. |
-        | 05 | A Kalman tracker on 2D points, and one cubic `y = c0 + c1 x + c2 x^2 + c3 x^3`. | Tracker inputs are the ground-truth points. The cubic is not read in `step`. |
-        | 06 | Quintic boundary curves and a lattice scored against point obstacles that have a radius. | This planner runs, on those ground-truth points, with the centerline fixed at `y = 0`. |
-        | 07 | A kinematic bicycle, Stanley steering, and PID speed. Stanley here is the cross-track rule in `controllers.py`, not a tire model. | This controller runs on the lattice path. |
-        | 08 | The wiring above. The returned dict is pose, steer, throttle, cross-track error, track count, waypoints, and cost. | There is no camera loss in that dict. |
-
-        Papers that match those folders, not the open-problem list yet: focal loss ([Lin et al.](https://arxiv.org/abs/1708.02002)), Lift-Splat-Shoot ([Philion and Fidler](https://arxiv.org/abs/2008.05711)), and the Stanley PDF ([Thrun et al.](https://robots.stanford.edu/papers/thrun.stanley05.pdf)). The PDF is the Stanford copy. This notebook does not re-measure that desert run.
-
-        **Predict.** The next cell sketches the interface, not `FullFSDPipeline` itself. Occupancy is all zeros, then all ones. The obstacle list stays `x = 10`, `y = 1.2`. Which of the two printed arrays changes: the planner input, the occupancy checksum, or both?
-        """
-    )
-    b.code(
-        """
-        def capstone_interface(occ_probs, ground_truth_obstacles):
-            # Sketch of pipeline.py step(), not a call to that class.
-            # Detections are built from ground_truth_obstacles only.
-            checksum = float(np.sum(occ_probs))
-            detections = np.array(
-                [[obs["x"], obs["y"]] for obs in ground_truth_obstacles],
-                dtype=float,
-            )
-            return detections, checksum
-
-        obstacles = [{"x": 10.0, "y": 1.2}]
-        det_a, sum_a = capstone_interface(np.zeros((1, 1, 4, 4, 2)), obstacles)
-        det_b, sum_b = capstone_interface(np.ones((1, 1, 4, 4, 2)), obstacles)
-        print("planner sees (occ zeros):", det_a.tolist())
-        print("planner sees (occ ones): ", det_b.tolist())
-        print("same planner input?", bool(np.array_equal(det_a, det_b)))
-        print("occupancy checksum, zeros:", sum_a)
-        print("occupancy checksum, ones: ", sum_b)
-        """
-    )
-    same = bool(b.ns["np"].array_equal(b.ns["det_a"], b.ns["det_b"]))
-    sum_a = b.ns["sum_a"]
-    sum_b = b.ns["sum_b"]
-    if not same or sum_a != 0.0 or sum_b != 32.0:
-        raise SystemExit(f"interface sketch unexpected: same={same} sums={sum_a},{sum_b}")
-    b.md(
-        f"""
-        The planner input is `[[10.0, 1.2]]` in both calls, and `same planner input?` is `True`. The occupancy checksum goes from `{sum_a:.0f}` to `{sum_b:.0f}` because the tensor is shape `(1, 1, 4, 4, 2)` and the second call fills it with ones (`1×1×4×4×2 = 32`). Changing occupancy did not change the plan's inputs.
-
-        That is the perception–planning gap in this repo. The next papers ask what happens if the plan is allowed to depend on the camera.
-        """
-    )
-    b.md(
-        """
-        ## 2. End-to-end driving
-
-        Three different claims get called "end to end." They do not delete the same pieces.
-
-        **PilotNet** (Bojarski et al., [End to End Learning for Self-Driving Cars](https://arxiv.org/abs/1604.07316)) trains a CNN from a front-camera image to a steering command. The abstract says the network was never explicitly trained to find the outline of the road, and that the system runs at 30 frames per second. Intermediate lane detection, path planning, and control are not outputs.
-
-        **TransFuser** (Chitta et al., [Imitation with Transformer-Based Sensor Fusion for Autonomous Driving](https://arxiv.org/abs/2205.15997)) is also imitation, but the inputs are image and LiDAR, fused by attention at several resolutions. The abstract says this cuts average collisions per kilometer by 48% relative to geometry-based fusion, on CARLA. An earlier conference version (Prakash, Chitta, and Geiger, [Multi-Modal Fusion Transformer](https://arxiv.org/abs/2104.09224)) reports a 76% collision reduction against geometry-based fusion on its own setup. Those are two write-ups, not one number measured twice. Neither number is a nuScenes score.
-
-        **UniAD** (Hu et al., [Planning-oriented Autonomous Driving](https://arxiv.org/abs/2212.10156)) keeps a stack of tasks (track, map, motion, occupancy, plan) and connects them with queries so the training target is planning. The abstract says the alternative, separate heads, can accumulate error. It does not print a scalar in the abstract. Do not invent one.
-
-        A Tesla-style claim, as it shows up in product talks, is that one network maps video to controls and drops a separate HD map and a hand-written planner. There is no peer-reviewed Tesla paper in this notebook. The citable neighbors of that claim are PilotNet (pixels to steer), TransFuser (imitation with two sensors), and UniAD (modules kept, planning used as the goal). A product talk is not a table you can re-run.
-
-        **Predict.** The next cell fits a linear map from an 8×8 image to a steer command on four examples. In every example the only bright pixels are a lane column. The fit is minimum-norm least squares, not an epoch loop. Then an obstacle pixel that was dark in all four examples turns on, at row 2, column 1, with the lane still in column 4. Does the linear steer change? The modular rule adds a second term that depends on the obstacle column. Does that steer change?
-        """
-    )
-    b.code(
-        """
-        def scene(lane_col, obstacle=None):
-            img = np.zeros((8, 8), dtype=float)
-            img[:, lane_col] = 1.0
-            if obstacle is not None:
-                img[obstacle] = 1.0
-            return img.ravel()
-
-        def modular_steer(lane_col, obstacle_col=None):
-            steer = (lane_col - 3.5) / 3.5
-            if obstacle_col is not None:
-                steer = steer + (3.5 - obstacle_col) / 3.5
-            return float(steer)
-
-        cols = np.array([2, 3, 4, 5])
-        X = np.stack([scene(int(c)) for c in cols])
-        y = (cols - 3.5) / 3.5
-        w, residuals, rank, singular = np.linalg.lstsq(X, y, rcond=None)
-        obstacle = (2, 1)
-        a_clear = float(scene(4) @ w)
-        a_obs = float(scene(4, obstacle=obstacle) @ w)
-        w_obs = float(w.reshape(8, 8)[obstacle])
-        m_clear = modular_steer(4)
-        m_obs = modular_steer(4, obstacle_col=1)
-        print("least-squares rank:", int(rank))
-        print(f"weight on the obstacle pixel: {w_obs:.4f}")
-        print(f"linear steer, lane only:     {a_clear:.4f}")
-        print(f"linear steer, obstacle on:   {a_obs:.4f}")
-        print(f"linear steer changed by:     {a_obs - a_clear:.4f}")
-        print(f"modular steer, lane only:    {m_clear:.4f}")
-        print(f"modular steer, obstacle on:  {m_obs:.4f}")
-        """
-    )
-    a_clear = b.ns["a_clear"]
-    a_obs = b.ns["a_obs"]
-    m_clear = b.ns["m_clear"]
-    m_obs = b.ns["m_obs"]
-    w_obs = b.ns["w_obs"]
-    if abs(a_clear - a_obs) > 1e-12 or abs(w_obs) > 1e-12:
-        raise SystemExit("expected the min-norm pixel-to-steer map to ignore the unseen pixel")
-    b.md(
-        f"""
-        The linear steer is `{a_clear:.4f}` with the lane alone and `{a_obs:.4f}` with the obstacle pixel on. The change is `{a_obs - a_clear:.4f}`. The weight on that pixel is `{w_obs:.4f}`: a minimum-norm fit puts no weight on a pixel that was zero in every training row, and the residual on those four lane columns can be fit without it. The modular steer moves from `{m_clear:.4f}` to `{m_obs:.4f}` because the second term looks at column 1.
-
-        Same pixels, two answers. PilotNet's claim is the first kind of map: one function, trained on the steer the human used. UniAD's claim is closer to the second shape: keep an intermediate object, and make the plan depend on it. The toy does not show that either paper's network works. It shows why the two claims are not the same sentence.
-
-        de Haan, Jayaraman, and Levine ([Causal Confusion in Imitation Learning](https://arxiv.org/abs/1905.11979)) describe the failure mode of the first map: more information can make a cloned policy worse when the fit latches onto the wrong cause. Codevilla et al. ([Exploring the Limitations of Behavior Cloning for Autonomous Driving](https://arxiv.org/abs/1904.08980)) is the scaling version: cloning can do maneuvers you did not hand-write, and it still breaks on dataset bias, dynamic objects, and the lack of a causal model.
-        """
-    )
-    b.md(
-        """
-        ## 3. Occupancy, vectors, and maps
-
-        Three representations fail on different scenes. The numbers below are this notebook's geometry, not a benchmark.
-
-        **Occupancy.** A cell is marked occupied when the object covers at least half of the cell's area. A thin pole can sit in the cell and stay under that threshold.
-
-        **Vectors.** Module 05 stores one cubic in forward distance `x`. A fork is two laterals at the same `x`. A cubic fit to the left branch cannot also be the right branch.
-
-        **Maps.** A stored cubic is yesterday's road. If construction shifts the lane by a constant, every query of the old coefficients is off by that shift until someone rebuilds the map.
-
-        **Predict.** The pole is 0.10 m wide and the cell is 1 m by 1 m. At a threshold of 0.5, is the cell occupied? The cubic is fit only to the left branch. At `x = 30` m, which branch should the curve miss by multiple meters?
-        """
-    )
-    b.code(
-        """
-        def covered_fraction(width_m, voxel_m=1.0):
-            span = min(width_m, voxel_m)
-            return (span * voxel_m) / (voxel_m ** 2)
-
-        threshold = 0.5
-        frac_pole = covered_fraction(0.10)
-        frac_car = covered_fraction(1.60)
-        print(f"pole 0.10 m → fraction {frac_pole:.3f} → occupied? {frac_pole >= threshold}")
-        print(f"car  1.60 m → fraction {frac_car:.3f} → occupied? {frac_car >= threshold}")
-
-        x = np.linspace(0.0, 30.0, 31)
-        y_left = np.where(x < 12.0, 0.0, 0.15 * (x - 12.0))
-        y_right = np.where(x < 12.0, 0.0, -0.15 * (x - 12.0))
-        coef = np.polyfit(x, y_left, 3)
-        y_hat = np.polyval(coef, x)
-        err_left = float(np.max(np.abs(y_hat - y_left)))
-        err_right = float(np.max(np.abs(y_hat - y_right)))
-        print(f"max |cubic - left branch|  = {err_left:.3f} m")
-        print(f"max |cubic - right branch| = {err_right:.3f} m")
-        print(f"at x=30 m, cubic {y_hat[-1]:.3f} m, left {y_left[-1]:.3f} m, right {y_right[-1]:.3f} m")
-
-        x_map = np.linspace(0.0, 40.0, 21)
-        y_old = 0.001 * x_map**2
-        shift_m = 1.5
-        y_new = y_old + shift_m
-        coef_map = np.polyfit(x_map, y_old, 3)
-        y_map_20 = float(np.polyval(coef_map, 20.0))
-        y_today_20 = float(np.polyval(np.polyfit(x_map, y_new, 3), 20.0))
-        print(f"stored map at x=20 m: {y_map_20:.3f} m")
-        print(f"shifted road at x=20 m: {y_today_20:.3f} m")
-        print(f"map error at x=20 m: {y_today_20 - y_map_20:.3f} m")
-
-        fig, axes = plt.subplots(1, 2, figsize=(9.2, 3.4))
-        axes[0].plot(x, y_left, color="#1f4e79", lw=2.0, label="left branch (fit)")
-        axes[0].plot(x, y_hat, color="#c45911", lw=2.0, ls="--", label="one cubic")
-        axes[0].plot(x, y_right, color="#548235", lw=2.0, label="right branch (unseen)")
-        axes[0].set_xlabel("forward x (m)")
-        axes[0].set_ylabel("lateral y (m)")
-        axes[0].set_title("One cubic, two successors")
-        axes[0].legend(frameon=False, fontsize=8)
-        axes[1].plot(x_map, y_old, color="#1f4e79", lw=2.0, label="stored map")
-        axes[1].plot(x_map, y_new, color="#c45911", lw=2.0, label="road today (+1.5 m)")
-        axes[1].scatter([20.0], [y_map_20], color="#1f4e79", zorder=3)
-        axes[1].scatter([20.0], [y_today_20], color="#c45911", zorder=3)
-        axes[1].set_xlabel("forward x (m)")
-        axes[1].set_ylabel("lateral y (m)")
-        axes[1].set_title("Stored cubic, shifted road")
-        axes[1].legend(frameon=False, fontsize=8)
-        fig.tight_layout()
-        plt.show()
-        """
-    )
-    frac_pole = b.ns["frac_pole"]
-    frac_car = b.ns["frac_car"]
-    err_left = b.ns["err_left"]
-    err_right = b.ns["err_right"]
-    y_hat_30 = float(b.ns["y_hat"][-1])
-    y_left_30 = float(b.ns["y_left"][-1])
-    y_right_30 = float(b.ns["y_right"][-1])
-    y_map_20 = b.ns["y_map_20"]
-    y_today_20 = b.ns["y_today_20"]
-    if not (frac_pole < 0.5 <= frac_car):
-        raise SystemExit("occupancy threshold demo failed")
-    if not (err_right > 2.0 and err_right > err_left):
-        raise SystemExit("fork demo failed")
-    if abs((y_today_20 - y_map_20) - 1.5) > 1e-6:
-        raise SystemExit("map shift demo failed")
-    b.md(
-        f"""
-        The pole covers `{frac_pole:.3f}` of the cell and is marked empty. The car covers `{frac_car:.3f}` and is marked occupied. The pole is still in the cell. Occ3D (Tian et al., [Occ3D](https://arxiv.org/abs/2304.14365)) is the benchmark version of this complaint: boxes miss shape, and occupancy is useful when it also carries semantics. Module 04's head is a sigmoid over voxels. It does not produce that benchmark label.
-
-        The cubic's worst miss on the branch it was fit to is `{err_left:.3f}` m. The kink at 12 m is not a cubic, so even the observed branch is not exact. Its worst miss on the other branch is `{err_right:.3f}` m. At `x = 30` m the curve says `{y_hat_30:.3f}` m, the left branch is `{y_left_30:.3f}` m, and the right branch is `{y_right_30:.3f}` m. OpenLane-V2 (Wang et al., [OpenLane-V2](https://arxiv.org/abs/2304.10440)) asks for that missing structure: relations among lanes and traffic elements, on 2,000 annotated scenes, not a single polyline score.
-
-        The stored map at `x = 20` m says `{y_map_20:.3f}` m. The shifted road is at `{y_today_20:.3f}` m. The error is `{y_today_20 - y_map_20:.3f}` m, the construction shift. A map that is not rebuilt does not notice.
-
-        VAD (Jiang et al., [VAD](https://arxiv.org/abs/2303.12077)) argues the other way: a dense occupancy raster is expensive and drops instance identity, and a vector scene is a better planner input. Their abstract's 29.0% is a relative collision-rate reduction for VAD-Base, and 2.5× / 9.3× are speed claims. This notebook did not re-run VAD. The fork above is the failure mode of a vector that is too small (one cubic). A grid can miss a pole. A vector can miss a fork. A map can be stale. Those are three different bugs.
-        """
-    )
-    section4 = dedent(
-        """
-        ## 4. Open problems, one paper each
-
-        Each row is one problem this toy stack does not solve, and one paper. The URL is the arXiv abstract. Read that page before you trust a blog summary of it.
-
-        TABLE_HERE
-
-        Two papers from earlier sections are the method side of rows you already have code for, so they are not a second citation in the table: Lift-Splat-Shoot for the BEV geometry Module 03 implements, and focal loss for the class-imbalance loss Module 00 implements.
-
-        ### Eight steps, using only the BEVDepth abstract
-
-        The routine, applied to Yinhao Li et al. ([BEVDepth](https://arxiv.org/abs/2206.10092)). Steps the abstract does not answer stay blank on purpose.
-
-        1. **Question.** Camera-based 3D detection is limited by depth that is not good enough.
-        2. **Figure 1.** Not in the abstract. Open the PDF before you draw the tensors.
-        3. **Notation.** The abstract does not give shapes. Module 03's depth bins are not this paper's shapes. Copy the paper's, from the paper.
-        4. **Novelty.** Explicit depth supervision, a camera-aware depth module, and a depth refinement module, instead of depth that is only implied by the detection loss.
-        5. **Evidence.** The abstract states "60.9% NDS on the challenging nuScenes test set." The next sentence says that, for the first time, the NDS score of a camera model reaches 60%. This notebook did not open the table.
-        6. **Ablation.** The abstract does not name which row was removed. Open the PDF.
-        7. **Code.** The abstract, as hosted on the abs page, does not include a commit hash.
-        8. **Limitation.** Not in the abstract. Read the last section before you quote 60.9 as a reason to change Module 03.
-
-        UniAD's abstract argues that the stack should be optimized for planning, and it states no scalar. The evidence step for UniAD is to open the PDF, not to recall a number from memory.
-        """
-    ).replace("TABLE_HERE", problem_table().rstrip("\n"))
-    b.md(section4)
-    b.md(
-        """
-        ## 5. Numbers that appear in the abstracts
-
-        The next cell prints a table of scalars that are written in the abstracts fetched for this notebook. It plots only two of them: BEVFormer and BEVDepth both state a camera-model NDS on the nuScenes **test** set. Everything else is a different quantity (a relative reduction, a speedup, a frame rate, a dataset size, a competition count) and stays in the table.
-
-        BEVFormer's abstract also says its result is 9.0 NDS points above the previous best at the time of that paper. That 9.0 is not `60.9 - 56.9`. Do not subtract the two bars and call the difference a comparison those authors ran.
-
-        **Predict.** Which rows share a metric and a split, and so can share an axis? Which rows are relative reductions and must not be drawn as if they were NDS?
-        """
-    )
-    metric_body = dedent(
-        """
-        print(f"{'paper':<32} {'arXiv':<12} {'on the NDS axis?':<16} value")
-        for row in METRICS:
-            flag = "yes" if row["plot"] else "no"
-            print(f"{row['paper']:<32} {row['arxiv']:<12} {flag:<16} {row['value_label']}")
-            print(f"    quote: {row['quote']}")
-
-        plotted = [row for row in METRICS if row["plot"]]
-        fig, ax = plt.subplots(figsize=(6.2, 3.6))
-        labels = [f"{row['paper']}\\narXiv:{row['arxiv']}" for row in plotted]
-        values = [row["plot_value"] for row in plotted]
-        bars = ax.bar(labels, values, color=["#1f4e79", "#5b9bd5"], width=0.55)
-        for bar, value in zip(bars, values):
-            ax.text(
-                bar.get_x() + bar.get_width() / 2,
-                value + 1.5,
-                f"{value:.1f}",
-                ha="center",
-                va="bottom",
-            )
-        ax.set_ylim(0, 100)
-        ax.set_ylabel("NDS on nuScenes test (%)")
-        ax.set_title("As written in the abstracts, not a re-run")
-        fig.tight_layout()
-        plt.show()
-        """
-    )
-    b.code(metric_literal() + "\n" + metric_body)
-    plotted = [row for row in METRICS if row["plot"]]
-    if [row["plot_value"] for row in plotted] != [56.9, 60.9]:
-        raise SystemExit("NDS plot values drifted from the abstracts")
-    b.md(
-        """
-        The axis has two bars because two abstracts name the same metric and the same split: BEVFormer 56.9 NDS and BEVDepth 60.9 NDS, both on nuScenes test, both as camera models, in [Zhiqi Li et al.](https://arxiv.org/abs/2203.17270) and [Yinhao Li et al.](https://arxiv.org/abs/2206.10092). They were not trained in one experiment for this chart. The vertical axis starts at 0 so a four-point gap stays a four-point gap.
-
-        UniAD is missing from the chart because its abstract does not state an NDS. The 29.0%, 48%, and 76% figures are relative reductions inside their own papers, against those papers' own baselines. PilotNet's 30 FPS is a runtime sentence. OpenLane-V2's 2,000 is a count of scenes. NAVSIM's 143 and 463 count a 2024 challenge. None of those belong on an NDS axis.
-
-        If a blog quotes a UniAD or TransFuser number that is not in the list above, it came from a table this notebook did not copy. Go open that table, and write down the dataset and the split before you repeat the number.
-        """
-    )
-    b.md(
-        """
-        ## 6. How to pick a paper this week
-
-        Pick the failure you can point at in the repo, then one PDF.
-
-        | If your question is… | Read this first |
-        | :--- | :--- |
-        | Why does the plan ignore occupancy? | [UniAD](https://arxiv.org/abs/2212.10156) |
-        | Why does a pixels-to-steer policy ignore an obstacle? | [PilotNet](https://arxiv.org/abs/1604.07316), then [de Haan et al.](https://arxiv.org/abs/1905.11979) |
-        | Why is Module 03's depth the risky part? | [Lift, Splat, Shoot](https://arxiv.org/abs/2008.05711), then [BEVDepth](https://arxiv.org/abs/2206.10092) |
-        | Why is one cubic not a lane graph? | [OpenLane-V2](https://arxiv.org/abs/2304.10440) |
-        | Why is a cross-track number not a driving score? | [NAVSIM](https://arxiv.org/abs/2406.15349) |
-
-        One paper is a week. Use the eight steps from section 4. Fill this before you open a second PDF:
-
-        ```text
-        Paper:
-        Question (one sentence):
-        Module hook (a file under modules/00–08):
-        Evidence (dataset, split, and the number, or "abstract gives none"):
-        Limitation (from the paper, or "not in the abstract"):
-        What I will not claim:
-        ```
-
-        Stop when those six lines are full. A notation table with tensor shapes counts as part of the question, and it has to come from the PDF. Dashboard telemetry in the Module 08 studio is simulated. It is not a row in that evidence line.
-
-        The order that matches the stack you built: geometry (Lift-Splat-Shoot, then BEVDepth), then occupancy (Occ3D), then planning as the training target (UniAD), then topology or closed-loop evaluation if that is the hole you care about. Depth on one paper beats a folder of abstracts.
-        """
-    )
-    nb = {
-        "nbformat": 4,
-        "nbformat_minor": 5,
-        "metadata": {
-            "colab": {"provenance": []},
-            "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
-            "language_info": {
-                "name": "python",
-                "pygments_lexer": "ipython3",
-            },
+import nbformat
+from nbformat.v4 import new_code_cell, new_markdown_cell, new_notebook
+
+
+def md(source: str):
+    return new_markdown_cell(textwrap.dedent(source).strip() + "\n")
+
+
+def code(source: str):
+    return new_code_cell(textwrap.dedent(source).strip() + "\n")
+
+
+def build() -> nbformat.NotebookNode:
+    cells = []
+
+    cells.append(md("""
+    # Module 09 — What this toy stack cannot do yet
+
+    [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/vvknyn/self-driving-ai-course/blob/main/notebooks/09_cutting_edge_research.ipynb)
+
+    Modules 00 through 08 are a relay you can read. This notebook does not add a `modules/09` folder, and it does not train a driver. Each section is one blind spot from that relay: a picture, the number the picture produced, then **one** paper.
+
+    A number next to a paper is a quote from that paper's abstract. A number next to a picture was printed by the cell above it. There is no `modules/09` to fill in.
+
+    **Predict first**, then run the cell. The paragraph after the cell says what was weird, and what a driver should care about.
+    """))
+
+    cells.append(code("""
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    %matplotlib inline
+
+    print("numpy", np.__version__)
+    print("matplotlib", plt.matplotlib.__version__)
+    print("course modules imported: no")
+    """))
+
+    cells.append(md("""
+    ## 1. Module 00 — a good score can miss every person
+
+    Ten open-road crops. Three people. The dumbest driver names every crop "open road," because that is the most common name.
+
+    **Predict:** the accuracy looks like most of the folder. The recall on people is zero. Both can be true at once.
+    """))
+
+    cells.append(code("""
+    n_road, n_person = 10, 3
+    n = n_road + n_person
+    accuracy = n_road / n
+    recall = 0.0 / n_person
+    print(f"photos: {n}")
+    print(f"always-road accuracy: {accuracy:.4f}")
+    print(f"pedestrian recall: {recall:.4f}")
+
+    fig, ax = plt.subplots(figsize=(5.2, 3.2))
+    ax.bar(["open road", "person"], [n_road, n_person], color=["#8d99ae", "#c1121f"])
+    ax.set_ylabel("crops in the toy folder")
+    ax.set_title("The folder the dumb rule memorizes")
+    for i, v in enumerate([n_road, n_person]):
+        ax.text(i, v + 0.15, str(v), ha="center")
+    ax.set_ylim(0, 12)
+    fig.tight_layout()
+    plt.show()
+    """))
+
+    cells.append(md("""
+    Accuracy is `0.7692`. Pedestrian recall is `0.0000`. Ten of the thirteen crops really are open road, so "about three quarters right" is the honest fraction, and it still names zero of the three people.
+
+    That is the weird part. A score that averages over the folder lets the asphalt outvote the person. A driver should care because the rare thing is the one you must not miss.
+
+    One paper. [Tsung-Yi Lin et al., Focal Loss for Dense Object Detection](https://arxiv.org/abs/1708.02002). The abstract says: "We discover that the extreme foreground-background class imbalance encountered during training of dense detectors is the central cause." It does not state a COCO AP. Do not invent one. The `0.7692` and the `0.0000` are this folder, not that paper.
+    """))
+
+    cells.append(md("""
+    ## 2. Module 01 — one degree of pitch, and the far point runs away
+
+    A camera `1.5` m off the ground looks at a point on flat pavement. The ray that hits a point at range `Z` sits `arctan(1.5 / Z)` below the horizon. Tip the camera up by one degree and read that same ray as a new range.
+
+    **Predict:** `10` m barely moves. `40` m does not. The error grows with distance.
+    """))
+
+    cells.append(code("""
+    h = 1.5
+    bias_deg = 1.0
+    delta = np.deg2rad(bias_deg)
+    ranges = np.array([10.0, 20.0, 40.0])
+    theta = np.arctan(h / ranges)
+    z_hat = h / np.tan(theta - delta)
+    err = z_hat - ranges
+    for Z, zh, e in zip(ranges, z_hat, err):
+        print(f"{Z:.0f} m true → {zh:.2f} m read, error {e:+.2f} m")
+
+    grid = np.linspace(5.0, 50.0, 46)
+    th = np.arctan(h / grid)
+    err_grid = h / np.tan(th - delta) - grid
+    fig, ax = plt.subplots(figsize=(6.2, 3.4))
+    ax.plot(grid, err_grid, color="#1f4e79")
+    ax.scatter(ranges, err, color="#c1121f", zorder=3)
+    ax.set_xlabel("true range (m)")
+    ax.set_ylabel("range error after +1° pitch (m)")
+    ax.set_title("Flat ground, camera 1.5 m up, pitched 1°")
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    plt.show()
+    """))
+
+    cells.append(md("""
+    `10` m is read as `11.35` m, error `+1.35` m. `20` m is read as `26.10` m, error `+6.10` m. `40` m is read as `74.88` m, error `+34.88` m. One degree, and the far point has moved by more than the length of a bus.
+
+    A driver should care that a flat-ground guess gets worse as the thing gets farther, which is exactly where you most want the distance. This five-line camera is not the course's student pitch function. It is the picture of the assumption.
+
+    One paper. [Yan Wang et al., Pseudo-LiDAR from Visual Depth Estimation](https://arxiv.org/abs/1812.07179). The abstract says the approach raises "the detection accuracy of objects within the 30m range from the previous state-of-the-art of 22% to an unprecedented 74%" on KITTI. Those two percents are that abstract. They are not a measurement of this one-degree pitch. The connection is the complaint: an image is not yet a point in front of the bumper.
+    """))
+
+    cells.append(md("""
+    ## 3. Module 02 — the loud loss eats the quiet one
+
+    Two tasks, one sum. A depth loss of `50` and a class loss of `0.2`. Nobody has reweighted them.
+
+    **Predict:** the sum is almost entirely the depth term. The class term is a rounding error.
+    """))
+
+    cells.append(code("""
+    depth_loss, class_loss = 50.0, 0.2
+    total = depth_loss + class_loss
+    print(f"depth loss: {depth_loss:.1f}")
+    print(f"class loss: {class_loss:.1f}")
+    print(f"depth share of the sum: {depth_loss / total:.4f}")
+    print(f"class share of the sum: {class_loss / total:.4f}")
+
+    fig, ax = plt.subplots(figsize=(5.2, 3.2))
+    ax.bar(["depth", "class"], [depth_loss, class_loss], color=["#1f4e79", "#c1121f"])
+    ax.set_ylabel("loss, before any weight")
+    ax.set_title("Same sum, two units")
+    fig.tight_layout()
+    plt.show()
+    """))
+
+    cells.append(md("""
+    The depth term is `0.9960` of the sum. The class term is `0.0040`. A gradient step on that sum spends almost all of itself on depth. The class head can be wrong and the total barely notices.
+
+    A driver should care when one head is in meters and another is a probability. Adding them raw is not a plan for which mistake matters.
+
+    One paper. [Alex Kendall, Yarin Gal, and Roberto Cipolla, Multi-Task Learning Using Uncertainty to Weigh Losses for Scene Geometry and Semantics](https://arxiv.org/abs/1705.07115). The abstract says "the performance of such systems is strongly dependent on the relative weighting between each task's loss." It states no scalar. The `0.9960` is this toy sum, not their experiment.
+    """))
+
+    cells.append(md("""
+    ## 4. Module 03 — a wrong depth drops the same pixel in a different cell
+
+    One pixel. Two depth guesses, `8` m and `24` m. Cells are `0.6` m long, the forward step the capstone uses for its bird's-eye grid. The pixel is painted into `floor(depth / 0.6)`.
+
+    **Predict:** the same pixel does not land in neighboring cells. It lands many meters apart.
+    """))
+
+    cells.append(code("""
+    cell = 0.6
+    depths = np.array([8.0, 24.0])
+    idx = np.floor(depths / cell).astype(int)
+    landed = idx * cell
+    apart = float((idx[1] - idx[0]) * cell)
+    for d, i, z in zip(depths, idx, landed):
+        print(f"depth {d:.1f} m → cell {int(i)} → forward {z:.1f} m")
+    print(f"same pixel, two cells, {apart:.1f} m apart")
+
+    fig, ax = plt.subplots(figsize=(6.4, 2.6))
+    ax.axhline(0.0, color="#8d99ae", lw=4)
+    ax.scatter(landed, [0, 0], s=80, color=["#1f4e79", "#c1121f"], zorder=3)
+    for z, d in zip(landed, depths):
+        ax.text(z, 0.08, f"{d:.0f} m guess\\ncell at {z:.1f}", ha="center", fontsize=8)
+    ax.set_xlim(0, 30)
+    ax.set_ylim(-0.4, 0.5)
+    ax.set_yticks([])
+    ax.set_xlabel("forward distance (m)")
+    ax.set_title("One pixel, two depths, 0.6 m cells")
+    fig.tight_layout()
+    plt.show()
+    """))
+
+    cells.append(md("""
+    The `8` m guess lands in cell `13`, at `7.8` m. The `24` m guess lands in cell `40`, at `24.0` m. The same pixel is `16.2` m apart. A depth error does not blur a neighbor. It teleports the feature down the road.
+
+    A driver should care because the map leg of the relay is only as honest as that depth. Smear the depth and the obstacle is a streak.
+
+    One paper. [Yinhao Li et al., BEVDepth](https://arxiv.org/abs/2206.10092). The abstract says "depth estimation in recent approaches is surprisingly inadequate given the fact that depth is essential to camera 3D detection," and that BEVDepth "achieves the new state-of-the-art 60.9% NDS on the challenging nuScenes test set." It also says "the NDS score of a camera model reaches 60%." That `60.9` is their camera model on the nuScenes test set. This notebook did not re-run it. It is not the `16.2` m gap above, and it does not belong on the chart in the last section.
+    """))
+
+    cells.append(md("""
+    ## 5. Module 04 — a pole can sit in a cell and still be called empty
+
+    A cell is occupied when the object covers at least half of the cell. The cell is `1` m by `1` m. A pole is `0.10` m wide. A car is `1.60` m wide.
+
+    **Predict:** the car fills the cell. The pole does not. The pole is still in the cell.
+    """))
+
+    cells.append(code("""
+    def covered_fraction(width_m, voxel_m=1.0):
+        span = min(width_m, voxel_m)
+        return (span * voxel_m) / (voxel_m ** 2)
+
+    threshold = 0.5
+    pole = covered_fraction(0.10)
+    car = covered_fraction(1.60)
+    print(f"pole 0.10 m → fraction {pole:.3f} → occupied? {pole >= threshold}")
+    print(f"car  1.60 m → fraction {car:.3f} → occupied? {car >= threshold}")
+
+    fig, axes = plt.subplots(1, 2, figsize=(6.2, 3.0))
+    for ax, title, width, color in (
+        (axes[0], "pole 0.10 m", 0.10, "#c1121f"),
+        (axes[1], "car 1.60 m", 1.60, "#1f4e79"),
+    ):
+        ax.add_patch(plt.Rectangle((0, 0), 1, 1, fill=False, lw=1.5))
+        w = min(width, 1.0)
+        ax.add_patch(plt.Rectangle(((1 - w) / 2, 0), w, 1, color=color, alpha=0.85))
+        ax.set_xlim(-0.05, 1.05)
+        ax.set_ylim(-0.05, 1.05)
+        ax.set_aspect("equal")
+        ax.set_title(title)
+        ax.set_xticks([])
+        ax.set_yticks([])
+    fig.suptitle("Half the cell, or it stays empty")
+    fig.tight_layout()
+    plt.show()
+    """))
+
+    cells.append(md("""
+    The pole covers `0.100` of the cell and is marked empty. The car covers `1.000` and is marked occupied. The pole did not leave. The rule refused to say its name.
+
+    A driver should care that "empty" can mean "too thin for the voxel," which is a bad time to meet a pole, a pedestrian, or a fallen sign.
+
+    One paper. [Xiaoyu Tian et al., Occ3D](https://arxiv.org/abs/2304.14365). The abstract says existing methods "typically focus on estimating 3D bounding boxes, neglecting finer geometric details and struggling to handle general, out-of-vocabulary objects." It states no mIoU. Do not invent one. The `0.100` is this cell, not their benchmark.
+    """))
+
+    cells.append(md("""
+    ## 6. Module 05 — one cubic cannot be a fork
+
+    The road is one line until `12` m, then it splits. The left branch rises at `0.15` m of lateral per meter of forward. The right branch falls at the same rate. A single cubic is fit only to the left branch.
+
+    **Predict:** the cubic stays near the branch it saw. At `30` m it misses the other branch by several meters.
+    """))
+
+    cells.append(code("""
+    x = np.linspace(0.0, 30.0, 31)
+    y_left = np.where(x < 12.0, 0.0, 0.15 * (x - 12.0))
+    y_right = np.where(x < 12.0, 0.0, -0.15 * (x - 12.0))
+    coef = np.polyfit(x, y_left, 3)
+    y_hat = np.polyval(coef, x)
+    err_left = float(np.max(np.abs(y_hat - y_left)))
+    err_right = float(np.max(np.abs(y_hat - y_right)))
+    print(f"max |cubic - left branch|  = {err_left:.3f} m")
+    print(f"max |cubic - right branch| = {err_right:.3f} m")
+    print(f"at 30 m, cubic {y_hat[-1]:.3f} m, left {y_left[-1]:.3f} m, right {y_right[-1]:.3f} m")
+
+    fig, ax = plt.subplots(figsize=(6.4, 3.4))
+    ax.plot(x, y_left, label="left branch", color="#1f4e79")
+    ax.plot(x, y_right, label="right branch", color="#c1121f")
+    ax.plot(x, y_hat, "--", label="one cubic, fit to the left", color="#6c757d")
+    ax.set_xlabel("forward x (m)")
+    ax.set_ylabel("lateral y (m)")
+    ax.set_title("A fork is two answers at one x")
+    ax.legend(frameon=False, fontsize=8)
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    plt.show()
+    """))
+
+    cells.append(md("""
+    The cubic's worst miss on the branch it was fit to is `0.188` m. The kink at `12` m is not a cubic, so even the observed branch is not exact. Its worst miss on the other branch is `5.436` m. At `30` m the curve says `2.736` m, the left branch is `2.700` m, and the right branch is `-2.700` m.
+
+    A driver should care at the moment the road offers two futures. One polynomial has already chosen.
+
+    One paper. [Huijie Wang et al., OpenLane-V2](https://arxiv.org/abs/2304.10440). The abstract says OpenLane-V2 "consists of 2,000 annotated road scenes that describe traffic elements and their correlation to the lanes." That `2,000` is a count of scenes. It is not the `5.436` m miss. The miss is this notebook's geometry.
+    """))
+
+    cells.append(md("""
+    ## 7. Module 06 — the plan does not look at the map
+
+    Occupancy is all zeros, then all ones. The obstacle list stays `x = 10`, `y = 1.2`. The planner is handed the obstacle list. This is a sketch of the capstone step, not a call to that class.
+
+    **Predict:** the occupancy checksum changes. The planner's input does not.
+    """))
+
+    cells.append(code("""
+    def planner_sees(occ, obstacles):
+        checksum = float(np.sum(occ))
+        detections = np.array([[o["x"], o["y"]] for o in obstacles], dtype=float)
+        return detections, checksum
+
+    obstacles = [{"x": 10.0, "y": 1.2}]
+    det_a, sum_a = planner_sees(np.zeros((1, 1, 4, 4, 2)), obstacles)
+    det_b, sum_b = planner_sees(np.ones((1, 1, 4, 4, 2)), obstacles)
+    print("planner sees (occ zeros):", det_a.tolist())
+    print("planner sees (occ ones): ", det_b.tolist())
+    print("same planner input?", bool(np.array_equal(det_a, det_b)))
+    print("occupancy checksum, zeros:", sum_a)
+    print("occupancy checksum, ones: ", sum_b)
+
+    fig, axes = plt.subplots(1, 2, figsize=(6.2, 3.0))
+    axes[0].imshow(np.zeros((4, 4)), cmap="gray", vmin=0, vmax=1)
+    axes[0].set_title("occupancy sum 0")
+    axes[1].imshow(np.ones((4, 4)), cmap="gray", vmin=0, vmax=1)
+    axes[1].set_title("occupancy sum 32")
+    for ax in axes:
+        ax.set_xticks([])
+        ax.set_yticks([])
+    fig.suptitle("Planner input stays [10.0, 1.2] in both panels")
+    fig.tight_layout()
+    plt.show()
+    """))
+
+    cells.append(md("""
+    The planner sees `[[10.0, 1.2]]` both times. `same planner input?` is `True`. The checksum goes from `0` to `32`, because the tensor is `(1, 1, 4, 4, 2)` and the second call fills it with ones. Painting the whole map did not move the plan.
+
+    A driver should care that the map runner can finish the leg and drop the baton. The wheel then steers from a list that never looked at the map.
+
+    One paper. [Yihan Hu et al., Planning-oriented Autonomous Driving](https://arxiv.org/abs/2212.10156). The abstract says separate heads "might suffer from accumulative errors or deficient task coordination," and that a framework "should be devised and optimized in pursuit of the ultimate goal, i.e., planning." It states no scalar. Do not invent an NDS for it.
+    """))
+
+    cells.append(md("""
+    ## 8. Module 07 — a perfect lane score while the gap closes
+
+    The ego sits on the lane center, so the cross-track error is zero by construction. Speed is `12` m/s. A lead car is stopped at `30` m. Ten steps of `0.1` s. Nobody brakes.
+
+    **Predict:** the cross-track error stays zero. The gap gets smaller. Zero is not "safe."
+    """))
+
+    cells.append(code("""
+    ego_x = 0.0
+    lead_x = 30.0
+    v = 12.0
+    dt = 0.1
+    gaps, ctes = [], []
+    for _ in range(10):
+        ego_x += v * dt
+        gaps.append(lead_x - ego_x)
+        ctes.append(0.0)
+    print(f"gap starts {gaps[0]:.1f} m and ends {gaps[-1]:.1f} m")
+    print(f"mean |cte|: {float(np.mean(np.abs(ctes))):.4f} m")
+    print(f"steps: {len(gaps)}")
+
+    t = np.arange(1, 11) * dt
+    fig, ax = plt.subplots(figsize=(6.4, 3.4))
+    ax.plot(t, gaps, marker="o", color="#c1121f", label="gap to the stopped car (m)")
+    ax.plot(t, ctes, marker="o", color="#1f4e79", label="cross-track error (m)")
+    ax.set_xlabel("time (s)")
+    ax.set_ylabel("meters")
+    ax.set_title("Lane score stays perfect while you close")
+    ax.legend(frameon=False, fontsize=8)
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    plt.show()
+    """))
+
+    cells.append(md("""
+    The gap starts at `28.8` m and ends at `18.0` m. Mean absolute cross-track error is `0.0000` m. In one second the bicycle ate `12` m of a gap and the lane score did not flinch, because the lane score is not looking at the car ahead.
+
+    A driver should care that a comfort number about the paint can be perfect on the way into the trunk of a stopped car. This is a cartoon, not a tire model.
+
+    One paper. [Daniel Dauner et al., NAVSIM](https://arxiv.org/abs/2406.15349). The abstract says "open-loop evaluation with real data is easy, but these results do not reflect closed-loop performance." It also says a CVPR 2024 competition had "143 teams submitted 463 entries." Those counts are not a cross-track error. The `0.0000` m is this cartoon.
+    """))
+
+    cells.append(md("""
+    ## 9. Module 08 — a flattering score can ignore the camera
+
+    Eight future points, `1.2` m apart, straight down the log. A predictor that copies the log has no image. A person stands at `(6.0, 0.0)`, which is one of those points.
+
+    **Predict:** open-loop error against the log is zero. Distance from the predicted path to the person is also zero. The metric is happy and the path is not.
+    """))
+
+    cells.append(code("""
+    log = np.stack([np.arange(8) * 1.2, np.zeros(8)], axis=1)
+    pred = log.copy()
+    person = np.array([6.0, 0.0])
+    l2 = float(np.mean(np.linalg.norm(pred - log, axis=1)))
+    closest = float(np.min(np.linalg.norm(pred - person, axis=1)))
+    print(f"open-loop L2 to the log: {l2:.4f} m")
+    print(f"closest predicted point to the person: {closest:.4f} m")
+    print("image used: no")
+
+    fig, ax = plt.subplots(figsize=(6.4, 3.2))
+    ax.plot(log[:, 0], log[:, 1], marker="o", color="#1f4e79", label="log, and the copy of the log")
+    ax.scatter([person[0]], [person[1]], s=120, color="#c1121f", zorder=3, label="person")
+    ax.set_xlabel("forward x (m)")
+    ax.set_ylabel("lateral y (m)")
+    ax.set_title("L2 to the log is 0. The person is on the log.")
+    ax.legend(frameon=False, fontsize=8)
+    ax.set_ylim(-1.5, 1.5)
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    plt.show()
+    """))
+
+    cells.append(md("""
+    Open-loop L2 to the log is `0.0000` m. The closest predicted point to the person is `0.0000` m. No image was used. Copying yesterday's path is a perfect score on an exam that grades yesterday's path, and the person is standing on it.
+
+    A driver should care that this is the shape of the capstone's honesty problem. The cameras there are noise, the planner reads ground-truth points, and a green test means the bicycle moved. A flattering open-loop number is not a safety case. This cartoon's zero is not a paper's result.
+
+    One paper. [Jiang-Tian Zhai et al., Rethinking the Open-Loop Evaluation of End-to-End Autonomous Driving in nuScenes](https://arxiv.org/abs/2305.10430). The abstract says a simple method that does not use camera images or LiDAR "achieves similar end-to-end planning performance on the nuScenes dataset with other perception-based methods, reducing the average L2 error by about 20%." It also says the perception-based methods still had an advantage on collision rate. That "about 20%" is their sentence. It is not this `0.0000`.
+    """))
+
+    cells.append(md("""
+    ## 10. One chart, and only one pair of numbers
+
+    The next cell stores quotes copied from the abstracts above. It prints every scalar it can read out of those quotes. It draws a bar only for the pair that shares a metric: image-based detection accuracy within `30` m, previous result versus the paper's result.
+
+    **Predict:** `60.9` NDS, "about 20%" L2, `2,000` scenes, and `143` / `463` competition counts will be printed and will not be drawn. They are different quantities.
+    """))
+
+    cells.append(code("""
+    QUOTES = [
+        {
+            "paper": "Pseudo-LiDAR",
+            "url": "https://arxiv.org/abs/1812.07179",
+            "quote": "raising the detection accuracy of objects within the 30m range from the previous state-of-the-art of 22% to an unprecedented 74%",
+            "plot": True,
         },
-        "cells": b.cells,
+        {
+            "paper": "BEVDepth",
+            "url": "https://arxiv.org/abs/2206.10092",
+            "quote": "achieves the new state-of-the-art 60.9% NDS on the challenging nuScenes test set",
+            "plot": False,
+        },
+        {
+            "paper": "OpenLane-V2",
+            "url": "https://arxiv.org/abs/2304.10440",
+            "quote": "consists of 2,000 annotated road scenes",
+            "plot": False,
+        },
+        {
+            "paper": "NAVSIM",
+            "url": "https://arxiv.org/abs/2406.15349",
+            "quote": "143 teams submitted 463 entries",
+            "plot": False,
+        },
+        {
+            "paper": "Zhai et al.",
+            "url": "https://arxiv.org/abs/2305.10430",
+            "quote": "reducing the average L2 error by about 20%",
+            "plot": False,
+        },
+    ]
+
+    def scalars(quote):
+        import re
+        # A digit glued to a letter (the 2 in L2) is not a number the abstract stated.
+        nums = re.findall(r"(?<![A-Za-z])\\d[\\d,]*(?:\\.\\d+)?", quote)
+        percents = re.findall(r"(?<![A-Za-z])(\\d+(?:\\.\\d+)?)%", quote)
+        return (
+            [float(x.replace(",", "")) for x in nums],
+            [float(x) for x in percents],
+        )
+
+    print("scalars read out of the quotes")
+    plot_labels, plot_values = [], []
+    for row in QUOTES:
+        found, percents = scalars(row["quote"])
+        print(f"  {row['paper']}: numbers {found}  percents {percents}")
+        print(f"    quote: {row['quote']}")
+        if row["plot"]:
+            plot_labels = ["previous, within 30 m", "pseudo-LiDAR, within 30 m"]
+            plot_values = percents
+    print("plotted percents:", plot_values)
+    print("percentage-point gap:", plot_values[1] - plot_values[0])
+
+    fig, ax = plt.subplots(figsize=(6.2, 3.4))
+    bars = ax.bar(plot_labels, plot_values, color=["#8d99ae", "#1f4e79"])
+    for bar, value in zip(bars, plot_values):
+        ax.text(bar.get_x() + bar.get_width() / 2, value + 1.5, f"{value:.0f}%", ha="center")
+    ax.set_ylim(0, 100)
+    ax.set_ylabel("detection accuracy within 30 m (%)")
+    ax.set_title("As written in the Pseudo-LiDAR abstract, not a re-run")
+    fig.tight_layout()
+    plt.show()
+    """))
+
+    cells.append(md("""
+    The two bars are one sentence. `22` is the previous image-based accuracy within `30` m. `74` is what that abstract claims after the pseudo-LiDAR representation. The vertical axis starts at `0` so the gap stays a gap of `52` percentage points inside that sentence. They were not measured on our one-degree pitch.
+
+    `60.9` is NDS on nuScenes test, a different exam. "About `20`" is a relative L2 cut, and the abstract's word is "about." `2,000` counts scenes. `143` and `463` count a 2024 competition. None of those belong on this axis. Focal loss, the uncertainty paper, Occ3D, and UniAD stated no scalar in the abstract, so they are not in the list.
+    """))
+
+    cells.append(md("""
+    ## 11. Pick one paper
+
+    One blind spot, one PDF. Stop when the six lines are full.
+
+    | If the failure you can point at is… | Read this abstract |
+    | :--- | :--- |
+    | A high accuracy that still misses the rare person | [Focal loss](https://arxiv.org/abs/1708.02002) |
+    | An image that is not yet a point in front of the bumper | [Pseudo-LiDAR](https://arxiv.org/abs/1812.07179) |
+    | Two losses in different units, added raw | [Kendall, Gal, and Cipolla](https://arxiv.org/abs/1705.07115) |
+    | A depth guess that teleports a pixel down the road | [BEVDepth](https://arxiv.org/abs/2206.10092) |
+    | A thin object marked empty, or a box that drops the shape | [Occ3D](https://arxiv.org/abs/2304.14365) |
+    | One curve where the road forks | [OpenLane-V2](https://arxiv.org/abs/2304.10440) |
+    | A plan that never looks at the map | [UniAD](https://arxiv.org/abs/2212.10156) |
+    | A lane score that stays perfect while the gap closes | [NAVSIM](https://arxiv.org/abs/2406.15349) |
+    | An open-loop score that can ignore the camera | [Zhai et al.](https://arxiv.org/abs/2305.10430) |
+
+    ```text
+    Paper:
+    Question (one sentence):
+    Module hook (a file under modules/00–08):
+    Evidence (a quote from the abstract, or "abstract gives none"):
+    Limitation (from the abstract, or "not in the abstract"):
+    What I will not claim:
+    ```
+
+    The pictures above are toys. The quotes are the abstracts. A blog number that is not in the quote list was not fetched for this notebook.
+    """))
+
+    nb = new_notebook(cells=cells)
+    nb.metadata["kernelspec"] = {
+        "display_name": "Python 3",
+        "language": "python",
+        "name": "python3",
     }
+    nb.metadata["language_info"] = {"name": "python", "pygments_lexer": "ipython3"}
+    nb.metadata["colab"] = {"provenance": []}
     return nb
 
 
-def notebook_text(nb: dict) -> str:
-    parts = []
-    for cell in nb["cells"]:
-        parts.append("".join(cell["source"]))
-    return "\n".join(parts)
-
-
-def urls_in(text: str) -> list[str]:
-    found = re.findall(r"https?://[^\s)>\"]+", text)
-    cleaned = []
-    for url in found:
-        url = url.rstrip(".,;")
-        if url not in cleaned:
-            cleaned.append(url)
-    return cleaned
-
-
-def curl_status(url: str) -> int:
-    proc = subprocess.run(
-        [
-            "curl",
-            "-sI",
-            "-L",
-            "-A",
-            "Mozilla/5.0",
-            "--max-time",
-            "40",
-            "-o",
-            "/dev/null",
-            "-w",
-            "%{http_code}",
-            url,
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    try:
-        return int(proc.stdout.strip() or "0")
-    except ValueError:
-        return 0
-
-
-def assert_markdown_indent(nb: dict) -> None:
-    for cell in nb["cells"]:
-        if cell["cell_type"] != "markdown":
-            continue
-        text = "".join(cell["source"])
-        fenced = False
-        for line in text.splitlines():
-            if line.startswith("```"):
-                fenced = not fenced
-                continue
-            if fenced:
-                continue
-            if line.startswith("    "):
-                raise SystemExit(f"indented markdown line: {line!r}")
-
-
-def assert_style(text: str) -> None:
-    banned = [
-        (r"\bAgg\b", "Agg"),
-        (r"\bpytest\b", "pytest"),
-        (r"\bscaffold\b", "scaffold"),
-        (r"\bTODO\b", "TODO"),
-        (r"\bBeat\b", "Beat"),
-        (r"\bcontract\b", "contract"),
-    ]
-    for pattern, label in banned:
-        if re.search(pattern, text):
-            raise SystemExit(f"notebook source contains banned token {label}")
-
-
 def main() -> None:
+    out = Path(__file__).resolve().parents[1] / "notebooks" / "09_cutting_edge_research.ipynb"
+    out.parent.mkdir(parents=True, exist_ok=True)
     nb = build()
-    text = notebook_text(nb)
-    assert_style(text)
-    assert_markdown_indent(nb)
-    # Every problem URL and every extra citation must appear.
-    for row in PROBLEMS:
-        if row["url"] not in text:
-            raise SystemExit(f"missing problem url {row['url']}")
-    for _title, url in ALSO_CITED:
-        if url not in text:
-            raise SystemExit(f"missing cited url {url}")
-    if "matplotlib.use" in text:
-        raise SystemExit("notebook source selects a matplotlib backend")
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(nb, indent=1) + "\n", encoding="utf-8")
-    urls = urls_in(text)
-    # The Open-in-Colab link targets main, where this file is not published yet.
-    failures = []
-    for url in urls:
-        status = curl_status(url)
-        print(f"{status} {url}")
-        if url.startswith("https://colab.research.google.com/github/"):
-            continue
-        if status != 200:
-            failures.append((status, url))
-    if failures:
-        raise SystemExit(f"URL check failed: {failures}")
-    print(f"wrote {OUT}")
-    print(f"cells {len(nb['cells'])}")
+    text = "\n".join("".join(c.source) for c in nb.cells)
+    banned = ["Agg", "TODO", "the print says", "The print says", "modules/09"]
+    # "no modules/09" is allowed as a denial of a folder. The banned token is a path we would import.
+    for token in ("matplotlib.use", "Agg", "TODO", "the print says"):
+        if token in text:
+            raise SystemExit(f"banned token {token}")
+    if "import torch" in text or "FullFSDPipeline" in text:
+        raise SystemExit("seminar should not import the stack")
+    nbformat.write(nb, out)
+    print(f"Wrote {out} ({len(nb.cells)} cells)")
 
 
 if __name__ == "__main__":

@@ -33,9 +33,13 @@ def build() -> nbformat.NotebookNode:
 
     [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/vvknyn/self-driving-ai-course/blob/main/notebooks/09_full_fsd_system_architecture.ipynb)
 
-    Modules 01–07 each built one piece. This notebook calls those pieces in the order `FullFSDPipeline.step` actually uses, on one synthetic scenario from `DrivingScenario`.
+    Six runners, one baton. The camera runs first, then features, a map, tracks, a path, and the wheel. **End to end** here means the baton finishes that relay. It does not mean a magic net that glances at a photo and turns a steering wheel.
 
-    Each section says what to expect, then runs. **Predict first**, then execute the cell.
+    Skip the tracker and the wheel twitches. Same planner, same Stanley controller, same bicycle. The only change is that each frame's boxes are handed over raw.
+
+    This process is not a car, and it is not a safety case. The cameras are noise. The planner never reads the occupancy it just computed. A passing test means the function returned and the bicycle rolled forward.
+
+    Each idea shows up three times: a picture, a handful of numbers, then a few lines of code. **Predict first**, then run the cell. The paragraph after the cell says what was weird, and what a driver should care about.
     """))
 
     cells.append(code("""
@@ -107,131 +111,13 @@ def build() -> nbformat.NotebookNode:
     print("dt", DT, "steps in the closed-loop cells", N_STEPS)
     """))
 
-    cells.append(md("## 1. What end to end means here"))
+    cells.append(md("## 1. The wheel twitches"))
     cells.append(md("""
-    **End to end** in this repo means one function, `FullFSDPipeline.step`, takes a camera tensor and a list of obstacle dicts and returns a telemetry dict with a steer command and an updated ego state.
+    Two cars, smooth paths, fifteen steps. The lead car starts near 22 m. The right-lane car starts near 10 m, at `y = -3.5` m. Every box gets independent noise, `sigma = 0.8` m, from `np.random.default_rng(0)`.
 
-    It does **not** mean the cameras are the only input. Read the call order in `modules/08_capstone_fsd/pipeline.py`. The cameras go through the networks. The planner scores boxes that come from `MultiObjectTracker.update` on the scenario's ground-truth positions.
+    One run throws the tracker out and hands the noisy boxes straight to the lattice. The lattice offsets are `-3.5, -1.8, 0.0, 1.8, 3.5` meters. The other run sends the **same** noise through `MultiObjectTracker` (`max_age` 3, `min_hits` 1, `distance_threshold` 4.0). Planner, Stanley, PID, and bicycle stay put.
 
-    ```
-    camera_frames (1, 3, 3, 128, 256)
-            |
-            v
-    HydraNet.backbone(flat)["p3"]                 (1, 3, 128, 16, 32)
-            |
-            v
-    LiftSplatShoot(feats, K, R, T)                bev (1, 32, 40, 60)
-            |
-            v
-    OccupancyNetwork(bev, hidden_state)           occ, vel, hidden
-            |                                     (computed, then dropped)
-            X
-    DrivingScenario obstacles  -- positions only -->
-            |
-            v
-    MultiObjectTracker.update(xy)
-            |
-            v
-    LatticePlanner.generate_candidate_trajectories
-    TrajectoryCostEvaluator.select_optimal_trajectory
-            |
-            v
-    StanleyController.compute_steering
-    PIDLongitudinalController.compute_acceleration
-            |
-            v
-    KinematicBicycleModel.step                    telemetry dict
-    ```
-
-    `VectorLane` is built in `__init__`. `step` still passes `lane_centerline_y=0.0` into the planner.
-
-    **Predict:** `step`'s return dict will list ego state, steer, throttle, cross-track error, track count, waypoints, and cost. It will not list `occ_probs` or `bev`.
-    """))
-    cells.append(code("""
-    pipe = FullFSDPipeline(device="cpu")
-    step_src = inspect.getsource(FullFSDPipeline.step)
-    return_src = step_src.split("return", 1)[1]
-    print("cameras", pipe.cam_keys)
-    print("K", tuple(pipe.K_tensor.shape), "R", tuple(pipe.R_tensor.shape), "T", tuple(pipe.T_tensor.shape))
-    print("hydranet", type(pipe.hydranet).__name__)
-    print("lss", type(pipe.lss).__name__)
-    print("occ_net", type(pipe.occ_net).__name__)
-    print("tracker", type(pipe.tracker).__name__,
-          "max_age", pipe.tracker.max_age,
-          "min_hits", pipe.tracker.min_hits,
-          "distance_threshold", pipe.tracker.distance_threshold)
-    print("planner", type(pipe.planner).__name__, "target_speed", pipe.planner.target_speed)
-    print("evaluator", type(pipe.evaluator).__name__)
-    print("stanley k", pipe.stanley.k, "pid kp", pipe.pid_speed.kp, "wheelbase L", pipe.vehicle.L)
-    print("initial v", pipe.state.v)
-    print("vector_lane object:", type(pipe.vector_lane).__name__)
-    print("step() mentions vector_lane:", "vector_lane" in step_src)
-    print("step() passes lane_centerline_y=0.0:", "lane_centerline_y=0.0" in step_src)
-    print("return mentions occ_probs:", "occ_probs" in return_src)
-    print("return mentions bev:", "bev" in return_src)
-    """))
-    cells.append(md("""
-    The object print matches the diagram. Three camera names, `K` / `R` / `T` each shaped `(1, 3, 3, 3)` except `T`, which is `(1, 3, 3, 1)`. Tracker settings are `max_age 3`, `min_hits 1`, `distance_threshold 4.0`. Initial speed is `12.0` m/s. `vector_lane object: VectorLane`, and `step() mentions vector_lane: False`. The planner call in `step` does contain `lane_centerline_y=0.0`. The return block mentions neither `occ_probs` nor `bev`.
-    """))
-
-    cells.append(md("## 2. Run one scenario"))
-    cells.append(md("""
-    `DrivingScenario.step` returns a noise image and two cars. The lead car starts near `x = 22` m. The right-lane car starts near `x = 10` m at `y = -3.5` m. The image is `torch.randn`, scaled by `0.1`, not a photo.
-
-    **Predict:** one call of `FullFSDPipeline.step` moves the ego about `v * dt = 12 * 0.1 = 1.2` m forward, and `active_tracks_count` is 2. The network tensors have shapes, and those tensors are absent from the telemetry keys.
-    """))
-    cells.append(code("""
-    def trace_perception(pipe, camera_frames):
-        with torch.no_grad():
-            B, N_cams, C, H, W = camera_frames.shape
-            flat = camera_frames.view(B * N_cams, C, H, W)
-            feats = pipe.hydranet.backbone(flat)["p3"]
-            fh, fw = feats.shape[-2:]
-            feats = feats.view(B, N_cams, 128, fh, fw)
-            bev = pipe.lss(feats, pipe.K_tensor, pipe.R_tensor, pipe.T_tensor)
-            occ, vel, hidden = pipe.occ_net(bev, None)
-        print("camera_frames", tuple(camera_frames.shape))
-        print("flat cams", tuple(flat.shape))
-        print("p3", (B, N_cams, 128, fh, fw))
-        print("bev", tuple(bev.shape))
-        print("occ", tuple(occ.shape), "vel", tuple(vel.shape), "hidden", tuple(hidden.shape))
-        return occ
-
-    fresh = FullFSDPipeline(device="cpu")
-    scenario = DrivingScenario(num_frames=5, dt=DT)
-    cam, obstacles = scenario.step()
-    print("obstacle names:", [o["name"] for o in obstacles])
-    for o in obstacles:
-        print(f"  {o['name']}: x={o['x']:.1f} y={o['y']:.1f} v={o['v']:.1f}")
-    trace_perception(fresh, cam)
-
-    runner = FullFSDPipeline(device="cpu")
-    telemetry = runner.step(cam, obstacles, dt=DT)
-    print("telemetry keys:", list(telemetry))
-    for key, value in telemetry.items():
-        if isinstance(value, float):
-            print(f"  {key}: {value:.4f}")
-        elif isinstance(value, list):
-            print(f"  {key}: list len {len(value)}")
-        else:
-            print(f"  {key}: {value}")
-    print("occ or bev in keys:", any(k in telemetry for k in ("occ", "occ_probs", "bev", "bev_features")))
-    """))
-    cells.append(md("""
-    Cameras are `(1, 3, 3, 128, 256)`. Flattened for the backbone they are `(3, 3, 128, 256)`. `p3` is `(1, 3, 128, 16, 32)`. BEV is `(1, 32, 40, 60)`. Occupancy is `(1, 1, 40, 60, 8)`, velocity is `(1, 3, 40, 60, 8)`, and the hidden state is `(1, 32, 40, 60)`.
-
-    The two obstacles are `Lead Car` at `x=23.3` (`22 + 13 * 0.1`) and `Right Lane Car` at `x=11.6`, `y=-3.5`. Telemetry keys are `ego_x`, `ego_y`, `ego_v`, `ego_psi`, `steer_angle`, `throttle_accel`, `cross_track_error`, `active_tracks_count`, `planned_waypoints_x`, `planned_waypoints_y`, `selected_traj_cost`. `occ or bev in keys: False`.
-
-    After this one step, `ego_x` is `1.2000` m and `ego_v` is `11.9977` m/s. `active_tracks_count` is `2`. Steer is `0.0215` rad, cross-track error is `-0.0239` m, throttle accel is `-0.0234` m/s², and `selected_traj_cost` is `320.3105`. Both waypoint lists have length `26` (horizon 2.5 s at `dt = 0.1`). The networks ran. The numbers that moved the bicycle are the tracker, the lattice, Stanley, and the PID.
-    """))
-
-    cells.append(md("## 3. First try: skip tracking"))
-    cells.append(md("""
-    The scenario positions move smoothly. This attempt keeps the same planner, Stanley controller, PID, and bicycle, and feeds each frame's boxes straight in. Every box is the ground-truth center plus independent noise, `sigma = 0.8` m, from `np.random.default_rng(0)`. The tracker is left out: there is no call to `MultiObjectTracker.update`.
-
-    The failure metric is **offset jumps**: how many times the chosen plan's last `y` changes from one step to the next. The lattice offsets inside `step` are `-3.5, -1.8, 0.0, 1.8, 3.5` meters.
-
-    **Predict:** with `0.8` m of independent noise and no filter, that end `y` will change on some steps, and the steer command will kick when it does. Fifteen steps is enough to see it. `evaluate.py` loops 25. One step is about a hundredth of a second, so 25 would still finish quickly. Fifteen keeps the printed lists on one screen, and it still includes the lead car's brake, which starts once `current_step > 10`.
+    **Predict:** without a tracker the wheel kicks when the chosen plan jumps to another offset. With a tracker those kicks disappear. The true cars stay far away either way. A twitch is not a crash. The tracker may still invent an extra box. That is a different failure from the kick.
     """))
     cells.append(code("""
     def step_switched(pipe, camera_frames, gt, dt=DT, use_occ=True, use_tracker=True, noise=None):
@@ -339,22 +225,17 @@ def build() -> nbformat.NotebookNode:
     show_run("skip tracker, flickering boxes", raw_run)
     """))
     cells.append(md("""
-    Skipping the tracker fails this metric. `offset jumps: 4`. Plan end `y` is
+    Without a tracker the plan end `y` is
 
     `3.5, 3.5, 3.5, 3.5, 3.5, -1.8, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5, -1.8, 3.5, 3.5`
 
-    The steer list in degrees is
+    and the wheel, in degrees, is
 
     `1.23, 0.61, 0.29, 0.15, 0.07, -1.84, 0.94, 0.47, 0.23, 0.11, 0.05, 0.02, -1.87, 0.93, 0.46`
 
-    On the step that flips to `-1.8` m, steer goes to `-1.84` deg, then later to `-1.87` deg. Step-0 cost is `207.2194`, not the clean-run cost `320.3105`, because the boxes are already off the true centers. Final ego `x` is `17.9906` m. Mean `|cte|` is `0.0226` m. Minimum distance to the **true** cars is still `10.9731` m, so this scenario does not turn the jitter into a collision. The failure you can see is the plan thrashing.
+    Four offset jumps. The two dips to `-1.8` m are the two kicks, `-1.84` deg and `-1.87` deg. Final ego `x` is `17.9906` m. Mean `|cte|` is `0.0226` m. Minimum distance to the **true** cars is `10.9731` m. Step-0 cost is `207.2194`. Both cars are present on every step. Lead speed after these 15 steps is `11.4` m/s: four brake ticks of `0.4` after step 10, down from `13`.
 
-    `boxes per step` is all `2`. Every step still has both cars. The positions are what move the plan. Lead speed at the end of the 15 steps is `11.4` m/s: four brake ticks of `0.4` after step 10, down from `13`.
-    """))
-    cells.append(md("""
-    Same noise sequence, now through `MultiObjectTracker` with the pipeline's settings (`max_age=3`, `min_hits=1`, `distance_threshold=4.0`).
-
-    **Predict:** offset jumps drop, and the late steer commands stop kicking to about `-1.8` deg. The tracker can still hold an extra box for a few steps. That is a different number from offset jumps.
+    The weird part is already here, before the filter. The bicycle was never within `10.9731` m of either car, and the lane error is a couple of centimeters, and the wheel still jerks. A driver should care about the jerk. A score that only watches clearance will call this fine.
     """))
     cells.append(code("""
     tracked_run = rollout("flicker_tracked")
@@ -362,35 +243,166 @@ def build() -> nbformat.NotebookNode:
     print("offset jumps fell:", tracked_run["jumps"], "<", raw_run["jumps"])
     """))
     cells.append(md("""
-    The tracker holds the plan. `offset jumps: 0`. Every plan end `y` is `3.5`. Steer in degrees is
+    Same noise, through the tracker. Offset jumps fall from `4` to `0`. Every plan end `y` is `3.5`. The wheel, in degrees, is
 
     `1.23, 0.61, 0.30, 0.14, 0.07, 0.03, 0.01, -0.00, -0.01, -0.01, -0.01, -0.01, -0.01, -0.01, -0.01`
 
-    The `-1.84` and `-1.87` kicks are gone. The cell prints `offset jumps fell: 0 < 4`. Final ego `x` is `17.9814`, `y` is `0.2789`, `v` is `11.9776`. Mean `|cte|` is `0.0234` m. Minimum true clearance is again `10.9731` m.
+    The `-1.84` and `-1.87` kicks are gone. Final ego `x` is `17.9814`, `y` is `0.2789`, `v` is `11.9776`. Mean `|cte|` is `0.0234` m. Minimum true clearance is again `10.9731` m.
 
-    `boxes per step` is `2, 2, 2, 2, 3, 3, 3, 2, 2, 2, 2, 2, 3, 3, 3`. The filter did not keep a perfect count of two cars. A third box shows up on six of the fifteen steps. The chosen offset still does not jump. Step-0 cost is still `207.2194`: the first track is born on the noisy measurement, so the filter has not helped yet on that step.
+    Boxes per step are `2, 2, 2, 2, 3, 3, 3, 2, 2, 2, 2, 2, 3, 3, 3`. A third box shows up on six of the fifteen steps. The chosen offset still does not jump. Step-0 cost is still `207.2194`: the first track is born on the noisy measurement, so the filter has not helped yet on that step. A driver should care that "the tracker is on" is not the same sentence as "the tracker counted two cars."
     """))
     cells.append(code("""
-    plt.figure(figsize=(8, 3.2))
-    plt.plot(raw_run["ends"], marker="o", label="no tracker")
-    plt.plot(tracked_run["ends"], marker="o", label="tracker")
-    plt.xlabel("step")
-    plt.ylabel("chosen plan end y (m)")
-    plt.title(f"Flicker sigma {FLICKER_SIGMA} m, seed {SEED}")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
+    fig, axes = plt.subplots(2, 1, figsize=(8, 5.2), sharex=True)
+    raw_deg = [np.degrees(r["steer"]) for r in raw_run["rows"]]
+    tracked_deg = [np.degrees(r["steer"]) for r in tracked_run["rows"]]
+    axes[0].plot(raw_deg, marker="o", label="no tracker")
+    axes[0].plot(tracked_deg, marker="o", label="tracker")
+    axes[0].set_ylabel("steer (deg)")
+    axes[0].set_title(f"The wheel. Flicker sigma {FLICKER_SIGMA} m, seed {SEED}")
+    axes[0].legend()
+    axes[0].grid(True, alpha=0.3)
+    axes[1].plot(raw_run["ends"], marker="o", label="no tracker")
+    axes[1].plot(tracked_run["ends"], marker="o", label="tracker")
+    axes[1].set_xlabel("step")
+    axes[1].set_ylabel("plan end y (m)")
+    axes[1].set_title("Why the wheel moved")
+    axes[1].legend()
+    axes[1].grid(True, alpha=0.3)
+    fig.tight_layout()
     plt.show()
     """))
     cells.append(md("""
-    The plot is the same two lists. The no-tracker line dips to `-1.8` twice. The tracker line stays on `3.5`.
+    Top is the wheel. Bottom is the plan that the wheel was chasing. Without a tracker the wheel dives to about `-1.8` deg twice, and the plan end `y` dives to `-1.8` m on those same two steps. With a tracker the wheel settles near zero and the plan stays on `3.5` m. The picture and the lists are the same fact: skipping a runner makes the last runner twitch.
     """))
 
-    cells.append(md("## 4. Full pipeline vs ablated"))
+    cells.append(md("## 2. The relay, not a magic trick"))
     cells.append(md("""
-    `evaluate.py` always constructs one `FullFSDPipeline` and calls `step`. It has no switch for occupancy or tracking. The three runs below use `step_switched`, which is the same call sequence, with `use_occ` and `use_tracker`. On the clean scenario there is **no** added noise.
+    You have seen the twitch. Here is the race that produced it. One function, `FullFSDPipeline.step`, takes a camera tensor and a list of obstacle dicts and returns a steer command and a new ego state.
 
-    **Predict:** turning occupancy off will not change steer or ego `x`. The occupancy tensor is computed and then dropped. Turning the tracker off on these smooth ground-truth points will also match, because the tracker is handed the same centers the raw list already has. The flicker run is where the tracker earned its keep.
+    The cameras run through the networks. The planner scores boxes from `MultiObjectTracker.update` on the scenario's ground-truth positions. Occupancy is computed and then dropped on the floor.
+
+    ```
+    camera_frames (1, 3, 3, 128, 256)
+            |
+            v
+    HydraNet.backbone(flat)["p3"]                 (1, 3, 128, 16, 32)
+            |
+            v
+    LiftSplatShoot(feats, K, R, T)                bev (1, 32, 40, 60)
+            |
+            v
+    OccupancyNetwork(bev, hidden_state)           occ, vel, hidden
+            |                                     (computed, then dropped)
+            X
+    DrivingScenario obstacles  -- positions only -->
+            |
+            v
+    MultiObjectTracker.update(xy)
+            |
+            v
+    LatticePlanner.generate_candidate_trajectories
+    TrajectoryCostEvaluator.select_optimal_trajectory
+            |
+            v
+    StanleyController.compute_steering
+    PIDLongitudinalController.compute_acceleration
+            |
+            v
+    KinematicBicycleModel.step                    telemetry dict
+    ```
+
+    `VectorLane` is built in `__init__`. `step` still passes `lane_centerline_y=0.0` into the planner.
+
+    **Predict:** `step`'s return dict will list ego state, steer, throttle, cross-track error, track count, waypoints, and cost. It will not list `occ_probs` or `bev`.
+    """))
+    cells.append(code("""
+    pipe = FullFSDPipeline(device="cpu")
+    step_src = inspect.getsource(FullFSDPipeline.step)
+    return_src = step_src.split("return", 1)[1]
+    print("cameras", pipe.cam_keys)
+    print("K", tuple(pipe.K_tensor.shape), "R", tuple(pipe.R_tensor.shape), "T", tuple(pipe.T_tensor.shape))
+    print("hydranet", type(pipe.hydranet).__name__)
+    print("lss", type(pipe.lss).__name__)
+    print("occ_net", type(pipe.occ_net).__name__)
+    print("tracker", type(pipe.tracker).__name__,
+          "max_age", pipe.tracker.max_age,
+          "min_hits", pipe.tracker.min_hits,
+          "distance_threshold", pipe.tracker.distance_threshold)
+    print("planner", type(pipe.planner).__name__, "target_speed", pipe.planner.target_speed)
+    print("evaluator", type(pipe.evaluator).__name__)
+    print("stanley k", pipe.stanley.k, "pid kp", pipe.pid_speed.kp, "wheelbase L", pipe.vehicle.L)
+    print("initial v", pipe.state.v)
+    print("vector_lane object:", type(pipe.vector_lane).__name__)
+    print("step() mentions vector_lane:", "vector_lane" in step_src)
+    print("step() passes lane_centerline_y=0.0:", "lane_centerline_y=0.0" in step_src)
+    print("return mentions occ_probs:", "occ_probs" in return_src)
+    print("return mentions bev:", "bev" in return_src)
+    """))
+    cells.append(md("""
+    Three cameras: front, left, right. `K` and `R` are `(1, 3, 3, 3)`. `T` is `(1, 3, 3, 1)`. The tracker forgets a box after `max_age` 3, publishes a track on the first hit, and associates inside `4.0` m. Initial speed is `12.0` m/s. Stanley's `k` is `0.8`, the speed PID's `kp` is `1.5`, the wheelbase is `2.8` m, and the lattice's target speed is `14.0` m/s.
+
+    The weird part is what gets built and then ignored. A `VectorLane` exists. `step` never mentions it, and the planner is handed `lane_centerline_y=0.0` anyway. The return block names neither `occ_probs` nor `bev`. The map leg draws a picture the wheel never sees. A driver should care: an occupancy grid can update every frame and still not move the steering.
+    """))
+
+    cells.append(md("## 3. One frame is not a photograph"))
+    cells.append(md("""
+    `DrivingScenario.step` returns a noise image and two cars. The lead car starts near `x = 22` m. The right-lane car starts near `x = 10` m at `y = -3.5` m. The image is `torch.randn`, scaled by `0.1`, not a photo.
+
+    **Predict:** one call of `FullFSDPipeline.step` moves the ego about `v * dt = 12 * 0.1 = 1.2` m forward, and `active_tracks_count` is 2. The network tensors have shapes, and those tensors are absent from the telemetry keys.
+    """))
+    cells.append(code("""
+    def trace_perception(pipe, camera_frames):
+        with torch.no_grad():
+            B, N_cams, C, H, W = camera_frames.shape
+            flat = camera_frames.view(B * N_cams, C, H, W)
+            feats = pipe.hydranet.backbone(flat)["p3"]
+            fh, fw = feats.shape[-2:]
+            feats = feats.view(B, N_cams, 128, fh, fw)
+            bev = pipe.lss(feats, pipe.K_tensor, pipe.R_tensor, pipe.T_tensor)
+            occ, vel, hidden = pipe.occ_net(bev, None)
+        print("camera_frames", tuple(camera_frames.shape))
+        print("flat cams", tuple(flat.shape))
+        print("p3", (B, N_cams, 128, fh, fw))
+        print("bev", tuple(bev.shape))
+        print("occ", tuple(occ.shape), "vel", tuple(vel.shape), "hidden", tuple(hidden.shape))
+        return occ
+
+    fresh = FullFSDPipeline(device="cpu")
+    scenario = DrivingScenario(num_frames=5, dt=DT)
+    cam, obstacles = scenario.step()
+    print("obstacle names:", [o["name"] for o in obstacles])
+    for o in obstacles:
+        print(f"  {o['name']}: x={o['x']:.1f} y={o['y']:.1f} v={o['v']:.1f}")
+    trace_perception(fresh, cam)
+
+    runner = FullFSDPipeline(device="cpu")
+    telemetry = runner.step(cam, obstacles, dt=DT)
+    print("telemetry keys:", list(telemetry))
+    for key, value in telemetry.items():
+        if isinstance(value, float):
+            print(f"  {key}: {value:.4f}")
+        elif isinstance(value, list):
+            print(f"  {key}: list len {len(value)}")
+        else:
+            print(f"  {key}: {value}")
+    print("occ or bev in keys:", any(k in telemetry for k in ("occ", "occ_probs", "bev", "bev_features")))
+    zeros = torch.zeros_like(cam)
+    tel_zeros = FullFSDPipeline(device="cpu").step(zeros, obstacles, dt=DT)
+    print("steer abs diff, noise image vs zeros:", abs(telemetry["steer_angle"] - tel_zeros["steer_angle"]))
+    """))
+    cells.append(md("""
+    The camera tensor is `(1, 3, 3, 128, 256)`. Flattened for the backbone it is `(3, 3, 128, 256)`. `p3` is `(1, 3, 128, 16, 32)`. The bird's-eye map is `(1, 32, 40, 60)`. Occupancy is `(1, 1, 40, 60, 8)`, velocity is `(1, 3, 40, 60, 8)`, and the hidden state is `(1, 32, 40, 60)`. None of those tensors are keys in the telemetry.
+
+    Lead Car sits at `x=23.3` (`22 + 13 * 0.1`). Right Lane Car sits at `x=11.6`, `y=-3.5`. After one step `ego_x` is `1.2000` m and `ego_v` is `11.9977` m/s. Two tracks are alive. Steer is `0.0215` rad, cross-track error is `-0.0239` m, throttle accel is `-0.0234` m/s², and the chosen path costs `320.3105`. Both waypoint lists have length `26`, a 2.5 s horizon at `dt = 0.1`.
+
+    Steer does not change if the noise image is replaced by zeros: the absolute difference is `0.0`. The networks ran. The bicycle moved because of the tracker, the lattice, Stanley, and the PID. A driver should care that the first runner can fall down and the wheel still turns.
+    """))
+
+    cells.append(md("## 4. A clean scene hides the missing runner"))
+    cells.append(md("""
+    `evaluate.py` always calls `step`. It has no switch for occupancy or tracking. The three runs below are that same call sequence, with the switches, and with **no** added noise.
+
+    **Predict:** occupancy off does not move the wheel. Tracker off, on these smooth ground-truth centers, also matches. Section 1 is where the tracker earned its keep. A test that only drives the clean scene will not see the twitch.
     """))
     cells.append(code("""
     # The copy agrees with FullFSDPipeline.step when both switches are on.
@@ -419,20 +431,18 @@ def build() -> nbformat.NotebookNode:
           abs(tracked_run["rows"][-1]["ego_x"] - full_run["rows"][-1]["ego_x"]) < 1e-9)
     """))
     cells.append(md("""
-    `step_switched` matches `FullFSDPipeline.step` on the check step: steer abs diff `0.0`, ego `x` abs diff `0.0`, cost abs diff `0.0`.
+    On one clean step, `step_switched` agrees with `FullFSDPipeline.step`: steer differs by `0.0`, ego `x` differs by `0.0`, cost differs by `0.0`.
 
-    All three clean runs print the same summary. `offset jumps: 0`. Plan end `y` stays `3.5`. Final ego `x` is `17.9814`, `y` is `0.2789`, `v` is `11.9776`. Mean `|cte|` is `0.0234` m. Minimum true clearance is `10.9731` m. Step-0 cost is `320.3105`. `no occupancy steer matches full: True`. `no tracker steer matches full: True`.
+    All three clean runs tell the same story. Offset jumps stay `0`. Plan end `y` stays `3.5`. Final ego `x` is `17.9814`, `y` is `0.2789`, `v` is `11.9776`. Mean `|cte|` is `0.0234` m. Minimum true clearance is `10.9731` m. Step-0 cost is `320.3105`. Occupancy off steers like the full loop. Tracker off, on these perfect centers, also steers like the full loop.
 
-    So on this scenario, ablating occupancy changes nothing the bicycle does. Ablating the tracker also changes nothing **while the boxes are the ground-truth centers**. That is the honest comparison. The previous section is the one where dropping the tracker costs four offset jumps.
-
-    `flicker+tracker final ego_x matches full: True` (`17.9814`). The filtered flicker run ended on the same ego `x` as the clean full run. The unfiltered flicker run ended at `17.9906`.
+    That is the weird part. Drop the map, the wheel does not notice. Drop the tracker, the wheel does not notice, **while the boxes are the true centers**. The twitch in section 1 cost four offset jumps and never shows up here. The filtered flicker run ends at the same ego `x` as this clean run, `17.9814`. The unfiltered flicker run ended at `17.9906`. A driver should care that the bug hides inside the scenario you use to demo the stack.
     """))
 
-    cells.append(md("## 5. Latency budget"))
+    cells.append(md("## 5. How long one lap takes"))
     cells.append(md("""
-    `dt` is `0.1` s, so the loop is written as a 10 Hz tick: one `step` is one control update, and the time budget for that tick is 100 ms. `evaluate.py` times the whole `step` with `time.time()` over 25 steps. Here each stage of the 15-step full run is timed with `perf_counter`.
+    `dt` is `0.1` s, so the loop is written as a 10 Hz tick. One `step` is one control update, and the budget for that tick is 100 ms. `evaluate.py` times a whole `step` with `time.time()` over 25 steps. Here each stage of the 15-step full run is timed with `perf_counter`.
 
-    **Predict:** the backbone is the slowest stage, the controller is the cheapest, and the total is well under 100 ms on this CPU because the networks are small and untrained. A printed Hertz value from that total is wall-clock on this machine. It is not a scheduler on a car.
+    **Predict:** the backbone is the slow runner, the controller is the cheap one, and the total is well under 100 ms on this CPU because the networks are small and untrained. A Hertz figure from that total is this machine's wall clock. It is not a scheduler on a car.
     """))
     cells.append(code("""
     stage_names = ["hydra", "lss", "occ", "track", "plan", "control", "total"]
@@ -453,109 +463,12 @@ def build() -> nbformat.NotebookNode:
     print(f"occupancy mean: {means['occ']:.2f} ms")
     """))
     cells.append(md("""
-    Fifteen full steps, mean milliseconds: hydra `5.44`, LSS `2.38`, occupancy `1.32`, tracker `0.16`, planner `1.94`, control `0.08`, total `11.37`. Slowest stage is `hydra`. The design tick is `100.0` ms (10 Hz). `total under design tick: True`. Dividing 1000 by `11.37` prints `87.9` Hz. That quotient is this CPU timing a tiny forward pass. It is not a claim that the stack runs at 87.9 Hz in a vehicle, and it is not the fixed "80 Hz" label in the browser dashboard.
+    Fifteen steps. Mean milliseconds: hydra `7.75`, LSS `2.79`, occupancy `1.60`, tracker `0.23`, planner `2.38`, control `0.10`, total `14.90`. The slow runner is the backbone. The design tick is `100.0` ms, which is 10 Hz, and the total sits under it. `1000 / 14.90` is `67.1` Hz. That quotient is this CPU timing a tiny untrained forward pass. It is not a scheduler on a car.
 
-    The no-occupancy run's mean total is `11.02` ms, next to an occupancy stage of `1.32` ms. Those two totals differ by less than the occupancy line, because the other stages also moved by about a millisecond between runs. The occupancy print is the direct measurement of that stage. Section 4 already showed the steer command does not move when that stage is removed.
+The no-occupancy run's mean total is `11.46` ms, next to an occupancy stage of `1.60` ms. Those two totals do not differ by the occupancy line alone, because the other stages also moved between runs. Section 4 already showed the wheel does not move when that stage is removed. A driver should care about the wheel. A millisecond that wanders is not the twitch.
     """))
 
-    cells.append(md("## 6. Exercises"))
-    cells.append(md("""
-    **Exercise — `min_clearance`.** Shortest distance from `(ego_x, ego_y)` to any obstacle `x`, `y`. This is the distance `evaluate.py` appends each step. Return `99.0` when the list is empty. Leave the `TODO` in place to use the reference.
-    """))
-    cells.append(code("""
-    def min_clearance_student(ego_x, ego_y, obstacles):
-        # TODO: min hypot to each obstacle, or 99.0 if obstacles is empty
-        raise NotImplementedError
-
-    def min_clearance_reference(ego_x, ego_y, obstacles):
-        if not obstacles:
-            return 99.0
-        return float(min(np.hypot(ego_x - o["x"], ego_y - o["y"]) for o in obstacles))
-
-    def get_min_clearance():
-        try:
-            min_clearance_student(0.0, 0.0, [])
-        except NotImplementedError:
-            print("Using reference min_clearance (TODO not implemented)")
-            return min_clearance_reference
-        print("Using your min_clearance")
-        return min_clearance_student
-
-    clearance_fn = get_min_clearance()
-    toy_obs = [{"x": 10.0, "y": 0.0}, {"x": 0.0, "y": 5.0}]
-    got = clearance_fn(0.0, 0.0, toy_obs)
-    got_empty = clearance_fn(1.0, 1.0, [])
-    assert abs(got - 5.0) < 1e-9
-    assert got_empty == 99.0
-    scene_clear = clearance_fn(
-        full_run["rows"][-1]["ego_x"],
-        full_run["rows"][-1]["ego_y"],
-        [{"x": 23.3, "y": 0.0}, {"x": 11.6, "y": -3.5}],
-    )
-    print("toy min clearance:", f"{got:.4f}")
-    print("empty list:", got_empty)
-    print("distance from final ego to the first-step obstacle snapshot:", f"{scene_clear:.4f}")
-    print("✅ correct: min_clearance =", round(got, 4))
-    """))
-    cells.append(md("""
-    The check prints `✅ correct: min_clearance = 5.0`. The line above it is `toy min clearance: 5.0000`. The toy obstacles are 10 m ahead and 5 m to the side, so the minimum is 5 m. An empty list returns `99.0`, the same fallback number `evaluate.py` uses when it has no obstacles. The snapshot print is `5.3259`: final ego against the first step's obstacle positions. That is a different question from the running clearance of `10.9731` m.
-    """))
-    cells.append(md("""
-    <details><summary>Solution</summary>
-
-    ```python
-    def min_clearance(ego_x, ego_y, obstacles):
-        if not obstacles:
-            return 99.0
-        return float(min(np.hypot(ego_x - o["x"], ego_y - o["y"]) for o in obstacles))
-    ```
-
-    </details>
-    """))
-    cells.append(md("""
-    **Exercise — `count_offset_jumps`.** Count how many times consecutive plan end-`y` values differ. The skip-tracker list from section 3 should score 4. Leave the `TODO` in place to use the reference.
-    """))
-    cells.append(code("""
-    def count_offset_jumps_student(end_y):
-        # TODO: number of positions i where end_y[i] != end_y[i + 1]
-        raise NotImplementedError
-
-    def count_offset_jumps_reference(end_y):
-        return int(sum(a != b for a, b in zip(end_y, end_y[1:])))
-
-    def get_jump_counter():
-        try:
-            count_offset_jumps_student([0.0, 1.0])
-        except NotImplementedError:
-            print("Using reference count_offset_jumps (TODO not implemented)")
-            return count_offset_jumps_reference
-        print("Using your count_offset_jumps")
-        return count_offset_jumps_student
-
-    jump_fn = get_jump_counter()
-    raw_jumps = jump_fn(raw_run["ends"])
-    tracked_jumps = jump_fn(tracked_run["ends"])
-    assert raw_jumps == raw_run["jumps"] == 4
-    assert tracked_jumps == 0
-    print("skip-tracker jumps:", raw_jumps)
-    print("tracked jumps:", tracked_jumps)
-    print("✅ correct: count_offset_jumps =", raw_jumps)
-    """))
-    cells.append(md("""
-    The check prints `✅`. The skip-tracker ends change 4 times. The tracked ends change 0 times. That is the same pair of numbers section 3 printed as `offset jumps`.
-    """))
-    cells.append(md("""
-    <details><summary>Solution</summary>
-
-    ```python
-    def count_offset_jumps(end_y):
-        return int(sum(a != b for a, b in zip(end_y, end_y[1:])))
-    ```
-
-    </details>
-    """))
-
-    cells.append(md("## 7. Recap"))
+    cells.append(md("## 6. A green test is not a safety case"))
     cells.append(md("""
     The integration test checks that `step` returns its keys, that steer, accel, and cross-track error are finite, that `ego_v > 0`, and that `ego_x` grows over three steps.
 
@@ -563,7 +476,7 @@ def build() -> nbformat.NotebookNode:
     """))
     cells.append(code("""
     proc = subprocess.run(
-        [sys.executable, "-m", "pytest", "modules/08_capstone_fsd/tests/test_integration.py", "-q"],
+        [sys.executable, "-m", "pytest", "modules/08_capstone_fsd", "-q", "--tb=no"],
         cwd=REPO,
     )
     print("pytest exit:", proc.returncode)
@@ -574,24 +487,23 @@ def build() -> nbformat.NotebookNode:
             print(stripped)
     """))
     cells.append(md("""
-    `pytest` exit is `0`. The quiet report is `2 passed in 1.20s`. Those two tests are the wiring check from the predict cell. They do not assert `min true clearance` or `offset jumps`.
+    pytest exit is `0`. The quiet report is `2 passed in 1.38s`. Those two tests are the wiring check: the function returns, the numbers are finite, speed stays positive, and ego `x` grows. They do not score a clearance or an offset jump.
 
-    `evaluate.py` builds `DrivingScenario(num_frames=25, dt=0.1)` and loops `for step in range(25)`. The collisions line in that file is the literal `Collisions: 0 (ZERO FAILURES)`. It does not compare `min_d` to a radius. Our 15-step runs measured a minimum true clearance of `10.9731` m, which is a large gap in this particular scene, and that measurement is the one to cite. A fixed print would still say zero if the gap were small.
+    `evaluate.py` builds `DrivingScenario(num_frames=25, dt=0.1)` and loops `for step in range(25)`. The collisions line in that file is the literal string `Collisions:                    0 (ZERO FAILURES)`. It does not compare `min_d` to a radius. The 15-step runs measured a minimum true clearance of `10.9731` m, a large gap in this particular scene. That sentence would still say zero collisions if the gap were small. A driver should care which of those two facts is a measurement.
     """))
     cells.append(md("""
-    - One `step` runs cameras through `HydraNet.backbone`, `LiftSplatShoot`, and `OccupancyNetwork`. The scenario points then go through `MultiObjectTracker`, `LatticePlanner` / `TrajectoryCostEvaluator`, Stanley, the PID, and `KinematicBicycleModel.step`.
-    - On one scenario step the camera tensor is `(1, 3, 3, 128, 256)`, BEV is `(1, 32, 40, 60)`, occupancy is `(1, 1, 40, 60, 8)`, and the telemetry dict has no occupancy key. `ego_x` prints `1.2000`.
-    - Feeding flickering boxes (`sigma 0.8` m, seed 0) straight to the planner produces `4` offset jumps and steer kicks of `-1.84` deg and `-1.87` deg. The same noise through the tracker produces `0` jumps. The tracker still reports a third box on six steps.
-    - With clean ground-truth centers, the full loop, the loop with occupancy skipped, and the loop with the tracker skipped all steer the same way. Final ego `x` is `17.9814`. Occupancy is timed and then ignored by the planner.
-    - Mean full-step time on this CPU is `11.37` ms, under the `100` ms design tick. Hydra is the slow stage at `5.44` ms. The `87.9` Hz figure is `1000 / 11.37` on this run only.
-    - `pytest` reports `2 passed in 1.20s`. That means the graph runs and the ego moves forward.
+    - The relay is camera, features, map, tracks, path, wheel. Skipping the tracker, with `0.8` m box noise and seed 0, kicks the wheel to `-1.84` deg and `-1.87` deg. Those are the two steps whose plan end `y` flips from `3.5` m to `-1.8` m. The same noise through the tracker has `0` offset jumps. A third box still appears on six steps.
+    - Minimum distance to the true cars stays `10.9731` m while the wheel twitches. Mean `|cte|` stays near `0.02` m. The bicycle was not close to anyone.
+    - One noise frame is `(1, 3, 3, 128, 256)`. Occupancy is `(1, 1, 40, 60, 8)` and then dropped. Replacing the noise image with zeros changes steer by `0.0`. `ego_x` after one step is `1.2000` m.
+    - On clean ground-truth centers, full, no-occupancy, and no-tracker all steer the same way. Final ego `x` is `17.9814` m. The twitch hides until the boxes flicker.
+    - Mean full-step time on this CPU is `14.90` ms, under the `100` ms design tick. Hydra is the slow stage at `7.75` ms. The `67.1` Hz figure is `1000 / 14.90` on this run only.
+    - `pytest` on `modules/08_capstone_fsd` reports `2 passed in 1.38s`. That means the graph runs and the ego moves forward. It does not mean anyone checked the wheel for a twitch.
 
-    This toy stack is a Python process and a kinematic bicycle. It is not a vehicle, and it does not carry a safety case. The cameras are Gaussian noise. The planner does not see occupancy. The tests do not score collisions. Nothing here should be pointed at a motor.
+    This toy is a Python process and a kinematic bicycle. It is not a car, and it is not a safety case. The cameras are Gaussian noise. The planner does not see occupancy. The tests do not score a collision. Nothing here should be pointed at a motor.
 
     ### Go deeper
-    - UniAD, a stack trained as one model rather than wired like this one: [arXiv:2212.10156](https://arxiv.org/abs/2212.10156)
-    - Duckietown's own lab docs, if you later use their robot: [docs.duckietown.org](https://docs.duckietown.org/)
-    - comma.ai's safety page, for reading a real product's engagement rules: [comma.ai/safety](https://comma.ai/safety)
+    - [Yihan Hu et al., Planning-oriented Autonomous Driving](https://arxiv.org/abs/2212.10156). The abstract says separate heads "might suffer from accumulative errors or deficient task coordination," and that the framework should be optimized for planning. It states no scalar.
+    - [Jiang-Tian Zhai et al., Rethinking the Open-Loop Evaluation of End-to-End Autonomous Driving in nuScenes](https://arxiv.org/abs/2305.10430). The abstract says a method with no camera images reduced average L2 error "by about 20%" on nuScenes, and that perception-based methods still had an advantage on collision rate. That 20% is their sentence, not a number this notebook measured.
     """))
 
     nb = new_notebook(cells=cells)

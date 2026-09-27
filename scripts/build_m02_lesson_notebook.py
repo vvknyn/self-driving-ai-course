@@ -33,11 +33,13 @@ def build() -> nbformat.NotebookNode:
 
     [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/vvknyn/self-driving-ai-course/blob/main/notebooks/03_hydranet_multitask_learning.ipynb)
 
-    A camera on a car is asked several questions about the same frame: where the lane markings are, which pixels are drivable, where the vehicles sit, and what the traffic light is doing. Depth comes later. This module keeps a stride-8 feature map for that next step and does not predict depth itself.
+    One camera frame, several questions at once: where is the lane, where can we drive, where are the cars, what is the light doing. A separate network per question would run the same early vision again and again.
 
-    Running a separate network for each question repeats the same early vision. The course code in `modules/02_hydranet/` extracts features once, then branches into four heads. The loss that trains them is `UncertaintyMultiTaskLoss` in `multitask_loss.py`.
+    Picture one cook and three dishes on the pass — lane mask, vehicle grid, traffic-light class. The cook is the shared trunk: one forward pass through the early convolutions. Each dish is a head. The repo plates a fourth dish too, **freespace**, from the same cook; we do not pretend there are only three.
 
-    Each section explains one idea, then runs code. **Predict first**, then execute the cell.
+    The course code lives in `modules/02_hydranet/`. Loss balancing uses `UncertaintyMultiTaskLoss` in `multitask_loss.py`.
+
+    Each idea shows up three times: a picture, a handful of numbers, then code. **Predict first**, then run the cell. The paragraph after each cell says what is weird, and what it would mean for a car.
     """))
 
     cells.append(code("""
@@ -56,16 +58,17 @@ def build() -> nbformat.NotebookNode:
     try:
         import matplotlib
         import matplotlib.pyplot as plt
+        import numpy as np
     except ImportError:
         subprocess.run([sys.executable, "-m", "pip", "install", "-q", "matplotlib"], check=True)
         import matplotlib
         import matplotlib.pyplot as plt
+        import numpy as np
 
     import torch.nn as nn
     import torch.nn.functional as F
 
     def keep_inline():
-        # Put figures on the notebook backend so plt.show() renders here.
         matplotlib.use("module://matplotlib_inline.backend_inline", force=True)
         ip = None
         try:
@@ -114,19 +117,79 @@ def build() -> nbformat.NotebookNode:
     print("Repo:", REPO)
     keep_inline()
     """))
-
-    cells.append(md("## 1. The problem"))
     cells.append(md("""
-    One frame has to feed several driving decisions. A lane head wants a full-resolution mask. A vehicle head wants a coarse grid of boxes. A traffic-light head wants a single class for the whole scene. A freespace head wants another mask: which pixels the car may drive on.
+    The setup cell points Python at `modules/02_hydranet/` on disk. On Colab it clones the course repo only when that folder is missing. For a car stack, the important part is the same: one process loads one copy of the shared trunk code, then four heads attach to it.
+    """))
 
-    The expensive part is the early convolution, the part that turns RGB into edges and texture. If you clone that trunk once per job, you pay for the same edges three or four times.
+    cells.append(md("## 1. When one loss shouts over the others"))
+    cells.append(md("""
+    Naive training adds every task loss into one number and backpropagates. The huge loss owns the gradient on the shared trunk. The small loss barely nudges the same weights — lane paint can stop updating while the vehicle head yells.
 
-    **Predict:** one shared trunk plus the heads should use fewer parameters than a separate trunk for every head. The next sections count them on the repo classes.
+    Below we measure how much of the **first convolution's** update each job owns on one synthetic batch (seed 42, same shapes as `break_it_fix_it.py`). Then we turn the volume knob on the loud job and measure again.
+
+    **Predict:** before any weighting, the vehicle share of that stem gradient will be above 90 percent. After setting the vehicle log-variance to `3.5`, the lane share will rise above `0.34` percent but the vehicle share can stay well above half.
+    """))
+    cells.append(code("""
+    torch.manual_seed(42)
+    drill_images = torch.randn(4, 3, 128, 256)
+    drill_lanes = (torch.rand(4, 1, 128, 256) > 0.95).float()
+    drill_vehicles = torch.randn(4, 5, 16, 32) * 5.0
+    drill_model = HydraNet()
+    drill_preds = drill_model(drill_images)
+    drill_lane = F.binary_cross_entropy_with_logits(drill_preds["lane"], drill_lanes)
+    drill_veh = F.mse_loss(drill_preds["vehicles"], drill_vehicles)
+    stem_w = drill_model.backbone.stem[0].weight
+    g_lane = torch.autograd.grad(drill_lane, stem_w, retain_graph=True)[0].norm().item()
+    g_veh = torch.autograd.grad(drill_veh, stem_w, retain_graph=True)[0].norm().item()
+    lane_share = 100.0 * g_lane / (g_lane + g_veh)
+    veh_share = 100.0 * g_veh / (g_lane + g_veh)
+
+    balancer = UncertaintyMultiTaskLoss(2)
+    with torch.no_grad():
+        balancer.log_vars.copy_(torch.tensor([0.0, 3.5]))
+    weights = balancer.get_task_weights()
+    balanced_total = balancer([drill_lane, drill_veh])
+    g_lane_w = torch.autograd.grad(weights[0] * drill_lane, stem_w, retain_graph=True)[0].norm().item()
+    g_veh_w = torch.autograd.grad(weights[1] * drill_veh, stem_w, retain_graph=True)[0].norm().item()
+    lane_share_w = 100.0 * g_lane_w / (g_lane_w + g_veh_w)
+    veh_share_w = 100.0 * g_veh_w / (g_lane_w + g_veh_w)
+
+    print("lane loss", f"{drill_lane.item():.4f}")
+    print("vehicle loss", f"{drill_veh.item():.4f}")
+    print("lane stem share before", f"{lane_share:.2f}")
+    print("vehicle stem share before", f"{veh_share:.2f}")
+    print("log_vars", [f"{v:.1f}" for v in balancer.log_vars.detach().tolist()])
+    print("lane weight", f"{weights[0]:.4f}")
+    print("vehicle weight", f"{weights[1]:.4f}")
+    print("balanced total", f"{balanced_total.item():.4f}")
+    print("lane stem share after", f"{lane_share_w:.2f}")
+    print("vehicle stem share after", f"{veh_share_w:.2f}")
+    assert veh_share > 90.0
+    assert lane_share_w > lane_share
+    assert veh_share_w < veh_share
+
+    labels = ["before weighting", "after volume knob"]
+    x = np.arange(len(labels))
+    width = 0.35
+    fig, ax = plt.subplots(figsize=(7, 3.8))
+    ax.bar(x - width / 2, [lane_share, lane_share_w], width, label="lane")
+    ax.bar(x + width / 2, [veh_share, veh_share_w], width, label="vehicle")
+    ax.set_ylabel("percent of stem gradient")
+    ax.set_title("How much of the shared-trunk update each job owns")
+    ax.set_xticks(x, labels)
+    ax.legend()
+    plt.tight_layout()
+    plt.show()
+    """))
+    cells.append(md("""
+    Lane loss is `0.6553`. Vehicle loss is `25.0871` — almost forty times larger on this batch. Before weighting, lane owns `0.34` percent of the stem gradient and vehicle owns `99.66` percent. The bar chart is the whole story: one dish is shouting and the other is whispering into the same cook.
+
+    Turning the volume knob sets vehicle `log_vars` to `3.5`. Lane weight stays `0.5000`; vehicle weight drops to `0.0151`. Balanced total is `2.4564`. After weighting, lane share rises to `10.11` percent and vehicle share falls to `89.89` percent. Vehicle still leads, but lane is no longer invisible. On a real car, that invisible lane gradient is how you get a network that chases boxes and drifts on paint.
     """))
 
     cells.append(md("## 2. Shared trunk"))
     cells.append(md("""
-    `HydraNetBackbone` runs three stride-2 stages and returns a dictionary `p1`, `p2`, `p3`.
+    `HydraNetBackbone` runs three stride-2 stages and returns a dictionary `p1`, `p2`, `p3`. The cook's prep station: three feature maps at different resolutions.
 
     Input for this pass: a synthetic batch `(2, 3, 128, 256)`. There is no image file in this module. The tensor is random, and the shapes do not depend on the pixel values.
 
@@ -146,12 +209,12 @@ def build() -> nbformat.NotebookNode:
     assert tuple(feats["p3"].shape) == (2, 128, 16, 32)
     """))
     cells.append(md("""
-    The print says the input is `(2, 3, 128, 256)`. `p1` is `(2, 32, 64, 128)`, `p2` is `(2, 64, 32, 64)`, and `p3` is `(2, 128, 16, 32)`. The last line is `p3 height 16` and `p3 width 32`, which is the input divided by 8. That `p3` tensor is what every head reads, and it is the map stored as `backbone_features` for the next module.
+    The input is `(2, 3, 128, 256)`. `p1` is `(2, 32, 64, 128)`, `p2` is `(2, 64, 32, 64)`, and `p3` is `(2, 128, 16, 32)`. The last lines read `p3 height 16` and `p3 width 32`, which is the input divided by 8. Every head reads from this pyramid; `p3` is also stored as `backbone_features` for the next module (depth and BEV come later).
     """))
 
-    cells.append(md("## 3. Three separate models"))
+    cells.append(md("## 3. One trunk vs cloned trunks"))
     cells.append(md("""
-    Count parameters with the repo classes, not a sketch. Three jobs — lane mask, vehicle grid, traffic light — can each own a full backbone. The shared design keeps one backbone and three heads. The repo then adds a fourth head, freespace, on that same backbone.
+    Count parameters with the repo classes. Three jobs — lane mask, vehicle grid, traffic light — can each own a full backbone. The shared design keeps one backbone and three heads. Freespace adds a fourth head on that same trunk.
 
     **Predict:** three separate trunks cost about twice one shared trunk plus those three heads, because the backbone is most of the weight and the heads are not free.
     """))
@@ -181,14 +244,14 @@ def build() -> nbformat.NotebookNode:
     assert separate4 - hydranet_n == 3 * backbone_n
     """))
     cells.append(md("""
-    The backbone is `288800` parameters. The lane head is `264417`, the vehicle head is `74117`, and the traffic-light head is `8516`. Three separate models are `1213450` parameters. One trunk plus those three heads is `635850`. The ratio prints as `1.9084`.
+    The backbone is `288800` parameters. The lane head is `264417`, the vehicle head is `74117`, and the traffic-light head is `8516`. Three separate models are `1213450` parameters. One trunk plus those three heads is `635850`. The ratio is `1.9084`.
 
-    Freespace adds `172161` parameters. Four separate trunks are `1674411`. The real `HydraNet` is `808011`. The line `parameters saved` is `866400`, which is three backbones you do not allocate. The fourth copy of the trunk is the one you keep.
+    Freespace adds `172161` parameters. Four separate trunks are `1674411`. The real `HydraNet` is `808011`. The line `parameters saved` is `866400`, which is three backbones you do not allocate. On an embedded GPU, that saved memory is what makes multitask perception feasible at all.
     """))
 
-    cells.append(md("## 4. Heads"))
+    cells.append(md("## 4. Four heads from one forward"))
     cells.append(md("""
-    `HydraNet.forward` runs the trunk once, then each head. Lane is the only head that concatenates `p1` and `p2` back in as skip connections. Freespace upsamples `p3` alone. Vehicles stay on the stride-8 grid with 5 channels. Traffic light pools `p3` down to one vector and emits 4 logits. The dict also returns `backbone_features`, which is `p3` itself.
+    `HydraNet.forward` runs the trunk once, then each head. Lane is the only head that concatenates `p1` and `p2` back in as skip connections. Freespace upsamples `p3` alone. Vehicles stay on the stride-8 grid with 5 channels. Traffic light pools `p3` down to one vector and emits 4 logits.
 
     **Predict:** for the same `(2, 3, 128, 256)` batch, lane and freespace are `(2, 1, 128, 256)`, vehicles are `(2, 5, 16, 32)`, traffic light is `(2, 4)`, and `backbone_features` matches `p3`.
     """))
@@ -206,12 +269,12 @@ def build() -> nbformat.NotebookNode:
     assert tuple(preds["backbone_features"].shape) == (2, 128, 16, 32)
     """))
     cells.append(md("""
-    Lane is `(2, 1, 128, 256)` and freespace is the same shape. Vehicles are `(2, 5, 16, 32)`: 5 numbers on each cell of the stride-8 grid. Traffic light is `(2, 4)`. `backbone_features` is `(2, 128, 16, 32)`, the same tensor shape as `p3`. One forward produced all five.
+    Lane is `(2, 1, 128, 256)` and freespace matches that shape — two full-resolution masks from one cook. Vehicles are `(2, 5, 16, 32)`: five numbers on each cell of the stride-8 grid. Traffic light is `(2, 4)`. `backbone_features` is `(2, 128, 16, 32)`, the same tensor shape as `p3`. One forward pass produced all five tensors; latency on the car is one trunk, not four.
     """))
 
-    cells.append(md("## 5. The conflict"))
+    cells.append(md("## 5. One knob, two targets"))
     cells.append(md("""
-    Two losses on one shared number. The lane target is `w = 1`. The box target is `w = -5`. The losses are `(w - 1)^2` and `(w + 5)^2`. At `w = 0` the lane loss is 1 and the box loss is 25. Sum them and walk downhill with Adam, learning rate `0.05`, for 200 steps.
+    Section 1 showed the imbalance on a real stem. Here is the smallest version: two losses fighting over **one shared scalar** `w`. The lane target is `1`. The box target is `-5`. The losses are `(w - 1)^2` and `(w + 5)^2`. At `w = 0` the lane loss is 1 and the box loss is 25. Sum them and walk downhill with Adam, learning rate `0.05`, for 200 steps.
 
     **Predict:** the first step moves `w` down, because the box term is larger. The lane loss should rise. The sum's bottom is the midpoint of `1` and `-5`.
     """))
@@ -258,58 +321,20 @@ def build() -> nbformat.NotebookNode:
     plt.show()
     """))
     cells.append(md("""
-    The targets print as `1.0` and `-5.0`. The closed form for the sum is `w = -2.0000`.
+    The targets are `1.0` and `-5.0`. The closed form for the sum is `w = -2.0000`.
 
     Step 0 is `w = 0.0000`, lane loss `1.0000`, box loss `25.0000`. After one step, `w` is `-0.0500`, lane loss is `1.1025`, and box loss is `24.5025`. The small loss has already gone up.
 
-    At step 20, `w` is `-0.9598` and the lane loss is `3.8409`. At step 200, `w` is `-1.9999`, lane loss is `8.9996`, and box loss is `9.0004`. The lane loss started at `1.0000` and finished near 9. The box loss started at `25.0000` and finished near 9. The plot shows the lane curve rising and the box curve falling until they meet. The summed loss found the compromise. The lane job is worse than when the knob was still at zero.
+    At step 200, `w` is `-1.9999`, lane loss is `8.9996`, and box loss is `9.0004`. The lane curve rises and the box curve falls until they meet near 9. The summed loss found a compromise, not either target. That is what section 1's bar chart warned about: the quiet task gets worse so the loud one can improve.
     """))
+
+    cells.append(md("## 6. The volume knob (uncertainty weighting)"))
     cells.append(md("""
-    The same imbalance shows up on the real stem. One batch, seed 42, the shapes from `break_it_fix_it.py`: images `(4, 3, 128, 256)`, sparse lane targets, vehicle targets scaled by 5. Measure the L2 norm of the gradient of each raw loss on `backbone.stem[0].weight`, and divide by the sum of those two norms.
+    Section 1 turned a knob instead of accepting the drowning bar. The repo stores that knob as `log_vars`, one scalar per task. Write $s = \\log \\sigma^2$. The loss adds $\\tfrac{1}{2} e^{-s} L + \\tfrac{1}{2} s$ for each task loss $L$. The weight on $L$ is $\\tfrac{1}{2} e^{-s}$, which shrinks when $s$ grows — the loud task is turned down. The $\\tfrac{1}{2}s$ term grows with $s$, so the knob cannot run away to infinity. This is not a second network; it is four scalars beside the heads.
 
-    **Predict:** the vehicle share of that stem gradient is above 90%.
-    """))
-    cells.append(code("""
-    torch.manual_seed(42)
-    drill_images = torch.randn(4, 3, 128, 256)
-    drill_lanes = (torch.rand(4, 1, 128, 256) > 0.95).float()
-    drill_vehicles = torch.randn(4, 5, 16, 32) * 5.0
-    drill_model = HydraNet()
-    drill_preds = drill_model(drill_images)
-    drill_lane = F.binary_cross_entropy_with_logits(drill_preds["lane"], drill_lanes)
-    drill_veh = F.mse_loss(drill_preds["vehicles"], drill_vehicles)
-    stem_w = drill_model.backbone.stem[0].weight
-    g_lane = torch.autograd.grad(drill_lane, stem_w, retain_graph=True)[0].norm().item()
-    g_veh = torch.autograd.grad(drill_veh, stem_w, retain_graph=True)[0].norm().item()
-    lane_share = 100.0 * g_lane / (g_lane + g_veh)
-    veh_share = 100.0 * g_veh / (g_lane + g_veh)
-    print("lane loss", f"{drill_lane.item():.4f}")
-    print("vehicle loss", f"{drill_veh.item():.4f}")
-    print("lane stem share", f"{lane_share:.2f}")
-    print("vehicle stem share", f"{veh_share:.2f}")
-    assert veh_share > 90.0
-    """))
-    cells.append(md("""
-    Lane loss is `0.6553`. Vehicle loss is `25.0871`. The lane stem share is `0.34`. The vehicle stem share is `99.66`. Almost the entire update to the first convolution comes from the vehicle loss. The lane head is attached to that convolution, and it is barely moving it.
-    """))
+    Kendall, Gal, and Cipolla derive that form from Gaussian task noise. Here lane BCE, freespace BCE, vehicle MSE, and traffic-light cross-entropy all pass through the same recipe.
 
-    cells.append(md("## 6. Uncertainty weighting"))
-    cells.append(md("""
-    Kendall, Gal, and Cipolla treat each task residual as Gaussian with one noise level $\\sigma$ for the whole task (homoscedastic: one $\\sigma$ per task, not one per pixel). The negative log likelihood for a residual whose squared size is the task loss $L$ is
-
-    $$\\frac{1}{2\\sigma^2} L + \\log \\sigma$$
-
-    plus a constant. Write $s = \\log \\sigma^2$. Then $\\sigma^2 = e^{s}$, so $1/\\sigma^2 = e^{-s}$ and $\\log \\sigma = s/2$. The same expression becomes
-
-    $$\\frac{1}{2} e^{-s} L + \\frac{1}{2} s.$$
-
-    `UncertaintyMultiTaskLoss` stores `log_vars` as $s$ and adds that term for every task. The weight it reports, `get_task_weights()`, is $\\tfrac{1}{2} e^{-s}$, which is $1/(2\\sigma^2)$.
-
-    If $L$ is huge and $s$ stays 0, the first term dominates and the optimizer increases $s$, which shrinks $e^{-s}$. The $+\\tfrac{1}{2}s$ term grows as $s$ grows, so $s$ cannot run off to infinity. The derivative of one term with respect to $s$ is $\\tfrac{1}{2} - \\tfrac{1}{2} e^{-s} L$. It is zero when $s = \\log L$.
-
-    The derivation is for a squared residual. This repo still passes lane BCE, freespace BCE, vehicle MSE, and traffic-light cross-entropy through that same formula. For the classification heads, $s$ is a learned task weight.
-
-    **Predict:** with lane loss `0.3`, box loss `40`, and both $s = 0$, the box term is most of the total. At box $s = 4$ that term should drop, and `UncertaintyMultiTaskLoss` should print the same total as the hand formula.
+    **Predict:** with lane loss `0.3`, box loss `40`, and both $s = 0$, the box term is most of the total. At box $s = 4$ that term should drop, and `UncertaintyMultiTaskLoss` should match the hand formula.
     """))
     cells.append(code("""
     lane_L = torch.tensor(0.3)
@@ -357,51 +382,42 @@ def build() -> nbformat.NotebookNode:
         print("d/ds", f"{s_value:.4f}", f"{deriv.item():.4f}")
     """))
     cells.append(md("""
-    At $s = 0$ the lane row is weight `0.500000`, penalty `0.0000`, term `0.150000`. The box row is weight `0.500000`, penalty `0.0000`, term `20.000000`. Repo total and hand total both print `20.150000`. The box term is the total.
+    At $s = 0$ the lane row is weight `0.500000`, penalty `0.0000`, term `0.150000`. The box row is weight `0.500000`, penalty `0.0000`, term `20.000000`. Repo total and hand total both read `20.150000`. The box term is the total — the same drowning shape as section 1, now in formula form.
 
-    At box $s = 2$ the box weight is `0.067668`, the penalty is `1.0000`, and the term is `3.706706`. The repo total is `3.856706`. The line `kendall box` matches `repo box` at `3.706706`: $L/(2\\sigma^2) + \\log \\sigma$ and the repo term are the same number.
+    At box $s = 4$ the box weight is `0.009158`, the penalty is `2.0000`, and the term is `2.366313`. Repo total is `2.516313`. Raising $s$ cut the box term from `20.000000` to `2.366313`; the penalty climbed to `2.0000`.
 
-    At box $s = 4$ the box weight is `0.009158`, the penalty is `2.0000`, and the term is `2.366313`. The repo total is `2.516313`. Raising $s$ cut the box term from `20.000000` to `2.366313`, and the penalty is the part that climbed to `2.0000`.
-
-    A fresh `UncertaintyMultiTaskLoss(4)` prints initial weights `0.5000` `0.5000` `0.5000` `0.5000`, because $s = 0$ and $\\tfrac{1}{2} e^{0} = 0.5$.
-
-    For $L = 40$ the stationary $s$ prints as `3.6889`, the weight as `0.012500`, the penalty as `1.8444`, and the term as `2.3444`. The derivative is `-19.5000` at $s = 0.0000$ (increase $s$), `0.1337` at $s = 4.0000$ (decrease $s$), and `0.0000` at $s = 3.6889$.
+    A fresh four-task loss prints initial weights `0.5000` four times. For $L = 40$ the stationary $s$ is `3.6889`, weight `0.012500`, penalty `1.8444`, term `2.3444`. The derivative is `-19.5000` at $s = 0$ (turn the knob up), `0.1337` at $s = 4$ (turn it down), and `0.0000` at $s = 3.6889$.
     """))
-
-    cells.append(md("## 7. A run where both losses move"))
     cells.append(md("""
-    Put the weights from section 6 on the same stem gradient as section 5. Set `log_vars` to `0` and `3.5` (the fixed setting in `break_it_fix_it.py`) and measure the stem shares again, on the same forward.
+    Same stem batch as section 1: the bar chart numbers, plotted again after the formula.
 
-    **Predict:** the lane share rises above `0.34`, and the vehicle share falls below `99.66`. The vehicle share can stay well above half.
+    **Predict:** lane share after weighting is still `10.11` percent and vehicle share is `89.89` percent.
     """))
     cells.append(code("""
-    balancer = UncertaintyMultiTaskLoss(2)
-    with torch.no_grad():
-        balancer.log_vars.copy_(torch.tensor([0.0, 3.5]))
-    weights = balancer.get_task_weights()
-    balanced_total = balancer([drill_lane, drill_veh])
-    g_lane_w = torch.autograd.grad(weights[0] * drill_lane, stem_w, retain_graph=True)[0].norm().item()
-    g_veh_w = torch.autograd.grad(weights[1] * drill_veh, stem_w, retain_graph=True)[0].norm().item()
-    lane_share_w = 100.0 * g_lane_w / (g_lane_w + g_veh_w)
-    veh_share_w = 100.0 * g_veh_w / (g_lane_w + g_veh_w)
-    print("log_vars", [f"{v:.1f}" for v in balancer.log_vars.detach().tolist()])
-    print("lane weight", f"{weights[0]:.4f}")
-    print("vehicle weight", f"{weights[1]:.4f}")
-    print("balanced total", f"{balanced_total.item():.4f}")
-    print("weighted lane share", f"{lane_share_w:.2f}")
-    print("weighted vehicle share", f"{veh_share_w:.2f}")
-    assert lane_share_w > lane_share
-    assert veh_share_w < veh_share
+    fig, ax = plt.subplots(figsize=(7, 3.8))
+    labels = ["before weighting", "after volume knob"]
+    x = np.arange(len(labels))
+    width = 0.35
+    ax.bar(x - width / 2, [lane_share, lane_share_w], width, label="lane")
+    ax.bar(x + width / 2, [veh_share, veh_share_w], width, label="vehicle")
+    ax.set_ylabel("percent of stem gradient")
+    ax.set_title("How much of the shared-trunk update each job owns")
+    ax.set_xticks(x, labels)
+    ax.legend()
+    plt.tight_layout()
+    plt.show()
+    print("lane share before", f"{lane_share:.2f}", "after", f"{lane_share_w:.2f}")
+    print("vehicle share before", f"{veh_share:.2f}", "after", f"{veh_share_w:.2f}")
     """))
     cells.append(md("""
-    `log_vars` prints `0.0` and `3.5`. The lane weight is `0.5000` and the vehicle weight is `0.0151`. The balanced total is `2.4564`. The weighted lane share is `10.11`. The weighted vehicle share is `89.89`.
-
-    Lane's pull on the stem went from `0.34` to `10.11`. Vehicle's pull went from `99.66` to `89.89`. The vehicle term is still most of the stem gradient. The change is that it no longer owns 99 percent of it.
+    The second bar group matches section 1: lane moves from `0.34` to `10.11` percent; vehicle moves from `99.66` to `89.89` percent. The knob rebalanced the stem; it did not erase the vehicle head's scale advantage in one setting.
     """))
-    cells.append(md("""
-    The one-knob model could not represent both targets. Give each job its own last layer and a shared linear trunk of 16 units. Both targets are linear functions of the same 128 inputs. The lane targets have standard deviation near 1. The box targets are scaled by 4, so their squared error starts near 100. Train 80 Adam steps at learning rate `0.01`, once with a plain sum and once with `UncertaintyMultiTaskLoss(2)`.
 
-    **Predict:** under the repo loss, both the lane MSE and the box MSE are smaller at step 80 than at step 1. The plain sum can also reduce both, because the heads are separate. The box weight should end below its start of `0.5`.
+    cells.append(md("## 7. Separate heads, shared trunk"))
+    cells.append(md("""
+    HydraNet gives each job its own head, so both targets can improve at once. Toy version: shared linear trunk of 16 units, lane targets with std near 1, box targets scaled by 4. Train 80 Adam steps at learning rate `0.01`, once with a plain sum and once with `UncertaintyMultiTaskLoss(2)`.
+
+    **Predict:** under the repo loss, both lane MSE and box MSE are smaller at step 80 than at step 1. The box weight should end below its start of `0.5`.
     """))
     cells.append(code("""
     torch.manual_seed(0)
@@ -490,14 +506,16 @@ def build() -> nbformat.NotebookNode:
     cells.append(md("""
     Lane target std is `1.0617`. Box target std is `13.1843`.
 
-    Plain sum, step 1: lane `1.2728`, box `172.8219`, lane share of the trunk gradient `8.8`. Step 80: lane `0.2427`, box `9.3208`, lane share `6.0`. Both losses fell. The trunk gradient stayed mostly the box task.
+    Plain sum, step 1: lane `1.2728`, box `172.8219`, lane share of the trunk gradient `8.8`. Step 80: lane `0.2427`, box `9.3208`, lane share `6.0`. Both losses fell; the trunk gradient stayed mostly the box task.
 
-    Repo loss, step 1: lane `1.2728`, box `172.8219`, weights `0.5000` and `0.5000`, lane share `8.8`. Step 80: lane `0.1066`, box `11.2656`, weights `1.0520` and `0.3058`, lane share `10.3`. Both losses fell. The box weight moved from `0.5000` to `0.3058` because that loss stayed larger. The lane loss ended lower than the plain sum (`0.1066` against `0.2427`). The box loss ended higher (`11.2656` against `9.3208`). Separate heads are why both numbers can fall at all. The one shared knob in section 5 had no such room. The weighting changed the balance. It did not make the trunk gradient a 50/50 split in 80 steps: lane share is still `10.3`.
+    Repo loss, step 1: lane `1.2728`, box `172.8219`, weights `0.5000` and `0.5000`, lane share `8.8`. Step 80: lane `0.1066`, box `11.2656`, weights `1.0520` and `0.3058`, lane share `10.3`. Both losses fell. The box weight moved from `0.5000` to `0.3058`. Lane ended lower than the plain sum (`0.1066` vs `0.2427`); box ended higher (`11.2656` vs `9.3208`). Separate heads are why both can fall; section 5's single knob had no such room.
     """))
-    cells.append(md("""
-    Now the real `HydraNet`, one fixed synthetic batch, 10 steps. Optimizer is the one in `train_hydranet.py`: AdamW, learning rate `2e-3`, weight decay `1e-4`, on the network and on `log_vars`. Losses are lane BCE, freespace BCE, vehicle MSE times 10, and traffic-light cross-entropy. The batch does not change between steps, so a drop means the weights are fitting these tensors. `train_hydranet.py` draws a new random batch every step, so its printed losses are not a learning curve on one scene.
 
-    **Predict:** lane BCE and traffic-light cross-entropy drop. The vehicle weight moves only a little in 10 steps at this learning rate. Freespace, which starts near $\\log 2$, barely moves.
+    cells.append(md("## 8. Ten steps on the real HydraNet"))
+    cells.append(md("""
+    One fixed synthetic batch, 10 steps. Optimizer matches `train_hydranet.py`: AdamW, learning rate `2e-3`, weight decay `1e-4`, on the network and on `log_vars`. Losses are lane BCE, freespace BCE, vehicle MSE times 10, and traffic-light cross-entropy. The batch does not change between steps.
+
+    **Predict:** lane BCE and traffic-light cross-entropy drop. The vehicle weight moves only a little in 10 steps. Freespace, which starts near $\\log 2$, barely moves.
     """))
     cells.append(code("""
     torch.manual_seed(0)
@@ -558,10 +576,10 @@ def build() -> nbformat.NotebookNode:
 
     Step 10: total `4.6150`, lane `0.3103`, freespace `0.6797`, vehicle `7.7280`, traffic light `0.6408`, weights `0.5101` `0.5101` `0.4907` `0.4978`.
 
-    Lane BCE fell from `0.7817` to `0.3103`. Traffic light fell from `1.4125` to `0.6408`. Vehicle MSE times 10 fell from `11.1095` to `7.7280` after that spike. Freespace moved from `0.6935` to `0.6797`. The vehicle weight moved from `0.5000` at the start to `0.4907` at step 10. Ten steps at learning rate `2e-3` only begin to retune $s$. These targets are synthetic noise. A lower loss here means the batch was memorized, not that the car can see a lane.
+    Lane BCE fell from `0.7817` to `0.3103`. Traffic light fell from `1.4125` to `0.6408`. Vehicle MSE times 10 fell from `11.1095` to `7.7280` after that spike. Freespace moved from `0.6935` to `0.6797`. The vehicle weight moved from `0.5000` to `0.4907`. Ten steps on synthetic noise means memorization, not road readiness — but the four scalars are already drifting with the loudest tasks.
     """))
 
-    cells.append(md("## 8. Exercises"))
+    cells.append(md("## 9. Exercises"))
     cells.append(md("""
     Three checks taken from `modules/02_hydranet/tests/test_hydranet.py`. Leave each `TODO` in place to use the reference. Replace it if you want the check to call your function.
     """))
@@ -586,7 +604,7 @@ def build() -> nbformat.NotebookNode:
         try:
             expected_shapes_student(2, 128, 256)
         except NotImplementedError:
-            print("Using the test's expected shapes (TODO not implemented)")
+            print("Using reference expected_shapes (TODO not implemented)")
             return expected_shapes_reference
         print("Using your expected_shapes")
         return expected_shapes_student
@@ -638,7 +656,7 @@ def build() -> nbformat.NotebookNode:
         try:
             traffic_light_reaches_stem_student(None, None)
         except NotImplementedError:
-            print("Using the test's stem check (TODO not implemented)")
+            print("Using reference stem check (TODO not implemented)")
             return traffic_light_reaches_stem_reference
         print("Using your stem check")
         return traffic_light_reaches_stem_student
@@ -656,7 +674,7 @@ def build() -> nbformat.NotebookNode:
     print("✅ correct: traffic-light loss reaches the shared stem")
     """))
     cells.append(md("""
-    The check prints `✅`. `stem grad finite` is `True`. The gradient shape is `(32, 3, 3, 3)`, the stem convolution's weight, and its norm is `0.190363`. Traffic-light pooling still lets that loss reach the trunk. The reference is used because the `TODO` still raises.
+    The check prints `✅`. `stem grad finite` is `True`. The gradient shape is `(32, 3, 3, 3)`, and its norm is `0.190363`. Traffic-light pooling still reaches the shared cook. The reference is used because the `TODO` still raises.
     """))
     cells.append(md("""
     <details><summary>Solution</summary>
@@ -690,7 +708,7 @@ def build() -> nbformat.NotebookNode:
         try:
             uncertainty_total_student([torch.tensor(1.0)], torch.zeros(1))
         except NotImplementedError:
-            print("Using the repo formula (TODO not implemented)")
+            print("Using reference uncertainty total (TODO not implemented)")
             return uncertainty_total_reference
         print("Using your uncertainty total")
         return uncertainty_total_student
@@ -710,7 +728,7 @@ def build() -> nbformat.NotebookNode:
     print("✅ correct: uncertainty total matches UncertaintyMultiTaskLoss")
     """))
     cells.append(md("""
-    The check prints `✅`. Hand total and repo total are both `5.0000` (half of `1+2+3+4`, because every weight starts at `0.5`). `log_vars.grad` is `0.0000` `-0.5000` `-1.0000` `-1.5000`, and `grad shape` is `(4,)`. The zero on the first task is $\\tfrac{1}{2} - \\tfrac{1}{2} \\cdot 1$. The reference is used because the `TODO` still raises.
+    The check prints `✅`. Hand total and repo total are both `5.0000` (half of `1+2+3+4`, because every weight starts at `0.5`). `log_vars.grad` is `0.0000` `-0.5000` `-1.0000` `-1.5000`, and `grad shape` is `(4,)`. The reference is used because the `TODO` still raises.
     """))
     cells.append(md("""
     <details><summary>Solution</summary>
@@ -726,15 +744,15 @@ def build() -> nbformat.NotebookNode:
     </details>
     """))
 
-    cells.append(md("## 9. Recap"))
+    cells.append(md("## 10. Recap"))
     cells.append(md("""
-    - One trunk. On a batch `(2, 3, 128, 256)` the pyramid is `p1` `(2, 32, 64, 128)`, `p2` `(2, 64, 32, 64)`, `p3` `(2, 128, 16, 32)`.
-    - Four heads from that forward: lane and freespace `(2, 1, 128, 256)`, vehicles `(2, 5, 16, 32)`, traffic light `(2, 4)`, plus `backbone_features` equal to `p3`.
-    - Three separate models are `1213450` parameters. One trunk plus those three heads is `635850`, ratio `1.9084`. The full `HydraNet` is `808011` instead of `1674411`.
+    - One cook, four dishes: lane, freespace, vehicles, traffic light from one trunk forward.
+    - On a batch `(2, 3, 128, 256)` the pyramid is `p1` `(2, 32, 64, 128)`, `p2` `(2, 64, 32, 64)`, `p3` `(2, 128, 16, 32)`.
+    - Three separate models are `1213450` parameters. One trunk plus three heads is `635850`, ratio `1.9084`. Full `HydraNet` is `808011` instead of `1674411`.
+    - Before weighting, lane owns `0.34` percent of the stem gradient and vehicle owns `99.66` percent on the seed-42 batch. After vehicle `log_vars = 3.5`, those shares become `10.11` and `89.89`.
     - A shared knob with losses `(w-1)^2` and `(w+5)^2` walks to `w = -1.9999`. Lane loss goes from `1.0000` to `8.9996`. Box loss goes from `25.0000` to `9.0004`.
-    - On the real stem, that same kind of scale gap gives lane `0.34` percent of the gradient and vehicle `99.66` percent. Setting the vehicle log-variance to `3.5` moves those shares to `10.11` and `89.89`.
-    - The repo loss is $\\tfrac{1}{2} e^{-s} L + \\tfrac{1}{2} s$ with $s = \\log \\sigma^2$. For losses `0.3` and `40` at $s = 0$, the total is `20.150000`, and the box term is `20.000000` of it. At the stationary box noise, $s = 3.6889$.
-    - With separate heads, both toy losses fall under that loss: lane `1.2728` to `0.1066`, box `172.8219` to `11.2656`. Ten steps of `HydraNet` on one synthetic batch move lane BCE from `0.7817` to `0.3103` and barely move the vehicle weight, `0.5000` to `0.4907`.
+    - The repo loss is $\\tfrac{1}{2} e^{-s} L + \\tfrac{1}{2} s$ with $s = \\log \\sigma^2$. For losses `0.3` and `40` at $s = 0$, the total is `20.150000`, and the box term is `20.000000` of it. Stationary box noise is $s = 3.6889$.
+    - With separate heads, toy losses fall under that loss: lane `1.2728` to `0.1066`, box `172.8219` to `11.2656`. Ten HydraNet steps on one batch move lane BCE from `0.7817` to `0.3103` and vehicle weight from `0.5000` to `0.4907`.
 
     ### Paper
     Kendall, Gal, and Cipolla, *Multi-Task Learning Using Uncertainty to Weigh Losses for Scene Geometry and Semantics*, CVPR 2018. [arXiv:1705.07115](https://arxiv.org/abs/1705.07115)

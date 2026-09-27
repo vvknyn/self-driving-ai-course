@@ -32,7 +32,7 @@ def build() -> nbformat.NotebookNode:
 
     [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/vvknyn/self-driving-ai-course/blob/main/notebooks/04_bev_lift_splat_shoot.ipynb)
 
-    Module 01 already warped pixels onto a flat road. This notebook lifts each pixel along a ray, because a raised object and the ground under it are different places.
+    Module 01 painted every pixel onto a flat road. A bumper or a torso sits above that plane, so a flat map puts raised objects in the wrong place. Lift–splat–shoot keeps each pixel as a **ray** with many possible depths, splats mass into top-down bins, then mixes neighbors with a small convolution.
 
     Each section explains one idea, then runs code. **Predict first**, then execute the cell.
     """))
@@ -46,6 +46,7 @@ def build() -> nbformat.NotebookNode:
     import matplotlib.pyplot as plt
     import numpy as np
     import torch
+    import torch.nn.functional as F
 
     def keep_inline():
         # Some course scripts select a file-only backend on import.
@@ -109,18 +110,22 @@ def build() -> nbformat.NotebookNode:
     from lift_splat_shoot import DepthFeatureLift, LiftSplatShoot
     from calibrate_rig import build_tesla_style_rig
 
+    def shown_meter(value):
+        rounded = round(float(value), 3)
+        return 0.0 if rounded == 0 else rounded
+
     print("Repo:", REPO)
     print("device:", torch.device("cpu"))
     keep_inline()
     """))
 
-    cells.append(md("## 1. Flat-ground warp misses a raised point"))
+    cells.append(md("## 1. Flat ground, smeared rays, wrong squares"))
     cells.append(md("""
-    Module 01 mapped a pixel onto the road by assuming every pixel sits on the ground plane. A bumper or a torso is not on that plane.
+    Picture the destination before the formulas. **Inverse perspective** assumes the world is a flat plate. A point on the road and a raised point at the same forward and lateral spot project to different pixels; forcing both pixels onto the ground plane writes the raised object down the road.
 
-    Use the front camera from `build_tesla_style_rig()`. Take one point on the road and the same forward and lateral point raised by a meter, still under the camera. Project both. Then intersect each pixel with the ground plane. That intersection is the attempt. Watch the raised point miss.
+    A pixel is also a **ray**: depth is not one number but a pile of bins. Spread probability evenly and the obstacle is painted along the whole ray on the top-down map. Pick the wrong bin and the pillar lands in the **wrong square** on the floor grid.
 
-    **Predict:** the ground point should come back near 20 m. The raised point's pixel, forced onto the ground plane, should land much farther forward.
+    **Predict:** the road point returns near 20 m forward on the ground plane. The raised point's pixel, forced onto that plane, lands much farther forward. On the floor preview, true depth and half depth should land on different forward bins.
     """))
     cells.append(code("""
     rig = build_tesla_style_rig()
@@ -138,36 +143,131 @@ def build() -> nbformat.NotebookNode:
     print(f"raised pixel uv: ({uv_raised[0, 0]:.2f}, {uv_raised[0, 1]:.2f})")
     print(f"IPM ground X: {ipm_ground[0, 0]:.2f}")
     print(f"IPM raised X: {ipm_raised[0, 0]:.2f}")
-    print(f"ground pixel valid: {bool(valid_ground[0])}")
-    print(f"raised pixel valid: {bool(valid_raised[0])}")
-    print(f"IPM ground valid: {bool(ipm_ground_ok[0])}")
-    print(f"IPM raised valid: {bool(ipm_raised_ok[0])}")
     print(f"true X ground: {ground_ego[0, 0]:.2f}")
     print(f"true X raised: {raised_ego[0, 0]:.2f}")
+
+    P_ego = np.array([20.0, 0.0, 1.0])
+    P_cam = front.R @ P_ego + front.T.ravel()
+    d_raised = float(P_cam[2])
+    uv, valid_uv = front.project_ego_to_pixel(P_ego.reshape(1, 3))
+    u_raised = float(uv[0, 0])
+    v_raised = float(uv[0, 1])
+    print(f"raised ray u={u_raised:.3f} v={v_raised:.3f} d={d_raised:.3f}")
+
+    lss_geo = LiftSplatShoot()
+    K = torch.tensor(front.K, dtype=torch.float32)
+    R = torch.tensor(front.R, dtype=torch.float32)
+    T = torch.tensor(front.T, dtype=torch.float32)
+    packed = torch.tensor([u_raised * d_raised, v_raised * d_raised, d_raised], dtype=torch.float32)
+    ego_true = lss_geo.unproject_to_ego(packed.view(1, 1, 1, 3), K, R, T).reshape(3).detach()
+    raised_xyz = torch.tensor([shown_meter(ego_true[i]) for i in range(3)])
+
+    d_half = d_raised / 2.0
+    packed_half = torch.tensor([u_raised * d_half, v_raised * d_half, d_half], dtype=torch.float32)
+    ego_half = lss_geo.unproject_to_ego(packed_half.view(1, 1, 1, 3), K, R, T).reshape(3).detach()
+    half_xyz = torch.tensor([shown_meter(ego_half[i]) for i in range(3)])
+
+    xmin, xstep = 0.0, 0.5
+    ymin, ystep = -15.0, 0.5
+    nx_prev = int(round((40.0 - xmin) / xstep))
+    ny_prev = int(round((15.0 - ymin) / ystep))
+
+    def bin_index(x_value, y_value):
+        xi = ((torch.tensor(float(x_value)) - xmin) / xstep).long()
+        yi = ((torch.tensor(float(y_value)) - ymin) / ystep).long()
+        return int(xi), int(yi)
+
+    true_xi, true_yi = bin_index(raised_xyz[0], raised_xyz[1])
+    half_xi, half_yi = bin_index(half_xyz[0], half_xyz[1])
+    print(f"true bin x_idx={true_xi} y_idx={true_yi}")
+    print(f"half bin x_idx={half_xi} y_idx={half_yi}")
+
+    num_bins = 20
+    depth_bins = torch.linspace(2.0, 42.0, num_bins)
+    flat_logits = torch.zeros(1, num_bins, 1, 1)
+    flat_probs = F.softmax(flat_logits, dim=1).squeeze()
+    true_bin = 9
+    peaked_logits = torch.full((1, num_bins, 1, 1), -5.0)
+    peaked_logits[0, true_bin, 0, 0] = 8.0
+    peaked_probs = F.softmax(peaked_logits, dim=1).squeeze()
+    entropy_flat = -(flat_probs * torch.log(flat_probs + 1e-9)).sum().item()
+    entropy_peak = -(peaked_probs * torch.log(peaked_probs + 1e-9)).sum().item()
+    spread_m = depth_bins[-1].item() - depth_bins[0].item()
+    print(f"flat entropy: {entropy_flat:.2f}")
+    print(f"peaked entropy: {entropy_peak:.4f}")
+    print(f"ray spread if flat: {spread_m:.1f} m")
 
     keep_inline()
     labels = ["ground Z=0", "raised Z=1"]
     xpos = np.arange(len(labels))
     width = 0.35
-    fig, ax = plt.subplots(figsize=(5.2, 3.2))
+    fig, axes = plt.subplots(2, 2, figsize=(9.0, 6.5))
+
+    ax = axes[0, 0]
     ax.bar(xpos - width / 2, [ground_ego[0, 0], raised_ego[0, 0]], width, label="true X")
     ax.bar(xpos + width / 2, [ipm_ground[0, 0], ipm_raised[0, 0]], width, label="IPM X")
     ax.set_xticks(xpos)
     ax.set_xticklabels(labels)
     ax.set_ylabel("forward X (m)")
-    ax.legend()
+    ax.set_title("flat ground warp")
+    ax.legend(fontsize=8)
+
+    ax = axes[0, 1]
+    ax.bar(depth_bins.numpy(), flat_probs.numpy(), width=1.2, alpha=0.55, label="flat")
+    ax.bar(depth_bins.numpy(), peaked_probs.numpy(), width=0.8, alpha=0.85, label="peaked")
+    ax.set_xlabel("depth bin center (m)")
+    ax.set_ylabel("probability")
+    ax.set_title("same pixel, two depth guesses")
+    ax.legend(fontsize=8)
+
+    ax = axes[1, 0]
+    xs_flat, xs_peak = [], []
+    for prob_f, prob_p, d_c in zip(flat_probs, peaked_probs, depth_bins):
+        pack_f = torch.tensor([u_raised * d_c, v_raised * d_c, d_c], dtype=torch.float32)
+        pack_p = pack_f
+        xf = lss_geo.unproject_to_ego(pack_f.view(1, 1, 1, 3), K, R, T)[0, 0, 0, 0].item()
+        xs_flat.append(prob_f.item() * xf)
+        xs_peak.append(prob_p.item() * xf)
+    x_grid = np.linspace(0, 40, 81)
+    ax.fill_between(x_grid, 0, 0.08, color="0.92")
+    ax.bar(x_grid[::4], np.zeros(len(x_grid[::4])), width=0.4, color="0.85", edgecolor="0.7")
+    ax.plot(xs_flat, np.full(len(xs_flat), 0.04), "o", color="C3", label="flat mass")
+    ax.plot(xs_peak, np.full(len(xs_peak), 0.06), "o", color="C0", label="peaked mass")
+    ax.set_xlim(0, 40)
+    ax.set_ylim(0, 0.1)
+    ax.set_xlabel("forward X on floor (m)")
+    ax.set_yticks([])
+    ax.set_title("top-down: obstacle smear vs pin")
+    ax.legend(fontsize=8, loc="upper right")
+
+    ax = axes[1, 1]
+    floor = np.zeros((ny_prev, nx_prev))
+    floor[true_yi, true_xi] = 2.0
+    floor[half_yi, half_xi] = 1.0
+    ax.imshow(floor, origin="lower", cmap="Blues", extent=(0, 40, -15, 15), aspect="auto")
+    ax.scatter([raised_xyz[0].item()], [raised_xyz[1].item()], c="C2", s=80, marker="*", label="true depth")
+    ax.scatter([half_xyz[0].item()], [half_xyz[1].item()], c="C3", s=80, marker="x", label="half depth")
+    ax.set_xlabel("forward X (m)")
+    ax.set_ylabel("lateral Y (m)")
+    ax.set_title("wrong depth → wrong square")
+    ax.legend(fontsize=8, loc="upper right")
+
     plt.tight_layout()
     plt.show()
     """))
     cells.append(md("""
-    The ground pixel `(320.00, 181.44)` comes back at IPM X `20.00`. The raised pixel `(320.00, 171.20)` is valid too, but forcing it onto the ground writes it at IPM X `65.00`. Both true X values were `20.00`. The flat-ground warp used one plane, so the raised point was written down the road. The next sections lift that pixel along its ray instead.
+    The ground pixel `(320.00, 181.44)` maps back to IPM X `20.00`. The raised pixel `(320.00, 171.20)` is only ten rows higher in the image, but the flat warp writes it at IPM X `65.00` while both true forward positions were `20.00`. For the car, that is a phantom obstacle 45 m ahead — emergency braking on empty road.
+
+    The same raised pixel carries depth `17.984`. Unprojecting with the true depth lands bin `x_idx=40`, `y_idx=30`. Halving depth (`8.992`) slides the pillar to `x_idx=22` on the same row. A depth network that is confidently wrong moves occupancy cells the planner treats as real.
+
+    Flat depth entropy is `3.00` over a `40.0` m span along the ray; peaked entropy is `0.0006`. The smear panel paints mass from near the bumper to far down the lane; the peaked panel concentrates on one forward strip. Section 2 names the math that produces those two curves.
     """))
 
-    cells.append(md("## 2. A pixel is a ray with a depth distribution"))
+    cells.append(md("## 2. Softmax turns logits into a depth pile"))
     cells.append(md("""
-    Lift treats one pixel as a ray. Depth is a categorical distribution over bins: softmax turns logits into probabilities, and the expected depth is the sum of probability times bin center.
+    **Lift** assigns each pixel a vector of logits, one per depth bin. Softmax turns that vector into probabilities that sum to 1. The expected depth is the weighted sum of bin centers.
 
-    **Predict:** the three probabilities sum to 1. On a real `DepthFeatureLift`, the probabilities sum to 1 along dim 1, the depth axis.
+    **Predict:** the toy three-bin softmax sums to 1. On `DepthFeatureLift`, every spatial location still sums to 1 along the depth axis.
     """))
     cells.append(code("""
     logits = torch.tensor([2.0, 0.0, -2.0])
@@ -187,41 +287,75 @@ def build() -> nbformat.NotebookNode:
     print(f"probs.sum(dim=1) max: {probs.sum(dim=1).max().item():.4f}")
     """))
     cells.append(md("""
-    Softmax prints `[0.8668, 0.1173, 0.0159]` and the sum is `1.0000`. The expected depth on bins 2 m, 11 m, and 20 m is `3.3416`. The real lift returns `probs.shape` `(1, 3, 2, 2)` and `context.shape` `(1, 2, 2, 2)`. Along dim 1 the probabilities run from `1.0000` to `1.0000`.
+    Softmax on the toy logits yields `[0.8668, 0.1173, 0.0159]` summing to `1.0000`, with expected depth `3.3416` on bins 2 m, 11 m, and 20 m. The real lift returns `probs.shape` `(1, 3, 2, 2)` and `context.shape` `(1, 2, 2, 2)`; along dim 1 the sums stay at `1.0000`. For driving, context is the appearance feature carried along whichever depth bin wins.
     """))
     cells.append(md("""
-    Flat logits are the obvious attempt: every depth looks equally likely, so the obstacle is painted along the whole ray. A peaked distribution is the fix. The drill script runs both.
+    When logits are flat, softmax spreads probability across the whole ray — high entropy, wide smear on the BEV. A sharp peak lowers entropy and pins the obstacle.
 
-    **Predict:** flat logits smear the obstacle across the whole depth range. A peaked distribution pins it.
+    **Predict:** entropy drops when logits spike on one bin. Spread in meters shrinks with a peak.
     """))
     cells.append(code("""
-    subprocess.run(
-        [sys.executable, "modules/03_bev_transform/break_it_fix_it.py"],
-        check=True,
-        cwd=REPO,
-    )
+    num_bins = 20
+    depth_bins = torch.linspace(2.0, 42.0, num_bins)
+    flat_logits = torch.zeros(1, num_bins, 1, 1)
+    broken_probs = F.softmax(flat_logits, dim=1).squeeze()
+    true_bin = 9
+    peaked_logits = torch.full((1, num_bins, 1, 1), -5.0)
+    peaked_logits[0, true_bin, 0, 0] = 8.0
+    fixed_probs = F.softmax(peaked_logits, dim=1).squeeze()
+
+    entropy_broken = -(broken_probs * torch.log(broken_probs + 1e-9)).sum().item()
+    entropy_fixed = -(fixed_probs * torch.log(fixed_probs + 1e-9)).sum().item()
+    spread_meters = depth_bins[-1].item() - depth_bins[0].item()
+    peak_m = depth_bins[true_bin].item()
+    peak_pct = fixed_probs[true_bin].item() * 100.0
+    half_bin = (depth_bins[1] - depth_bins[0]).item() / 2.0
+
+    print(f"entropy flat: {entropy_broken:.2f}")
+    print(f"entropy peaked: {entropy_fixed:.4f}")
+    print(f"smear span: {spread_meters:.1f} m")
+    print(f"peak at: {peak_m:.1f} m")
+    print(f"peak probability: {peak_pct:.1f}%")
+    print(f"localization half-width: {half_bin:.2f} m")
+
+    keep_inline()
+    fig, axes = plt.subplots(1, 2, figsize=(8.5, 3.2))
+    axes[0].plot(depth_bins.numpy(), broken_probs.numpy(), "o-", label="flat logits")
+    axes[0].plot(depth_bins.numpy(), fixed_probs.numpy(), "o-", label="peaked logits")
+    axes[0].set_xlabel("depth (m)")
+    axes[0].set_ylabel("probability")
+    axes[0].set_title("probability vs depth")
+    axes[0].legend(fontsize=8)
+
+    mass_b = []
+    mass_f = []
+    x_centers = []
+    for pb, pf, d_c in zip(broken_probs, fixed_probs, depth_bins):
+        pack = torch.tensor([u_raised * d_c, v_raised * d_c, d_c], dtype=torch.float32)
+        xf = lss_geo.unproject_to_ego(pack.view(1, 1, 1, 3), K, R, T)[0, 0, 0, 0].item()
+        x_centers.append(xf)
+        mass_b.append(pb.item())
+        mass_f.append(pf.item())
+    axes[1].bar(x_centers, mass_b, width=0.9, alpha=0.45, label="flat → floor")
+    axes[1].bar(x_centers, mass_f, width=0.5, alpha=0.9, label="peaked → floor")
+    axes[1].set_xlabel("forward X (m)")
+    axes[1].set_ylabel("probability mass")
+    axes[1].set_title("splat preview along one ray")
+    axes[1].legend(fontsize=8)
+    plt.tight_layout()
+    plt.show()
     """))
     cells.append(md("""
-    The flat run prints entropy `3.00` and smears the obstacle across `40.0` meters. The peaked run prints entropy `0.0006`, a peak probability of `100.0`% at `20.9` m, and localization within `1.05` meters. The same ray, two distributions: one fills the range, the other pins the obstacle.
+    Flat logits give entropy `3.00` and smear the obstacle across `40.0` m of depth. The peaked run drops entropy to `0.0006`, puts `100.0`% of mass at `20.9` m, and localizes within `1.05` m. The floor strip shows why: uniform depth paints many forward cells; a peak fills one column the motion planner must respect.
     """))
 
     cells.append(md("## 3. Unproject (u, v, d) into ego (X, Y, Z)"))
     cells.append(md("""
-    A frustum point is the packed triple `[u*d, v*d, d]`. `LiftSplatShoot.unproject_to_ego` turns that triple into ego X, Y, Z with the front camera's K, R, and T. Camera-frame position uses the same convention as `project_ego_to_pixel`: rotate the ego point, then add T. Depth is the camera-frame Z.
+    A frustum sample packs `[u*d, v*d, d]`. `LiftSplatShoot.unproject_to_ego` inverts the pinhole model with the camera's `K`, `R`, and `T`. Depth is camera-frame Z.
 
-    **Predict:** the raised point should come back to itself. The ground warp had sent this same pixel much farther down the road.
+    **Predict:** the raised point at 20 m forward, 1 m up, returns to itself. The flat warp had sent this pixel to 65 m.
     """))
     cells.append(code("""
-    def shown_meter(value):
-        rounded = round(float(value), 3)
-        return 0.0 if rounded == 0 else rounded
-
-    P_ego = np.array([20.0, 0.0, 1.0])
-    P_cam = front.R @ P_ego + front.T.ravel()
-    d_raised = float(P_cam[2])
-    uv, valid_uv = front.project_ego_to_pixel(P_ego.reshape(1, 3))
-    u_raised = float(uv[0, 0])
-    v_raised = float(uv[0, 1])
     print(f"u={u_raised:.3f}")
     print(f"v={v_raised:.3f}")
     print(f"d={d_raised:.3f}")
@@ -233,10 +367,6 @@ def build() -> nbformat.NotebookNode:
         f"[{packed[0].item():.3f}, {packed[1].item():.3f}, {packed[2].item():.3f}]"
     )
 
-    lss_geo = LiftSplatShoot()
-    K = torch.tensor(front.K, dtype=torch.float32)
-    R = torch.tensor(front.R, dtype=torch.float32)
-    T = torch.tensor(front.T, dtype=torch.float32)
     ego = lss_geo.unproject_to_ego(packed.view(1, 1, 1, 3), K, R, T).reshape(3).detach()
     raised_xyz = torch.tensor([shown_meter(ego[i]) for i in range(3)])
     print(
@@ -245,14 +375,14 @@ def build() -> nbformat.NotebookNode:
     )
     """))
     cells.append(md("""
-    The pixel is `u=320.000`, `v=171.200`, depth `d=17.984`. The packed triple is `[5754.898, 3078.873, 17.984]`. Unproject returns `(20.000, 0.000, 1.000)`, the raised point. The ground warp had sent that pixel to `65.00`.
+    The pixel is `u=320.000`, `v=171.200`, depth `d=17.984`. Packed `[5754.898, 3078.873, 17.984]` unprojects to `(20.000, 0.000, 1.000)` — the raised torso, not the ground under it. Occupancy in a BEV stack must come from this ray geometry, not from a single ground intersection.
     """))
 
     cells.append(md("## 4. Splat into BEV bins"))
     cells.append(md("""
-    A BEV grid is bins. `x_bound` is minimum, maximum, and step. The forward index is `((x - xmin) / step)` cast with `.long()`, and the same formula for y. Points outside the grid are dropped. Two feature rows that share one flat index add through `index_add_`.
+    The top-down map is a grid of bins. `x_bound` is `(x_min, x_max, step)`. Forward index is `((x - xmin) / step)` cast with `.long()`; lateral index uses the same pattern. Out-of-range points drop. Two features that hit the same flat index **add** via `index_add_`.
 
-    **Predict:** two cameras that hit one cell add. A point behind the grid is discarded.
+    **Predict:** two rows splatted into one cell sum feature-wise. A point behind the car fails the bounds check.
     """))
     cells.append(code("""
     x_bound = (0.0, 40.0, 0.5)
@@ -262,8 +392,6 @@ def build() -> nbformat.NotebookNode:
     print(f"nx={nx}")
     print(f"ny={ny}")
 
-    # Bin the X and Y printed to 3 decimals. A millionth of a meter
-    # would otherwise push Y into the neighboring cell.
     x_m = float(raised_xyz[0])
     y_m = float(raised_xyz[1])
     print(f"splat ego X={x_m:.3f} Y={y_m:.3f}")
@@ -305,14 +433,14 @@ def build() -> nbformat.NotebookNode:
     plt.show()
     """))
     cells.append(md("""
-    The grid is `nx=80` by `ny=60`. The unprojected point `X=20.000`, `Y=0.000` lands at `x_idx=40`, `y_idx=30`. The two rows add to `cell feature: [1.5, 2.0]`. The point at `X=-5.0` is `valid=False`, and the grid sum stays `3.5`.
+    The grid is `nx=80` by `ny=60`. The raised point at `X=20.000`, `Y=0.000` lands at `x_idx=40`, `y_idx=30`. Two camera rows adding into that cell give `[1.5, 2.0]`. A point at `X=-5.0` is `valid=False`, so nothing behind the ego pollutes the map — important so reverse lane ghosts do not appear in forward planning.
     """))
 
     cells.append(md("## 5. Shoot: a small top-down convolution"))
     cells.append(md("""
-    Shoot is a convolution on the top-down map. Padding keeps the height and width, so a cell can mix with its neighbors without changing the grid size.
+    **Shoot** is a convolution on the splatted map. Padding keeps height and width fixed so each cell can borrow context from neighbors without resizing the grid.
 
-    **Predict:** a 3 by 3 kernel with padding 1 leaves the map height and width unchanged, and the single 1 spreads into its neighborhood. The real encoder does not change height or width either.
+    **Predict:** a 3×3 conv with padding 1 keeps a 5×5 toy map at 5×5. The module's BEV encoder does the same on a 20×20 grid.
     """))
     cells.append(code("""
     toy = torch.zeros(1, 1, 5, 5)
@@ -343,14 +471,14 @@ def build() -> nbformat.NotebookNode:
     print("encoder out shape:", tuple(enc.shape))
     """))
     cells.append(md("""
-    The toy map stays `(1, 1, 5, 5)`. The center row prints `0 1 1 1 0`: the single 1 spread into a 3 by 3 neighborhood and the corners stayed `0`. `bev_encoder convs: 2`. Zeros of shape `(1, 4, 20, 20)` come back as `(1, 4, 20, 20)`. Shoot does not change height or width.
+    The toy map stays `(1, 1, 5, 5)`; the center row reads `0 1 1 1 0`, a 3×3 neighborhood from one hot cell. `bev_encoder convs: 2`. Zeros `(1, 4, 20, 20)` encode to the same shape. For the vehicle, shoot is the cheap spatial denoising step after splatting — smoothing phantom speckle without blurring the whole map off-grid.
     """))
 
     cells.append(md("## 6. Shapes the repo actually returns"))
     cells.append(md("""
-    Match the module test: ten depth bins from 2 m to 20 m, and a 1 m BEV grid. Then run the 3-camera script.
+    Match the module test: ten depth bins from 2 m to 20 m, 1 m BEV cells. Then run the three-camera script.
 
-    **Predict:** probabilities still sum to 1 along the depth axis. The frustum stores three numbers at every pixel and depth. The BEV map keeps the grid height and width.
+    **Predict:** frustum rank is depth × height × width × 3. Probabilities sum to 1 on depth. Forward pass yields `(1, 32, 20, 20)` on the toy bounds.
     """))
     cells.append(code("""
     torch.manual_seed(0)
@@ -390,12 +518,12 @@ def build() -> nbformat.NotebookNode:
     print("nan count:", int(torch.isnan(bev_out).sum().item()))
     """))
     cells.append(md("""
-    The frustum shape is `(10, 8, 16, 3)`, with depth min `2.0` and depth max `20.0`. The lift returns probs `(2, 10, 8, 16)` and context `(2, 32, 8, 16)`, and the sum along dim 1 runs from `1.0000` to `1.0000`. The forward pass prints `torch.Size([1, 32, 20, 20])` with nan count `0`.
+    Frustum shape `(10, 8, 16, 3)` spans depth `2.0` to `20.0`. Lift returns probs `(2, 10, 8, 16)` and context `(2, 32, 8, 16)` with depth sums pinned at `1.0000`. One forward pass yields `torch.Size([1, 32, 20, 20])` and `nan count: 0` — the tensor shape the unit tests assert.
     """))
     cells.append(md("""
-    The checked-in script builds the front, left, and right cameras and runs lift, splat, and shoot on all three.
+    The checked-in driver builds front, left, and right rigs and runs lift, splat, and shoot together.
 
-    **Predict:** one batch, three cameras in, and a wider BEV grid out. The metric coverage is the default forward and lateral range at half-meter cells.
+    **Predict:** batch 1, three cameras in, BEV tensor wider in X than a single-camera toy run.
     """))
     cells.append(code("""
     print("cameras: front, left, right")
@@ -406,14 +534,14 @@ def build() -> nbformat.NotebookNode:
     )
     """))
     cells.append(md("""
-    The script prints input `torch.Size([1, 3, 32, 16, 32])` and output `torch.Size([1, 64, 60, 80])`. Coverage is `0.0m to 40.0m forward` and `-15.0m to 15.0m lateral`, at `0.5m` cells. The cameras are `front, left, right`.
+    Input `torch.Size([1, 3, 32, 16, 32])` fuses to output `torch.Size([1, 64, 60, 80])`. Coverage is `0.0m to 40.0m` forward and `-15.0m to 15.0m` lateral at `0.5m` cells. That is the multi-camera BEV feature map a downstream head would read for lanes and obstacles.
     """))
 
     cells.append(md("## 7. The wrong depth bin lands in the wrong pillar"))
     cells.append(md("""
-    Same pixel and camera as the unproject above. The obvious guess is that the object is closer, so feed in half the camera depth and bin the result with the half-meter grid.
+    Same pixel and camera as above. Halving depth is the deliberate mistake: the network guessed too close. Bin both landings on the half-meter floor grid.
 
-    **Predict:** halving depth slides the pillar toward the car. Putting the true depth back returns the raised point's forward bin.
+    **Predict:** half depth moves the pillar toward the ego. True depth restores `x_idx=40`.
     """))
     cells.append(code("""
     d_half = d_raised / 2.0
@@ -427,14 +555,6 @@ def build() -> nbformat.NotebookNode:
         "half XYZ: "
         f"({half_xyz[0].item():.3f}, {half_xyz[1].item():.3f}, {half_xyz[2].item():.3f})"
     )
-
-    xmin, xstep = 0.0, 0.5
-    ymin, ystep = -15.0, 0.5
-
-    def bin_index(x_value, y_value):
-        xi = ((torch.tensor(float(x_value)) - xmin) / xstep).long()
-        yi = ((torch.tensor(float(y_value)) - ymin) / ystep).long()
-        return int(xi), int(yi)
 
     true_xi, true_yi = bin_index(raised_xyz[0], raised_xyz[1])
     half_xi, half_yi = bin_index(half_xyz[0], half_xyz[1])
@@ -453,19 +573,36 @@ def build() -> nbformat.NotebookNode:
         f"({fix_xyz[0].item():.3f}, {fix_xyz[1].item():.3f}, {fix_xyz[2].item():.3f})"
     )
     print(f"fixed x_idx={fix_xi} y_idx={fix_yi}")
+
+    keep_inline()
+    floor = np.zeros((ny_prev, nx_prev))
+    floor[true_yi, true_xi] = 2.0
+    floor[half_yi, half_xi] = 1.5
+    fig, ax = plt.subplots(figsize=(5.5, 4.0))
+    ax.imshow(floor, origin="lower", cmap="Greys", extent=(0, 40, -15, 15), aspect="auto", vmin=0, vmax=2)
+    ax.scatter([raised_xyz[0].item()], [raised_xyz[1].item()], c="C2", s=120, marker="*", label=f"true d → bin {true_xi}")
+    ax.scatter([half_xyz[0].item()], [half_xyz[1].item()], c="C3", s=120, marker="X", label=f"half d → bin {half_xi}")
+    ax.axvline(raised_xyz[0].item(), color="C2", ls="--", alpha=0.4)
+    ax.axvline(half_xyz[0].item(), color="C3", ls="--", alpha=0.4)
+    ax.set_xlabel("forward X (m)")
+    ax.set_ylabel("lateral Y (m)")
+    ax.set_title("one pixel, two depth bins")
+    ax.legend(fontsize=8, loc="upper right")
+    plt.tight_layout()
+    plt.show()
     """))
     cells.append(md("""
-    True depth returns `(20.000, 0.000, 1.000)` at `x_idx=40`, `y_idx=30`. Half depth is `8.992` and lands at `(11.000, 0.000, 1.200)`, so `x_idx=22` while `y_idx=30` stays put. Unprojecting again with the true `d` prints `fixed x_idx=40`. Halving depth slid the pillar toward the car.
+    True depth `(20.000, 0.000, 1.000)` sits at `x_idx=40`, `y_idx=30`. Half depth `8.992` lands at `(11.000, 0.000, 1.200)` → `x_idx=22`. Lateral index stays `30`; only forward bin moves. Fixing depth returns `fixed x_idx=40`. A single mis-ranked softmax bin shifts occupied cells nine meters forward — inside the braking envelope.
     """))
 
     cells.append(md("## 8. Exercises"))
     cells.append(md("""
-    Three checks. Each function still raises, so the cell prints a fallback line and calls a reference that uses the real API. Replace the TODO when you want the check to call your function.
+    Three checks. Each stub still raises, so the cell falls back to a reference that calls the real API. Replace the TODO when you want the check to call your function.
     """))
     cells.append(md("""
     **Exercise 1.** Sum the depth probabilities along the depth axis.
 
-    **Predict:** every spatial location sums to 1, and the probability tensor keeps the ten depth bins.
+    **Predict:** every spatial location sums to 1, and the probability tensor keeps ten depth bins.
     """))
     cells.append(code("""
     def depth_sum_student(features):
@@ -496,7 +633,7 @@ def build() -> nbformat.NotebookNode:
     print("✅ correct: depth probabilities sum to 1")
     """))
     cells.append(md("""
-    The cell printed `Using reference depth_sum_student (TODO not implemented)` and then `✅`. `probs.shape` is `(2, 10, 8, 16)`.
+    Fallback line `Using reference depth_sum_student (TODO not implemented)` then `✅`. `probs.shape` is `(2, 10, 8, 16)`. Depth must normalize so splatting does not invent mass from nowhere.
     """))
     cells.append(md("""
     <details><summary>Solution</summary>
@@ -512,7 +649,7 @@ def build() -> nbformat.NotebookNode:
     """))
 
     cells.append(md("""
-    **Exercise 2.** Return the camera frustum shape for an 8 by 16 feature map, using the module from the shape section.
+    **Exercise 2.** Return the camera frustum shape for an 8×16 feature map.
 
     **Predict:** ten depth bins, then height, width, and 3 coordinates.
     """))
@@ -540,7 +677,7 @@ def build() -> nbformat.NotebookNode:
     print("✅ correct: frustum shape matches")
     """))
     cells.append(md("""
-    The cell printed `Using reference frustum_shape_student (TODO not implemented)` and then `✅`. The frustum shape is `(10, 8, 16, 3)`.
+    Reference fallback then `✅`. Frustum shape `(10, 8, 16, 3)` is the lift input geometry the splat step expects.
     """))
     cells.append(md("""
     <details><summary>Solution</summary>
@@ -554,9 +691,9 @@ def build() -> nbformat.NotebookNode:
     """))
 
     cells.append(md("""
-    **Exercise 3.** Return the BEV output shape for the same identity calibration as the shape section.
+    **Exercise 3.** Return the BEV output shape for the same identity calibration as section 6.
 
-    **Predict:** batch 1, 32 channels, and a 20 by 20 grid.
+    **Predict:** batch 1, 32 channels, 20×20 grid.
     """))
     cells.append(code("""
     def bev_shape_student(lss, feats, K_mat, R_mat, T_mat):
@@ -583,7 +720,7 @@ def build() -> nbformat.NotebookNode:
     print("✅ correct: BEV shape matches")
     """))
     cells.append(md("""
-    The cell printed `Using reference bev_shape_student (TODO not implemented)` and then `✅`. The BEV shape is `(1, 32, 20, 20)`.
+    Reference fallback then `✅`. BEV shape `(1, 32, 20, 20)` matches the forward pass in section 6.
     """))
     cells.append(md("""
     <details><summary>Solution</summary>
@@ -598,13 +735,13 @@ def build() -> nbformat.NotebookNode:
 
     cells.append(md("## 9. Recap"))
     cells.append(md("""
-    - The flat-ground warp put the road point at IPM X `20.00` and the raised point at `65.00`. The pixels were `(320.00, 181.44)` and `(320.00, 171.20)`.
-    - Softmax printed `[0.8668, 0.1173, 0.0159]`, summing to `1.0000`, with expected depth `3.3416`. Flat logits had entropy `3.00` and a `40.0` meter smear. The peaked distribution had entropy `0.0006`, peak probability `100.0`% at `20.9` m, and localization within `1.05` meters.
-    - Unproject brought the raised pixel back to `(20.000, 0.000, 1.000)` from depth `17.984`.
-    - That point splatted into `x_idx=40`, `y_idx=30` on an `nx=80` by `ny=60` grid. Two rows in that cell summed to `[1.5, 2.0]`.
-    - The toy convolution stayed `(1, 1, 5, 5)`. The real encoder stayed `(1, 4, 20, 20)`.
-    - The test forward returned `torch.Size([1, 32, 20, 20])`. The 3-camera script returned `torch.Size([1, 64, 60, 80])`.
-    - Half the true depth landed at `x_idx=22`. The true depth returned `x_idx=40`. `y_idx=30` did not move.
+    - Flat IPM put the road point at X `20.00` and the raised point at `65.00` from pixels `(320.00, 181.44)` and `(320.00, 171.20)`.
+    - Flat depth entropy `3.00` smeared `40.0` m; peaked entropy `0.0006` with `100.0`% at `20.9` m localized within `1.05` m.
+    - Softmax toy `[0.8668, 0.1173, 0.0159]` summed to `1.0000`; expected depth `3.3416`.
+    - Unproject at `d=17.984` restored `(20.000, 0.000, 1.000)` at bin `x_idx=40`, `y_idx=30` on an `nx=80`, `ny=60` grid; two splats summed to `[1.5, 2.0]`.
+    - Toy shoot stayed `(1, 1, 5, 5)`; encoder `(1, 4, 20, 20)` → `(1, 4, 20, 20)`.
+    - Test forward `torch.Size([1, 32, 20, 20])`; three-camera script `torch.Size([1, 64, 60, 80])`.
+    - Half depth moved the pillar to `x_idx=22`; true depth returned `x_idx=40`.
 
     ### Go deeper
     - [Philion & Fidler, Lift, Splat, Shoot, ECCV 2020](https://arxiv.org/abs/2008.05711)

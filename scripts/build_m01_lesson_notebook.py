@@ -32,15 +32,11 @@ def build() -> nbformat.NotebookNode:
 
     [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/vvknyn/self-driving-ai-course/blob/main/notebooks/01_cameras_and_ipm.ipynb)
 
-    A forward camera gives you a perspective picture. Lane lines that are parallel on the road meet in that picture, and a meter of road covers fewer pixels as it gets farther away. A planner does not want that picture. It wants a top-down map in meters.
+    A forward camera is a picture of the road in which nearby things look big. You see two lane lines meet near the horizon. On the asphalt those lines never meet. The computer does not see a road. It has a grid of pixels, and a planner wants meters.
 
-    This notebook builds that map from similar triangles, then from the matrices a calibrated camera actually uses, then from a warp that assumes the road is flat. The last part measures how a small pitch error, and a car that is not on the ground, break the flat-road assumption.
+    This notebook builds the smallest map that turns that picture into a top-down view, then stares at the place it fails. The failure is the lesson. A one-degree nod of the camera, or a car that is not painted on the ground, and the map is wrong by many meters.
 
-    The frames in `data/m01_sample/` are synthetic drawings, not photographs. Run the cells from top to bottom. **Predict** before you execute.
-    """))
-
-    cells.append(md("""
-    This cell finds the course repository, or clones it, and puts the camera module on the import path. It also puts figures back on the notebook backend so plots show up in the cell output.
+    Each idea shows up three times: a picture, a handful of numbers, then a few lines of code. **Predict first**, then run the cell. The paragraph after the cell says what was surprising, and what it would mean for a car.
     """))
 
     cells.append(code("""
@@ -98,10 +94,8 @@ def build() -> nbformat.NotebookNode:
     sys.path.insert(0, str(REPO / "modules"))
 
     import cv2
-    from PIL import Image
     from calibrate_rig import build_tesla_style_rig
     from camera_model import PinholeCamera
-    from config import IPMConfig
     from extrinsics import camera_position_to_translation, create_euler_rotation
     from ipm import IPMTransformer
     from stitch import stitch_three_cameras
@@ -121,14 +115,14 @@ def build() -> nbformat.NotebookNode:
     """))
 
     cells.append(md("""
-    The print starts with `repo:`. That directory is the course checkout. Images and calibration are read from the `sample frames:` path under it. `ready` means the camera module imported. Figures from here on use the notebook backend.
+    The checkout is in place and the camera code imported. The frames in this folder are drawings of a road, not photographs from a car. The geometry is the geometry a front camera has. The next picture is that front frame.
     """))
 
     cells.append(md("## 1. The problem"))
     cells.append(md("""
-    Below is the front camera frame. Two solid lane lines run along the road. On the ground those lines are parallel: the gap between them, in meters, does not change with distance.
+    Two yellow lines run along the road. On the ground they are parallel: the gap between them, in meters, does not change with distance.
 
-    **Predict:** in the image the gap is much wider near the bottom of the frame than near the horizon, and the two fitted slopes have opposite signs. They meet at one point.
+    **Predict:** in the picture the gap is much wider near the bottom of the frame than near the horizon, and the two fitted lines meet at one point.
     """))
 
     cells.append(code("""
@@ -195,487 +189,27 @@ def build() -> nbformat.NotebookNode:
     """))
 
     cells.append(md("""
-    The frame is `180` rows by `320` columns, with `3` color channels. OpenCV reads the file in blue-green-red order; the cell converts it before drawing so the sky and the yellow lines look right.
+    The frame is `180` by `320`, with `3` color channels. There are `1426` yellow pixels. Split at column `160.0`, the left line has slope `-3.942878` and the right line has slope `3.942878`. The slopes have opposite signs. The difference is `-7.885755`.
 
-    There are `1426` yellow pixels. Split at column `160.0`, the left line has slope `-3.942878` and the right line has slope `3.942878`. The difference is `-7.885755`. The slopes have opposite signs, so the image lines are not parallel. As the row index grows (down the image), one line walks left and the other walks right.
+    On row `84`, the highest row that still has both lines, the gap is `24.0` pixels. On row `122`, down by the bumper, the gap is `298.0` pixels. The near gap is `12.42` times the far gap. The fitted lines meet at column `159.5000`, row `82.7753`, the white dot.
 
-    On row `84`, the highest row that still has both lines, the gap is `24.0` pixels. On row `122` it is `298.0` pixels. The near gap is `12.42` times the far gap. The fitted lines meet at column `159.5000`, row `82.7753` (the white dot). That meeting point is the **vanishing point**: the image of the direction the parallel lines share.
+    Nearby paint looks huge, so the near ends are shoved out to the edges of the frame and the far ends shrink toward the middle. Parallel lines meet because of that. The road is not bending.
 
-    A planner that treated pixel gaps as meters would think the lane was opening up in front of the car. It is not. The next sections undo that perspective.
-    """))
-
-    cells.append(md("## 2. The pinhole camera"))
-    cells.append(md("""
-    A **pinhole camera** is the model where every light ray goes through one point, the pinhole, and hits a flat sensor. **Similar triangles** then relate a point in front of the camera to a pixel.
-
-    Put the pinhole at the origin. `X` is how far the point sits to the right of the optical axis, in meters. `Z` is how far it sits in front of the camera, in meters. The **focal length** `f` is the distance from the pinhole to the sensor, measured in pixels. The **principal point** `c` is the pixel where the optical axis hits the sensor.
-
-    The horizontal pixel is `u = f · X / Z + c`. The part that moves is the offset from the principal point.
-
-    **Predict:** doubling the depth cuts that offset in half. The next cell uses a round focal length so you can check the fraction by hand, then draws the three depths on a blank frame the same size as the road image.
-    """))
-
-    cells.append(code("""
-    focal = 100.0
-    lateral_m = 2.0
-    principal = 160.0
-    print("focal px:", f"{focal:.1f}")
-    print("lateral m:", f"{lateral_m:.1f}")
-    print("principal column:", f"{principal:.1f}")
-    for depth in (10.0, 20.0, 40.0):
-        offset = focal * lateral_m / depth
-        column = offset + principal
-        print(
-            f"Z {depth:.0f} offset {offset:.4f} column {column:.4f}"
-        )
-    print("offset ratio Z10 / Z20:", f"{(focal * lateral_m / 10.0) / (focal * lateral_m / 20.0):.1f}")
-    print("offset ratio Z10 / Z40:", f"{(focal * lateral_m / 10.0) / (focal * lateral_m / 40.0):.1f}")
-
-    blank = np.zeros((rgb.shape[0], rgb.shape[1], 3), dtype=np.uint8)
-    blank[:] = (30, 30, 30)
-    print("blank frame height, width:", blank.shape[0], blank.shape[1])
-    keep_inline()
-    fig, ax = plt.subplots(figsize=(6, 3))
-    ax.imshow(blank)
-    ax.axvline(principal, color="white", linewidth=0.6, linestyle="--")
-    for depth, color in ((10.0, "gold"), (20.0, "deepskyblue"), (40.0, "tomato")):
-        column = focal * lateral_m / depth + principal
-        ax.scatter([column], [rgb.shape[0] / 2.0], s=40, c=color, label=f"Z={depth:.0f}")
-    ax.set_xlim(0, rgb.shape[1])
-    ax.set_ylim(rgb.shape[0], 0)
-    ax.legend(loc="upper right")
-    ax.set_title("same lateral offset, three depths")
-    plt.tight_layout()
-    plt.show()
+    A planner that treated the pixel gap as the lane width would think the lane was a funnel opening in front of the car. It is not. Before any formula, here is the picture that planner actually wants.
     """))
 
     cells.append(md("""
-    At depth `10` the offset is `20.0000` pixels (column `180.0000`). At depth `20` the offset is `10.0000` (column `170.0000`). At depth `40` it is `5.0000` (column `165.0000`). The printed ratios are `2.0` and `4.0`.
+    The right-hand picture below is the same road laid flat, in meters. Far is at the top, the way the camera sees the horizon. You do not need the matrix yet.
 
-    Doubling the depth halved the offset. That is the whole of perspective in one fraction: the sensor sees the angle `X / Z`, and the focal length turns that angle into pixels. The dashed line is the principal column `160.0`. Farther points sit closer to it. The blank frame is the same `180` by `320` size as the road image, so you can compare these columns with the picture above.
-
-    Vertical pixels work the same way, with their own focal length and principal row. This notebook ignores lens distortion. `PinholeCamera` can apply a radial term later; the sample rig sets that term to zero.
-    """))
-
-    cells.append(md("""
-    **Try this.** Cut the focal length in half and keep the same point at depth `10`. **Predict:** the offset from the principal point also halves, from `20.0000` pixels to `10.0000`.
-    """))
-
-    cells.append(code("""
-    focal_half = 50.0
-    offset_half = focal_half * lateral_m / 10.0
-    print("focal px:", f"{focal_half:.1f}")
-    print("Z 10 offset:", f"{offset_half:.4f}")
-    print("offset ratio vs focal 100:", f"{offset_half / 20.0:.1f}")
-    """))
-
-    cells.append(md("""
-    Focal length `50.0` puts the same point `10.0000` pixels off center. The ratio versus the `20.0000` pixel offset is `0.5`. A shorter focal length is a wider field of view: the same object covers fewer pixels, which is what a wide front camera is for. It does not remove the divide-by-depth shrinking. Far objects are still small.
-    """))
-
-    cells.append(md("## 3. Intrinsics"))
-    cells.append(md("""
-    The **intrinsic matrix** `K` packs the focal lengths and the principal point into one matrix. **Homogeneous coordinates** means we keep an extra component and divide only at the end. For a point already in the camera frame, `(X, Y, Z)`,
-
-    `K @ (X, Y, Z)` produces `(u * Z, v * Z, Z)`. Dividing by the third entry gives the pixel `(u, v)`.
-
-    `fx` and `fy` are focal lengths in pixels. `cx` and `cy` are the principal point. Focal lengths sit on the diagonal, the principal point sits in the last column, and the corner is a one. There is no depth inside `K`. The divide by `Z` does that job.
-
-    **Predict:** a matrix built that way matches both the matrix stored on `PinholeCamera` and the reference `build_intrinsic_matrix`. The same round focal length as the previous section, applied to a point that is not on the centerline, reproduces the column you already saw for the nearest depth.
+    **Predict:** each yellow line collapses to one straight stripe, and the gap between the stripes does not change from the near road to the far road.
     """))
 
     cells.append(code("""
     import json
-    import camera_model as camera_model_module
 
     with (DATA / "calib.json").open(encoding="utf-8") as handle:
         calib = json.load(handle)
 
-    fx = float(calib["fx"])
-    fy = float(calib["fy"])
-    cx = float(calib["cx"])
-    cy = float(calib["cy"])
-    print("fx:", f"{fx:.6f}")
-    print("fy:", f"{fy:.6f}")
-    print("cx:", f"{cx:.1f}")
-    print("cy:", f"{cy:.1f}")
-    print("calib width, height:", int(calib["width"]), int(calib["height"]))
-
-    K_hand = np.array(
-        [[fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0]],
-        dtype=np.float64,
-    )
-    print("K shape:", K_hand.shape[0], K_hand.shape[1])
-    print("K:")
-    print(np.array2string(K_hand, precision=6, suppress_small=True))
-
-    cameras = build_tesla_style_rig(img_w=int(calib["width"]), img_h=int(calib["height"]))
-    front = cameras["front"]
-    print("max abs diff vs camera.K:", f"{np.max(np.abs(K_hand - front.K)):.6e}")
-
-    sol_cam = load_solution("sol_m01_cam_lesson", "camera_model.py")
-    K_ref = sol_cam.build_intrinsic_matrix(fx, fy, cx, cy)
-    print("max abs diff vs reference K:", f"{np.max(np.abs(K_hand - K_ref)):.6e}")
-
-    try:
-        camera_model_module.build_intrinsic_matrix(fx, fy, cx, cy)
-        print("module build_intrinsic_matrix: returned")
-    except NotImplementedError:
-        print("module build_intrinsic_matrix: NotImplementedError")
-
-    point_cam = np.array([2.0, 1.0, 10.0])
-    print("camera-frame point:", " ".join(f"{v:.1f}" for v in point_cam))
-    K_toy = np.array(
-        [[focal, 0.0, principal], [0.0, focal, cy], [0.0, 0.0, 1.0]],
-        dtype=np.float64,
-    )
-    print("toy focal, principal column, principal row:", f"{focal:.1f}", f"{principal:.1f}", f"{cy:.1f}")
-    multiplied = K_toy @ point_cam
-    print("K @ point:", " ".join(f"{v:.4f}" for v in multiplied))
-    print("third component:", f"{multiplied[2]:.4f}")
-    u_toy = multiplied[0] / multiplied[2]
-    v_toy = multiplied[1] / multiplied[2]
-    print("pixel column, row:", f"{u_toy:.4f}", f"{v_toy:.4f}")
-    print("column offset from principal:", f"{u_toy - principal:.4f}")
-    """))
-
-    cells.append(md("""
-    The sample front camera has `fx = fy = 92.376043`, principal point `(160.0, 90.0)`, and a `320` by `180` image. `K` is `3` by `3`. The hand-built matrix matches `PinholeCamera.K` and the reference `build_intrinsic_matrix` with max absolute difference `0.000000e+00` in both cases.
-
-    The function that tests import from `camera_model.py` still raises `NotImplementedError`. The class does not call it. It writes the same nine numbers itself. The exercise below is that function.
-
-    For the toy point `(2.0, 1.0, 10.0)` with focal length `100.0`, the product is `1800.0000  1000.0000  10.0000`. The third component is the depth, `10.0000`. Dividing gives column `180.0000` and row `100.0000`. The column offset is `20.0000`, the same offset as the depth-`10` point in the previous section. Homogeneous coordinates did not change the geometry. They let one matrix multiply stand for "scale by the focal length, add the principal point, and remember to divide by depth."
-    """))
-
-    cells.append(md("""
-    **Exercise — `build_intrinsic_matrix`.** Return the `3` by `3` matrix from `fx`, `fy`, `cx`, and `cy`. Leave the `TODO` as it is to use the reference implementation. The check compares your matrix with `front.K`.
-    """))
-
-    cells.append(code("""
-    def build_intrinsic_matrix_student(fx_value, fy_value, cx_value, cy_value):
-        # TODO: return the 3x3 intrinsic matrix
-        raise NotImplementedError
-
-    def get_intrinsic_fn():
-        try:
-            build_intrinsic_matrix_student(1.0, 1.0, 0.0, 0.0)
-        except NotImplementedError:
-            print("Using reference build_intrinsic_matrix (TODO not implemented)")
-            return sol_cam.build_intrinsic_matrix
-        print("Using your build_intrinsic_matrix")
-        return build_intrinsic_matrix_student
-
-    intrinsic_fn = get_intrinsic_fn()
-    K_check = intrinsic_fn(front.fx, front.fy, front.cx, front.cy)
-    intrinsic_diff = float(np.max(np.abs(K_check - front.K)))
-    print("max abs diff vs camera.K:", f"{intrinsic_diff:.6e}")
-    assert K_check.shape == (3, 3)
-    assert intrinsic_diff < 1e-9
-    print("✅ correct")
-    """))
-
-    cells.append(md("""
-    The check prints `✅`. The max absolute difference versus `camera.K` is `0.000000e+00`. The reference function is used because the `TODO` still raises. Replace the `TODO` and run the cell again if you want the check to call your function instead.
-    """))
-
-    cells.append(md("""
-    <details><summary>Solution</summary>
-
-    ```python
-    def build_intrinsic_matrix(fx, fy, cx, cy):
-        return np.array(
-            [[fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0]],
-            dtype=np.float64,
-        )
-    ```
-
-    </details>
-    """))
-
-    cells.append(md("## 4. Extrinsics"))
-    cells.append(md("""
-    **Extrinsics** answer a different question: where is a point that we measured on the car, once we stand at the camera?
-
-    A **rotation** turns a vector without changing its length. In two dimensions the matrix is `[[cos θ, -sin θ], [sin θ, cos θ]]`. It sends the unit x-axis to `(cos θ, sin θ)`.
-
-    **Predict:** a quarter turn counterclockwise sends a point on the horizontal axis onto the vertical axis, and the distance from the origin does not change.
-    """))
-
-    cells.append(code("""
-    theta_deg = 90.0
-    theta = np.deg2rad(theta_deg)
-    rotation_2d = np.array(
-        [[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]],
-        dtype=np.float64,
-    )
-    point_2d = np.array([4.0, 0.0])
-    rotated = rotation_2d @ point_2d
-    print("theta degrees:", f"{theta_deg:.1f}")
-    print("input x, y:", f"{point_2d[0]:.1f}", f"{point_2d[1]:.1f}")
-    print("rotated x, y:", f"{rotated[0]:.4f}", f"{rotated[1]:.4f}")
-    """))
-
-    cells.append(md("""
-    `90.0` degrees sends `(4.0, 0.0)` to `(0.0000, 4.0000)`. The x-axis swung up onto the y-axis. A rotation in three dimensions is the same idea with one more axis. A **translation** then slides the origin. The camera does both: `P_cam = R @ P_ego + T`.
-    """))
-
-    cells.append(md("""
-    The car and the camera do not share axes.
-
-    **Ego frame** (ISO 8855, used for the rest of this course): `X` forward, `Y` left, `Z` up. The origin is on the ground at the rear axle.
-
-    **Camera frame:** `X` right, `Y` down, `Z` forward, along the optical axis.
-
-    ```
-    Z_ego (up)
-      |
-      |     camera * ----> Z_cam (look direction)
-      |    /
-      |   /   pitched down
-      +--------> X_ego (forward)
-     rear axle
-    ```
-
-    With no pitch, yaw, or roll, only the axis names change. **Predict:** ego forward becomes the camera's look direction. Ego left becomes negative camera `X`, because camera `X` points right. Ego up becomes negative camera `Y`, because camera `Y` points down.
-    """))
-
-    cells.append(code("""
-    axis_change = np.array(
-        [[0.0, -1.0, 0.0], [0.0, 0.0, -1.0], [1.0, 0.0, 0.0]],
-        dtype=np.float64,
-    )
-
-    def fmt(vec):
-        return " ".join(f"{v:.1f}" for v in np.asarray(vec, dtype=np.float64))
-
-    print("ego forward -> camera:", fmt(axis_change @ np.array([1.0, 0.0, 0.0])))
-    print("ego left -> camera:", fmt(axis_change @ np.array([0.0, 1.0, 0.0])))
-    print("ego up -> camera:", fmt(axis_change @ np.array([0.0, 0.0, 1.0])))
-
-    print("pitch deg:", f"{float(calib['pitch_deg']):.1f}")
-    print("yaw deg:", f"{float(calib['yaw_deg']):.1f}")
-    print("roll deg:", f"{float(calib['roll_deg']):.1f}")
-    cam_pos = np.array(calib["cam_position_ego"], dtype=np.float64)
-    print("camera position ego x, y, z:", fmt(cam_pos))
-
-    R_ego = create_euler_rotation(
-        float(calib["pitch_deg"]), float(calib["yaw_deg"]), float(calib["roll_deg"])
-    )
-    T_ego = camera_position_to_translation(R_ego, cam_pos).reshape(3)
-    print("T x, y, z:", " ".join(f"{v:.6f}" for v in T_ego))
-    print("max abs diff vs camera.T:", f"{np.max(np.abs(T_ego - front.T.reshape(3))):.6e}")
-    print("max abs diff vs camera.R:", f"{np.max(np.abs(R_ego - front.R)):.6e}")
-
-    def project_chain(point_ego):
-        point_cam = front.R @ point_ego + front.T.reshape(3)
-        scaled = front.K @ point_cam
-        pixel = scaled[:2] / scaled[2]
-        repo_px, valid = front.project_ego_to_pixel(point_ego)
-        print("ego x, y, z:", " ".join(f"{v:.6f}" for v in point_ego))
-        print("P_cam x, y, z:", " ".join(f"{v:.6f}" for v in point_cam))
-        print("K @ P_cam:", " ".join(f"{v:.6f}" for v in scaled))
-        print("divide by Z_cam:", f"{scaled[2]:.6f}")
-        print("pixel column, row:", f"{pixel[0]:.6f}", f"{pixel[1]:.6f}")
-        print("project_ego_to_pixel:", f"{repo_px[0, 0]:.6f}", f"{repo_px[0, 1]:.6f}", "valid", bool(valid[0]))
-        print(
-            "pixel diff column, row:",
-            f"{pixel[0] - repo_px[0, 0]:.6f}",
-            f"{pixel[1] - repo_px[0, 1]:.6f}",
-        )
-        return pixel
-
-    print("--- point on the centerline ---")
-    project_chain(np.array([10.0, 0.0, 0.0]))
-    print("--- point 1 m to the left ---")
-    project_chain(np.array([20.0, 1.0, 0.0]))
-    """))
-
-    cells.append(md("""
-    The plain axis change does what the diagram says. Ego forward becomes camera `0.0 0.0 1.0` (straight out the lens). Ego left becomes `-1.0 0.0 0.0` (camera `X` points right, so left is negative). Ego up becomes `0.0 -1.0 0.0` (camera `Y` points down, so up is negative).
-
-    The real front camera is not that ideal pose. It sits `2.0` m forward, `0.0` m to the side, and `1.4` m up, pitched down by `4.0` degrees. Yaw and roll are `0.0`. `create_euler_rotation` builds `R`, and `camera_position_to_translation` builds `T = -R @ camera_position`. Both match the camera object: max absolute difference `0.000000e+00`.
-
-    Take the ground point `10.000000` m ahead on the centerline, ego `(10.000000, 0.000000, 0.000000)`. In the camera frame it is `(0.000000, 0.838538, 8.078171)`. Camera `X` is `0.000000` because the point is neither left nor right of the lens. Camera `Y` is positive, so the point is below the optical axis (the road is under a camera that looks slightly down). Camera `Z` is `8.078171` m, not the ego `X` of `10.000000`, because the camera itself is already `2.0` m forward of the rear axle and the pitch tilts the optical axis.
-
-    `K @ P_cam` is `1292.507434  804.496243  8.078171`. Dividing by `8.078171` gives pixel `(160.000000, 99.588904)`. The column is the principal point, as it should be for a point on the centerline. `project_ego_to_pixel` returns the same pixel. The difference is `0.000000` and `0.000000`.
-
-    The point `20.000000` m ahead and `1.000000` m to the left (ego `Y` is left) has camera `X` of `-1.000000`. Its pixel is `(154.883294, 90.721318)`. It moved left of column `160.000000`, which is the image of "left" once the axes have been swapped. That pixel is what the homography in the next section has to reproduce in one matrix.
-    """))
-
-    cells.append(md("## 5. Stretching the image"))
-    cells.append(md("""
-    An obvious attempt: the far road is compressed vertically, so stretch the image vertically until it "looks" top-down.
-
-    **Predict:** the two lane slopes stay unequal. The lines still meet at one column. Changing only the height cannot make parallel lines parallel, because a stretch never divides by depth.
-    """))
-
-    cells.append(code("""
-    tall = cv2.resize(
-        rgb,
-        (rgb.shape[1], rgb.shape[0] * 2),
-        interpolation=cv2.INTER_NEAREST,
-    )
-    print("stretched height, width:", tall.shape[0], tall.shape[1])
-    print("height ratio:", f"{tall.shape[0] / rgb.shape[0]:.1f}")
-
-    yellow_tall = (tall[:, :, 0] > 200) & (tall[:, :, 1] > 150) & (tall[:, :, 2] < 80)
-    ys_t, xs_t = np.where(yellow_tall)
-    left_t = xs_t < tall.shape[1] / 2.0
-    slope_lt, icept_lt = fit_lane_slope(xs_t[left_t], ys_t[left_t])
-    slope_rt, icept_rt = fit_lane_slope(xs_t[~left_t], ys_t[~left_t])
-    print("stretched left slope:", f"{slope_lt:.6f}")
-    print("stretched right slope:", f"{slope_rt:.6f}")
-    print("stretched slope difference:", f"{slope_lt - slope_rt:.6f}")
-    v_meet_t = (icept_rt - icept_lt) / (slope_lt - slope_rt)
-    u_meet_t = slope_lt * v_meet_t + icept_lt
-    print("stretched vanishing column, row:", f"{u_meet_t:.4f}", f"{v_meet_t:.4f}")
-    print(
-        "|slope difference| ratio, original / stretched:",
-        f"{abs(slope_l - slope_r) / abs(slope_lt - slope_rt):.3f}",
-    )
-
-    keep_inline()
-    fig, axes = plt.subplots(1, 2, figsize=(8, 3.2))
-    axes[0].imshow(rgb)
-    axes[0].set_title("original")
-    axes[0].axis("off")
-    axes[1].imshow(tall)
-    axes[1].set_title("height times 2")
-    axes[1].axis("off")
-    plt.tight_layout()
-    plt.show()
-    """))
-
-    cells.append(md("""
-    The only change is the height: `360` rows instead of `180`, ratio `2.0`. Width stays `320`. Nearest-neighbour resize keeps the yellow pixels yellow, so the same fit still applies.
-
-    The slopes become `-1.970265` and `1.970265`. The difference becomes `-3.940529`. Its absolute value shrank by a factor of `2.001`, almost exactly the stretch. The lines still do not share a slope. They still meet, at column `159.5000` and row `166.0268`. The column did not move. The row moved because every row index was scaled.
-
-    A vertical stretch is an affine resize. Perspective is a divide by depth. Those are different operations, so the lanes still converge. The next section uses the divide that the pinhole model already has.
-    """))
-
-    cells.append(md("## 6. The ground plane is a homography"))
-    cells.append(md("""
-    Assume every point we care about is on the ground. In the ego frame that height is `0.000000`, the value already printed for the centerline point. Then the third column of `R` multiplies that height and drops out. What remains is a single `3` by `3` matrix, a **homography**:
-
-    `H = K @ [r1 r2 t]`
-
-    `r1` and `r2` are the first two columns of `R`. `t` is the translation. `H` maps `(X, Y, 1)` on the ground to `(u * w, v * w, w)`. Divide by `w` and you have a pixel. `H` inverse maps a pixel back to `(X, Y)`.
-
-    **Predict:** the centerline ground point from the previous section comes back to the same pixel as the full chain, and applying `H` inverse returns that same ground point up to rounding error.
-    """))
-
-    cells.append(code("""
-    r1 = front.R[:, 0:1]
-    r2 = front.R[:, 1:2]
-    t_col = front.T.reshape(3, 1)
-    H = front.K @ np.hstack([r1, r2, t_col])
-    print("H shape:", H.shape[0], H.shape[1])
-
-    sol_ipm = load_solution("sol_m01_ipm_lesson", "ipm.py")
-    H_ref = sol_ipm.build_ground_homography(front.K, front.R, front.T)
-    print("max abs diff vs reference H:", f"{np.max(np.abs(H - H_ref)):.6e}")
-
-    ground = np.array([10.0, 0.0, 1.0])
-    q = H @ ground
-    uv = q[:2] / q[2]
-    print("H @ (10, 0, 1) before divide:", " ".join(f"{v:.6f}" for v in q))
-    print("homography pixel column, row:", f"{uv[0]:.6f}", f"{uv[1]:.6f}")
-    chain_px, chain_ok = front.project_ego_to_pixel(np.array([10.0, 0.0, 0.0]))
-    print("chain pixel column, row:", f"{chain_px[0, 0]:.6f}", f"{chain_px[0, 1]:.6f}")
-    print(
-        "pixel diff column, row:",
-        f"{uv[0] - chain_px[0, 0]:.6e}",
-        f"{uv[1] - chain_px[0, 1]:.6e}",
-    )
-
-    back = np.linalg.inv(H) @ np.array([uv[0], uv[1], 1.0])
-    xy = back[:2] / back[2]
-    round_err = float(np.linalg.norm(xy - np.array([10.0, 0.0])))
-    print("inverse X, Y:", f"{xy[0]:.6f}", f"{xy[1]:.6e}")
-    print("round-trip error m:", f"{round_err:.3e}")
-
-    pixel_errs = []
-    for x_m, y_m in ((10.0, 0.0), (20.0, 1.0), (30.0, -1.5)):
-        q_i = H @ np.array([x_m, y_m, 1.0])
-        uv_i = q_i[:2] / q_i[2]
-        pix_i, _ = front.project_ego_to_pixel(np.array([x_m, y_m, 0.0]))
-        pixel_errs.append(float(np.hypot(uv_i[0] - pix_i[0, 0], uv_i[1] - pix_i[0, 1])))
-    print("max pixel error on 3 ground points:", f"{max(pixel_errs):.6e}")
-    """))
-
-    cells.append(md("""
-    `H` is `3` by `3`. It matches the reference `build_ground_homography` with max absolute difference `0.000000e+00`.
-
-    `H @ (10, 0, 1)` divides down to pixel `(160.000000, 99.588904)`, the same pixel the full chain printed, difference `0.000000e+00` in both column and row. The inverse brings back `X = 10.000000` and a `Y` of `1.793714e-15`. The round-trip error is `5.623e-15` meters. That is floating-point noise, not a bias in the model.
-
-    On three ground points, including the off-center ones, the worst disagreement with `project_ego_to_pixel` is `3.177644e-14` pixels. On flat ground the homography is not an approximation of the pinhole. It is the pinhole with the ground height substituted in.
-
-    `IPMTransformer` does not call `H` when it warps. It projects each ground cell with `project_ego_to_pixel`. On `Z = 0` that is this matrix. The exercise asks you to build `H` anyway, because it is the compact form and the tests check it.
-    """))
-
-    cells.append(md("""
-    **Exercise — `build_ground_homography`.** Return `H = K @ [r1 r2 t]` for a ground plane `Z = 0`. `t` may arrive as shape `(3,)` or `(3, 1)`. Leave the `TODO` as it is to use the reference implementation.
-    """))
-
-    cells.append(code("""
-    def build_ground_homography_student(K_value, R_value, t_value):
-        # TODO: H = K @ [r1 r2 t] for the ground plane
-        raise NotImplementedError
-
-    def get_homography_fn():
-        try:
-            build_ground_homography_student(front.K, front.R, front.T)
-        except NotImplementedError:
-            print("Using reference build_ground_homography (TODO not implemented)")
-            return sol_ipm.build_ground_homography
-        print("Using your build_ground_homography")
-        return build_ground_homography_student
-
-    homography_fn = get_homography_fn()
-    H_check = homography_fn(front.K, front.R, front.T)
-    check_errs = []
-    for x_m, y_m in ((10.0, 0.0), (20.0, 1.0), (30.0, -1.5)):
-        q_i = H_check @ np.array([x_m, y_m, 1.0])
-        uv_i = q_i[:2] / q_i[2]
-        pix_i, valid_i = front.project_ego_to_pixel(np.array([x_m, y_m, 0.0]))
-        err_i = float(np.hypot(uv_i[0] - pix_i[0, 0], uv_i[1] - pix_i[0, 1]))
-        check_errs.append(err_i)
-        print(
-            f"ground {x_m:.1f} {y_m:.1f} pixel error {err_i:.6e} valid {bool(valid_i[0])}"
-        )
-    print("max pixel error:", f"{max(check_errs):.6e}")
-    tolerance_px = 1e-3
-    print("pixel tolerance:", f"{tolerance_px:.0e}")
-    assert max(check_errs) < tolerance_px
-    print("✅ correct")
-    """))
-
-    cells.append(md("""
-    The check prints `✅`. The largest pixel error against `project_ego_to_pixel` is `3.177644e-14`, far under the printed pixel tolerance `1e-03`. The reference function is used because the `TODO` still raises.
-    """))
-
-    cells.append(md("""
-    <details><summary>Solution</summary>
-
-    ```python
-    def build_ground_homography(K, R, t):
-        t_vec = np.asarray(t, dtype=np.float64).reshape(3, 1)
-        return K @ np.hstack([R[:, 0:2], t_vec])
-    ```
-
-    </details>
-    """))
-
-    cells.append(md("""
-    A **bird's-eye view** (BEV) is a picture whose rows and columns are meters on the ground, not angles. **Inverse perspective mapping** (IPM) builds it by walking a grid on `Z = 0` and copying the color each cell projects to.
-
-    `IPMTransformer` walks a meter grid on the ground and copies the color each cell projects to. The first row of that picture is the far edge. A lane at constant lateral position should be a single column at every forward distance.
-
-    **Predict:** the two solid lanes in the sample, which are parallel on the road, each collapse to one column, and the gap between those columns is the gap between the lanes in meters.
-    """))
-
-    cells.append(code("""
     x_range = (4.0, 40.0)
     y_range = (-10.0, 10.0)
     bev_resolution = 0.1
@@ -683,6 +217,8 @@ def build() -> nbformat.NotebookNode:
     print("lateral range m:", f"{y_range[0]:.1f}", f"{y_range[1]:.1f}")
     print("meters per pixel:", f"{bev_resolution:.1f}")
 
+    cameras = build_tesla_style_rig(img_w=int(calib["width"]), img_h=int(calib["height"]))
+    front = cameras["front"]
     ipm = IPMTransformer(front, x_range, y_range, bev_resolution)
     print("bev height, width:", ipm.bev_height, ipm.bev_width)
     print("row 0 forward m:", f"{ipm.bev_pixel_to_metric(0, 0)[0]:.1f}")
@@ -742,113 +278,494 @@ def build() -> nbformat.NotebookNode:
     """))
 
     cells.append(md("""
-    The grid is `360` by `200` pixels: `(40.0 - 4.0) / 0.1` rows and `(10.0 - (-10.0)) / 0.1` columns. Row `0` is forward distance `40.0` m. The top of the BEV picture is the far end of the road, same as in the camera image.
+    The map is `360` by `200`. Row `0` is `40.0` m ahead, and each pixel is `0.1` m. The grid runs from `4.0` m to `40.0` m forward, and from `-10.0` m to `10.0` m across.
 
-    The lane at `5.6` m is column `44` at every sampled forward distance. The lane at `-5.6` m is column `156`. One column each. The separation is `11.2` m, which is `5.6 - (-5.6)`.
+    The lane at `5.6` m is column `44` at every sampled distance. The lane at `-5.6` m is column `156`. One column each. The gap is `11.2` m, which is `5.6` minus `-5.6`, and it does not change with range.
 
-    In the camera image those same two lanes are not a constant gap. At forward distance `8.0` m the pixels are `74.96` and `245.04` apart in column, a gap of `170.08` pixels, both on row `104.85`. At `30.0` m the pixels are `141.54` and `178.46`, a gap of `36.91` pixels, both on row `88.17`. Same two lines, `11.2` m apart on the road, and the near gap is `4.61` times the far gap. The BEV undoes that.
+    In the photo those same two lanes are not a constant gap. At `8.0` m the pixels are column `74.96` and `245.04`, both on row `104.85`, a gap of `170.08` pixels. At `30.0` m they are column `141.54` and `178.46`, both on row `88.17`, a gap of `36.91` pixels. The near gap is `4.61` times the far gap. Same `11.2` m of asphalt.
 
-    The yellow paint is not a hairline. A stroke that is a few pixels wide in the image covers `1.20` m of ground at `8.0` m forward and `6.00` m of ground at `36.0` m forward. The geometric lane is one column. The paint gets fatter with range because a pixel subtends more meters when it is far away. That is a drawing artifact of the sample, not a bend in the road.
+    The yellow strokes themselves get fatter with range: `1.20` m of ground at `8.0` m forward, and `6.00` m at `36.0` m. A pixel covers more road when it is far. The geometric lane is one column. The paint is not. A car that measured lane width from the yellow blob would think the lane was getting wider as it looked farther. That is the funnel again, wearing a metric unit.
+
+    That top-down picture is the destination. The rest of the notebook peels it apart: why doubling the distance halves the offset, why stretching the photo cannot flatten the road, why one matrix can, and why a nod or a roof wrecks it.
     """))
 
-    cells.append(md("## 7. How the warp picks a color"))
+    cells.append(md("## 2. Nearby things look big"))
     cells.append(md("""
-    A ground cell rarely projects to an integer pixel. **Bilinear interpolation** blends the four surrounding pixels. **Nearest neighbour** copies the single closest pixel.
+    Same sideways distance, three depths, on a blank frame the size of the photo. The dashed line is the middle column.
 
-    The next cell labels a unit square with four corner values and samples a point inside it. **Predict:** the blend is none of the four corner values, and nearest neighbour copies the closest corner instead.
+    **Predict:** the nearest point sits twice as far from the middle as the middle point, and four times as far as the farthest point.
     """))
 
     cells.append(code("""
-    u_frac, v_frac = 0.25, 0.75
-    corners = {(0, 0): 1.0, (1, 0): 3.0, (0, 1): 5.0, (1, 1): 7.0}
-    terms = [
-        (1 - u_frac) * (1 - v_frac) * corners[(0, 0)],
-        u_frac * (1 - v_frac) * corners[(1, 0)],
-        (1 - u_frac) * v_frac * corners[(0, 1)],
-        u_frac * v_frac * corners[(1, 1)],
-    ]
-    print("sample column, row:", f"{u_frac:.2f}", f"{v_frac:.2f}")
-    print("four contributions:", " ".join(f"{term:.4f}" for term in terms))
-    print("bilinear value:", f"{sum(terms):.4f}")
-    nearest = min(corners, key=lambda corner: (corner[0] - u_frac) ** 2 + (corner[1] - v_frac) ** 2)
-    print("nearest corner column, row:", nearest[0], nearest[1])
-    print("nearest value:", f"{corners[nearest]:.1f}")
-    """))
+    focal = 100.0
+    lateral_m = 2.0
+    principal = 160.0
+    print("focal px:", f"{focal:.1f}")
+    print("lateral m:", f"{lateral_m:.1f}")
+    print("principal column:", f"{principal:.1f}")
+    for depth in (10.0, 20.0, 40.0):
+        offset = focal * lateral_m / depth
+        column = offset + principal
+        print(f"Z {depth:.0f} offset {offset:.4f} column {column:.4f}")
+    print("offset ratio Z10 / Z20:", f"{(focal * lateral_m / 10.0) / (focal * lateral_m / 20.0):.1f}")
+    print("offset ratio Z10 / Z40:", f"{(focal * lateral_m / 10.0) / (focal * lateral_m / 40.0):.1f}")
 
-    cells.append(md("""
-    The four contributions are `0.1875`, `0.1875`, `2.8125`, and `1.3125`. They add to `4.5000`. No source pixel has that value. Bilinear invented it, weighted toward the corner `(0, 1)` because the sample is only `0.25` across and `0.75` down.
-
-    The nearest corner is `(0, 1)`, value `5.0`. Nearest neighbour does not invent colors. It copies a block. `IPMTransformer.warp_to_bev` uses bilinear sampling (`cv2.INTER_LINEAR`) for the same reason this sum is `4.5000`: a ground cell that lands between pixels should take a bit of each.
-    """))
-
-    cells.append(md("""
-    **Try this.** Warp the same front image with nearest-neighbour sampling instead of bilinear. One argument changes. **Predict:** nearest invents no new colors, so the count of BEV pixels whose color is absent from the source image is none. The picture gets blocky along edges.
-    """))
-
-    cells.append(code("""
-    bev_nearest = cv2.remap(
-        bgr,
-        ipm.map_x,
-        ipm.map_y,
-        interpolation=cv2.INTER_NEAREST,
-        borderMode=cv2.BORDER_CONSTANT,
-        borderValue=(0, 0, 0),
-    )
-    bev_nearest = bev_nearest.copy()
-    bev_nearest[~ipm.valid_mask] = 0
-
-    source_colors = {tuple(pixel) for pixel in np.unique(bgr.reshape(-1, 3), axis=0)}
-    print("source colors:", len(source_colors))
-
-    def invented(image):
-        count = 0
-        for pixel in image.reshape(-1, 3):
-            key = tuple(int(channel) for channel in pixel)
-            if key != (0, 0, 0) and key not in source_colors:
-                count += 1
-        return count
-
-    invented_linear = invented(bev_bgr)
-    invented_nearest = invented(bev_nearest)
-    print("bilinear pixels with a new color:", invented_linear)
-    print("nearest pixels with a new color:", invented_nearest)
-
-    differ = np.any(bev_bgr != bev_nearest, axis=-1)
-    best = None
-    window = 30
-    for row in range(0, differ.shape[0] - window, 5):
-        for col in range(0, differ.shape[1] - window, 5):
-            score = int(differ[row:row + window, col:col + window].sum())
-            if best is None or score > best[0]:
-                best = (score, row, col)
-    print("crop size:", window)
-    print("crop row, column:", best[1], best[2])
-    print("pixels that differ inside the crop:", best[0])
-
-    r0, c0 = best[1], best[2]
+    blank = np.zeros((rgb.shape[0], rgb.shape[1], 3), dtype=np.uint8)
+    blank[:] = (30, 30, 30)
+    print("blank frame height, width:", blank.shape[0], blank.shape[1])
     keep_inline()
-    fig, axes = plt.subplots(1, 2, figsize=(6, 3))
-    axes[0].imshow(cv2.cvtColor(bev_bgr[r0:r0 + window, c0:c0 + window], cv2.COLOR_BGR2RGB))
-    axes[0].set_title("bilinear")
+    fig, ax = plt.subplots(figsize=(6, 3))
+    ax.imshow(blank)
+    ax.axvline(principal, color="white", linewidth=0.6, linestyle="--")
+    for depth, color in ((10.0, "gold"), (20.0, "deepskyblue"), (40.0, "tomato")):
+        column = focal * lateral_m / depth + principal
+        ax.scatter([column], [rgb.shape[0] / 2.0], s=40, c=color, label=f"Z={depth:.0f}")
+    ax.set_xlim(0, rgb.shape[1])
+    ax.set_ylim(rgb.shape[0], 0)
+    ax.legend(loc="upper right")
+    ax.set_title("same lateral offset, three depths")
+    plt.tight_layout()
+    plt.show()
+    """))
+
+    cells.append(md("""
+    Depth `10` m sits `20.0000` pixels off the middle, at column `180.0000`. Depth `20` m sits `10.0000` pixels off, column `170.0000`. Depth `40` m sits `5.0000` pixels off, column `165.0000`. The ratios are `2.0` and `4.0`. The blank frame is the same `180` by `320` as the road photo, so these columns are comparable to the picture above. The middle column is `160.0`.
+
+    Doubling the distance halved the offset. Hold your thumb at arm's length, then at twice the distance: it covers half as much of the scene. The pixel offset is that thumb. It is the focal length, `100.0`, times the sideways meters, `2.0`, divided by the depth.
+
+    Farther points crowd the middle column. That crowding is why the lane lines meet. A car that used the pixel offset as if it were meters would think a vehicle twice as far was half as wide, and half as far from the lane center. The offset is an angle. Depth is what turns it back into meters.
+    """))
+
+    cells.append(md("""
+    **Try this.** Cut the focal length in half and keep the point at depth `10`.
+
+    **Predict:** the offset also halves, from `20.0000` pixels to `10.0000`.
+    """))
+
+    cells.append(code("""
+    focal_half = 50.0
+    offset_half = focal_half * lateral_m / 10.0
+    print("focal px:", f"{focal_half:.1f}")
+    print("Z 10 offset:", f"{offset_half:.4f}")
+    print("offset ratio vs focal 100:", f"{offset_half / 20.0:.1f}")
+    """))
+
+    cells.append(md("""
+    Focal length `50.0` puts the same point `10.0000` pixels off center. The ratio versus the `20.0000` pixel offset is `0.5`. A shorter lens is a wider view: the same car covers fewer pixels. It does not cancel the divide by depth. Far objects are still small. A wide front camera still needs the top-down map.
+    """))
+
+    cells.append(md("## 3. Stretching the photo fails"))
+    cells.append(md("""
+    An obvious attempt: the far road is squashed toward the horizon, so pull the photo taller until it looks top-down.
+
+    **Predict:** the two slopes stay unequal. The lines still meet at one column. A stretch never divides by depth.
+    """))
+
+    cells.append(code("""
+    tall = cv2.resize(
+        rgb,
+        (rgb.shape[1], rgb.shape[0] * 2),
+        interpolation=cv2.INTER_NEAREST,
+    )
+    print("stretched height, width:", tall.shape[0], tall.shape[1])
+    print("height ratio:", f"{tall.shape[0] / rgb.shape[0]:.1f}")
+
+    yellow_tall = (tall[:, :, 0] > 200) & (tall[:, :, 1] > 150) & (tall[:, :, 2] < 80)
+    ys_t, xs_t = np.where(yellow_tall)
+    left_t = xs_t < tall.shape[1] / 2.0
+    slope_lt, icept_lt = fit_lane_slope(xs_t[left_t], ys_t[left_t])
+    slope_rt, icept_rt = fit_lane_slope(xs_t[~left_t], ys_t[~left_t])
+    print("stretched left slope:", f"{slope_lt:.6f}")
+    print("stretched right slope:", f"{slope_rt:.6f}")
+    print("stretched slope difference:", f"{slope_lt - slope_rt:.6f}")
+    v_meet_t = (icept_rt - icept_lt) / (slope_lt - slope_rt)
+    u_meet_t = slope_lt * v_meet_t + icept_lt
+    print("stretched vanishing column, row:", f"{u_meet_t:.4f}", f"{v_meet_t:.4f}")
+    print(
+        "|slope difference| ratio, original / stretched:",
+        f"{abs(slope_l - slope_r) / abs(slope_lt - slope_rt):.3f}",
+    )
+
+    keep_inline()
+    fig, axes = plt.subplots(1, 2, figsize=(8, 3.2))
+    axes[0].imshow(rgb)
+    axes[0].set_title("original")
     axes[0].axis("off")
-    axes[1].imshow(cv2.cvtColor(bev_nearest[r0:r0 + window, c0:c0 + window], cv2.COLOR_BGR2RGB))
-    axes[1].set_title("nearest")
+    axes[1].imshow(tall)
+    axes[1].set_title("height times 2")
     axes[1].axis("off")
     plt.tight_layout()
     plt.show()
     """))
 
     cells.append(md("""
-    The source image has `5` colors. Bilinear writes `17205` BEV pixels whose color is none of those five: blends along the lane edges and the horizon. Nearest writes `0` new colors. It can only copy a source pixel or leave a cell black.
+    The only change is the height: `360` rows instead of `180`, ratio `2.0`. Width stays `320`.
 
-    The `30` by `30` crop at row `145`, column `110` contains `742` pixels where the two warps disagree. The nearest crop is made of flat blocks. The bilinear crop softens the same edges. For a metric map, bilinear is the better default. Nearest is useful when you need to know the color was really in the image, for example when you are counting paint rather than drawing a smooth road.
+    The slopes become `-1.970265` and `1.970265`. The difference becomes `-3.940529`. Its absolute value shrank by `2.001`, almost exactly the stretch. The lines still do not share a slope. They still meet, at column `159.5000` and row `166.0268`. The column did not move. Every row index was scaled, so the row moved.
+
+    Pulling a photograph of a hallway taller does not unbend the hallway. The edges still meet. Perspective is a divide by depth. A resize is not that divide. A car that shipped this picture to a planner would still see a funnel.
     """))
 
-    cells.append(md("## 8. Three cameras, one map"))
+    cells.append(md("## 4. The lens, in one matrix"))
     cells.append(md("""
-    One forward camera looks ahead. It misses some ground close to the car, off to either side. The sample rig has a left camera and a right camera, each yawed outward. `stitch_three_cameras` warps all three onto the same meter grid and averages the colors where more than one camera can see the cell.
+    The lens is a handful of numbers: how strongly it spreads the view, and which pixel is the middle. Packed into one matrix, they turn a point in front of the lens into a pixel, once you divide by depth at the end.
 
-    **Predict:** the stitched picture covers every cell of this grid. The cells the front camera leaves black are near the bumper and out to the sides, and some cells are seen by all three cameras.
+    **Predict:** with the same round focal length as the last section, a point `2.0` m to the side and `10.0` m deep lands on column `180.0000` again. A matrix written out by hand matches the matrix stored on the camera.
+    """))
+
+    cells.append(code("""
+    import camera_model as camera_model_module
+
+    fx = float(calib["fx"])
+    fy = float(calib["fy"])
+    cx = float(calib["cx"])
+    cy = float(calib["cy"])
+    print("fx:", f"{fx:.6f}")
+    print("fy:", f"{fy:.6f}")
+    print("cx:", f"{cx:.1f}")
+    print("cy:", f"{cy:.1f}")
+    print("calib width, height:", int(calib["width"]), int(calib["height"]))
+
+    K_hand = np.array(
+        [[fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0]],
+        dtype=np.float64,
+    )
+    print("K shape:", K_hand.shape[0], K_hand.shape[1])
+    print("K:")
+    print(np.array2string(K_hand, precision=6, suppress_small=True))
+    print("max abs diff vs camera.K:", f"{np.max(np.abs(K_hand - front.K)):.6e}")
+
+    sol_cam = load_solution("sol_m01_cam_lesson", "camera_model.py")
+    K_ref = sol_cam.build_intrinsic_matrix(fx, fy, cx, cy)
+    print("max abs diff vs reference K:", f"{np.max(np.abs(K_hand - K_ref)):.6e}")
+
+    try:
+        camera_model_module.build_intrinsic_matrix(fx, fy, cx, cy)
+        print("module build_intrinsic_matrix: returned")
+    except NotImplementedError:
+        print("module build_intrinsic_matrix: NotImplementedError")
+
+    point_cam = np.array([2.0, 1.0, 10.0])
+    print("camera-frame point:", " ".join(f"{v:.1f}" for v in point_cam))
+    K_toy = np.array(
+        [[focal, 0.0, principal], [0.0, focal, cy], [0.0, 0.0, 1.0]],
+        dtype=np.float64,
+    )
+    print("toy focal, principal column, principal row:", f"{focal:.1f}", f"{principal:.1f}", f"{cy:.1f}")
+    multiplied = K_toy @ point_cam
+    print("K @ point:", " ".join(f"{v:.4f}" for v in multiplied))
+    print("third component:", f"{multiplied[2]:.4f}")
+    u_toy = multiplied[0] / multiplied[2]
+    v_toy = multiplied[1] / multiplied[2]
+    print("pixel column, row:", f"{u_toy:.4f}", f"{v_toy:.4f}")
+    print("column offset from principal:", f"{u_toy - principal:.4f}")
+    """))
+
+    cells.append(md("""
+    The sample front camera has focal lengths `92.376043` and `92.376043`, middle pixel `(160.0, 90.0)`, on a `320` by `180` image. The matrix is `3` by `3`. The hand-built one matches the camera and the reference, both with max absolute difference `0.000000e+00`.
+
+    The function the tests import from `camera_model.py` still raises `NotImplementedError`. The class does not call it. It writes the same nine numbers itself. The exercise is that function.
+
+    For the toy point `(2.0, 1.0, 10.0)`, with focal length `100.0` and middle row `90.0`, the product is `1800.0000  1000.0000  10.0000`. The third entry is the depth, `10.0000`. Dividing gives column `180.0000` and row `100.0000`. The column offset is `20.0000`, the same offset as the depth-`10` point on the blank frame. The matrix did not invent a new geometry. It is "scale by the focal length, add the middle pixel, and remember to divide by depth," written so one multiply can do it.
+
+    A calibration file is this matrix plus where the camera is bolted on. Get the matrix wrong and every later meter is wrong in the same direction.
+    """))
+
+    cells.append(md("""
+    **Exercise — `build_intrinsic_matrix`.** Return the `3` by `3` matrix from `fx`, `fy`, `cx`, and `cy`. Focal lengths on the diagonal, the middle pixel in the last column, a one in the corner. Leave the `TODO` as it is to use the reference implementation.
+    """))
+
+    cells.append(code("""
+    def build_intrinsic_matrix_student(fx_value, fy_value, cx_value, cy_value):
+        # TODO: return the 3x3 intrinsic matrix
+        raise NotImplementedError
+
+    def get_intrinsic_fn():
+        try:
+            build_intrinsic_matrix_student(1.0, 1.0, 0.0, 0.0)
+        except NotImplementedError:
+            print("Using reference build_intrinsic_matrix (TODO not implemented)")
+            return sol_cam.build_intrinsic_matrix
+        print("Using your build_intrinsic_matrix")
+        return build_intrinsic_matrix_student
+
+    intrinsic_fn = get_intrinsic_fn()
+    K_check = intrinsic_fn(front.fx, front.fy, front.cx, front.cy)
+    intrinsic_diff = float(np.max(np.abs(K_check - front.K)))
+    print("max abs diff vs camera.K:", f"{intrinsic_diff:.6e}")
+    assert K_check.shape == (3, 3)
+    assert intrinsic_diff < 1e-9
+    print("✅ correct")
+    """))
+
+    cells.append(md("""
+    The reference matrix is in use, because the `TODO` still raises. The largest gap versus the camera's own matrix is `0.000000e+00`. Replace the `TODO` and the same check calls your function.
+    """))
+
+    cells.append(md("""
+    <details><summary>Solution</summary>
+
+    ```python
+    def build_intrinsic_matrix(fx, fy, cx, cy):
+        return np.array(
+            [[fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0]],
+            dtype=float,
+        )
+    ```
+
+    </details>
+    """))
+
+    cells.append(md("## 5. Where the camera is bolted"))
+    cells.append(md("""
+    A rotation turns a vector and does not change its length. In the plane, a quarter turn counterclockwise swings the horizontal axis up onto the vertical axis.
+
+    **Predict:** a point that sits on the horizontal axis lands on the vertical axis, and its distance from the origin does not change.
+    """))
+
+    cells.append(code("""
+    theta_deg = 90.0
+    theta = np.deg2rad(theta_deg)
+    rotation_2d = np.array(
+        [[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]],
+        dtype=np.float64,
+    )
+    point_2d = np.array([4.0, 0.0])
+    rotated = rotation_2d @ point_2d
+    print("theta degrees:", f"{theta_deg:.1f}")
+    print("input x, y:", f"{point_2d[0]:.1f}", f"{point_2d[1]:.1f}")
+    print("rotated x, y:", f"{rotated[0]:.4f}", f"{rotated[1]:.4f}")
+
+    keep_inline()
+    fig, ax = plt.subplots(figsize=(3.4, 3.4))
+    ax.annotate("", xy=(point_2d[0], point_2d[1]), xytext=(0, 0),
+                arrowprops=dict(arrowstyle="-|>", color="0.45", lw=1.6))
+    ax.annotate("", xy=(rotated[0], rotated[1]), xytext=(0, 0),
+                arrowprops=dict(arrowstyle="-|>", color="#d4654f", lw=1.6))
+    ax.scatter([point_2d[0], rotated[0]], [point_2d[1], rotated[1]], c=["0.45", "#d4654f"], zorder=3)
+    ax.set_xlim(-0.5, 5)
+    ax.set_ylim(-0.5, 5)
+    ax.set_aspect("equal")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_title("a quarter turn")
+    plt.tight_layout()
+    plt.show()
+    """))
+
+    cells.append(md("""
+    `90.0` degrees sends `(4.0, 0.0)` to `(0.0000, 4.0000)`. The gray arrow that pointed along the ground now points up, in red. The length is still `4.0`. A camera does this in three dimensions, then slides the origin: a point on the car becomes a point in front of the lens by `P_cam = R @ P_ego + T`.
+    """))
+
+    cells.append(md("""
+    The car and the camera do not share axis names.
+
+    Ego, for the rest of this course: forward, left, up. The origin is on the ground at the rear axle. Camera: right, down, and out through the lens.
+
+    ```
+    Z up
+      |
+      |     camera * ----> look direction
+      |    /
+      |   /   pitched down
+      +--------> forward
+     rear axle
+    ```
+
+    **Predict:** with no tilt, ego forward becomes the look direction. Ego left becomes negative camera-right. Ego up becomes negative camera-down. The real camera is tilted, so a point on the centerline of the road is not on the middle row of the image.
+    """))
+
+    cells.append(code("""
+    axis_change = np.array(
+        [[0.0, -1.0, 0.0], [0.0, 0.0, -1.0], [1.0, 0.0, 0.0]],
+        dtype=np.float64,
+    )
+
+    def fmt(vec):
+        return " ".join(f"{v:.1f}" for v in np.asarray(vec, dtype=np.float64))
+
+    print("ego forward -> camera:", fmt(axis_change @ np.array([1.0, 0.0, 0.0])))
+    print("ego left -> camera:", fmt(axis_change @ np.array([0.0, 1.0, 0.0])))
+    print("ego up -> camera:", fmt(axis_change @ np.array([0.0, 0.0, 1.0])))
+
+    print("pitch deg:", f"{float(calib['pitch_deg']):.1f}")
+    print("yaw deg:", f"{float(calib['yaw_deg']):.1f}")
+    print("roll deg:", f"{float(calib['roll_deg']):.1f}")
+    cam_pos = np.array(calib["cam_position_ego"], dtype=np.float64)
+    print("camera position ego x, y, z:", fmt(cam_pos))
+
+    R_ego = create_euler_rotation(
+        float(calib["pitch_deg"]), float(calib["yaw_deg"]), float(calib["roll_deg"])
+    )
+    T_ego = camera_position_to_translation(R_ego, cam_pos).reshape(3)
+    print("T x, y, z:", " ".join(f"{v:.6f}" for v in T_ego))
+    print("max abs diff vs camera.T:", f"{np.max(np.abs(T_ego - front.T.reshape(3))):.6e}")
+    print("max abs diff vs camera.R:", f"{np.max(np.abs(R_ego - front.R)):.6e}")
+
+    def project_chain(point_ego):
+        point_cam = front.R @ point_ego + front.T.reshape(3)
+        scaled = front.K @ point_cam
+        pixel = scaled[:2] / scaled[2]
+        repo_px, valid = front.project_ego_to_pixel(point_ego)
+        print("ego x, y, z:", " ".join(f"{v:.6f}" for v in point_ego))
+        print("P_cam x, y, z:", " ".join(f"{v:.6f}" for v in point_cam))
+        print("K @ P_cam:", " ".join(f"{v:.6f}" for v in scaled))
+        print("divide by Z_cam:", f"{scaled[2]:.6f}")
+        print("pixel column, row:", f"{pixel[0]:.6f}", f"{pixel[1]:.6f}")
+        print("project_ego_to_pixel:", f"{repo_px[0, 0]:.6f}", f"{repo_px[0, 1]:.6f}", "valid", bool(valid[0]))
+        print(
+            "pixel diff column, row:",
+            f"{pixel[0] - repo_px[0, 0]:.6f}",
+            f"{pixel[1] - repo_px[0, 1]:.6f}",
+        )
+        return pixel
+
+    print("--- point on the centerline ---")
+    px_center = project_chain(np.array([10.0, 0.0, 0.0]))
+    print("--- point 1 m to the left ---")
+    px_left = project_chain(np.array([20.0, 1.0, 0.0]))
+
+    keep_inline()
+    fig, ax = plt.subplots(figsize=(6, 3.2))
+    ax.imshow(rgb)
+    ax.scatter([px_center[0]], [px_center[1]], c="white", s=36, label="10 m, center")
+    ax.scatter([px_left[0]], [px_left[1]], c="#d4654f", s=36, label="20 m, 1 m left")
+    ax.axvline(cx, color="white", linewidth=0.5, linestyle="--")
+    ax.legend(loc="lower right", fontsize=8)
+    ax.set_title("two ground points on the photo")
+    ax.axis("off")
+    plt.tight_layout()
+    plt.show()
+    """))
+
+    cells.append(md("""
+    With no tilt, ego forward becomes camera `0.0 0.0 1.0`, straight out the lens. Ego left becomes `-1.0 0.0 0.0`. Ego up becomes `0.0 -1.0 0.0`. Left in the car is right-negative in the image. Up in the car is down-negative in the image. That swap is why a point to the car's left moves to a smaller column.
+
+    The real front camera is not that ideal pose. It sits `2.0` m forward, `0.0` m to the side, and `1.4` m up, pitched down `4.0` degrees. Yaw and roll are `0.0`. Translation comes out `0.000000 1.536103 -1.897469`. Rotation and translation both match the camera object, max absolute difference `0.000000e+00`.
+
+    The ground point `10.000000` m ahead on the centerline arrives in the camera as `(0.000000, 0.838538, 8.078171)`. It is neither left nor right of the lens. It sits below the optical axis, because the road is under a camera that looks slightly down. The depth along the lens is `8.078171` m, not `10.000000`, because the camera is already `2.0` m forward of the rear axle and the pitch tilts the axis. `K` times that point is `1292.507434  804.496243  8.078171`. Dividing by `8.078171` lands on pixel `(160.000000, 99.588904)`. The column is the middle. The row is below the middle row `90.0`. The long chain and `project_ego_to_pixel` differ by `0.000000` and `0.000000`. The white dot in the picture is that point.
+
+    The point `20.000000` m ahead and `1.000000` m to the left has camera `X` of `-1.000000` and depth `18.053812`. It lands on `(154.883294, 90.721318)`, the red dot, left of column `160.000000`. That is the image of "left" after the axes have been swapped.
+
+    A car that swapped left and right here would steer toward the obstacle. The axis change is the difference between a correction and a yank.
+    """))
+
+    cells.append(md("## 6. A flat road is one 3 by 3"))
+    cells.append(md("""
+    Assume the point is on the ground. Its height is `0.000000`, the value already printed for the centerline point. One column of the rotation multiplies that height and drops out. What is left is a single 3 by 3 matrix from ground meters to pixels.
+
+    **Predict:** the centerline ground point comes back to pixel `(160.000000, 99.588904)`, the same pixel as the long chain. Sending that pixel back through the inverse returns `10.000000` m, up to rounding.
+    """))
+
+    cells.append(code("""
+    r1 = front.R[:, 0:1]
+    r2 = front.R[:, 1:2]
+    t_col = front.T.reshape(3, 1)
+    H = front.K @ np.hstack([r1, r2, t_col])
+    print("H shape:", H.shape[0], H.shape[1])
+
+    sol_ipm = load_solution("sol_m01_ipm_lesson", "ipm.py")
+    H_ref = sol_ipm.build_ground_homography(front.K, front.R, front.T)
+    print("max abs diff vs reference H:", f"{np.max(np.abs(H - H_ref)):.6e}")
+
+    ground = np.array([10.0, 0.0, 1.0])
+    q = H @ ground
+    uv = q[:2] / q[2]
+    print("H @ (10, 0, 1) before divide:", " ".join(f"{v:.6f}" for v in q))
+    print("homography pixel column, row:", f"{uv[0]:.6f}", f"{uv[1]:.6f}")
+    chain_px, chain_ok = front.project_ego_to_pixel(np.array([10.0, 0.0, 0.0]))
+    print("chain pixel column, row:", f"{chain_px[0, 0]:.6f}", f"{chain_px[0, 1]:.6f}")
+    print(
+        "pixel diff column, row:",
+        f"{uv[0] - chain_px[0, 0]:.6e}",
+        f"{uv[1] - chain_px[0, 1]:.6e}",
+    )
+
+    back = np.linalg.inv(H) @ np.array([uv[0], uv[1], 1.0])
+    xy = back[:2] / back[2]
+    round_err = float(np.linalg.norm(xy - np.array([10.0, 0.0])))
+    print("inverse X, Y:", f"{xy[0]:.6f}", f"{xy[1]:.6e}")
+    print("round-trip error m:", f"{round_err:.3e}")
+
+    pixel_errs = []
+    for x_m, y_m in ((10.0, 0.0), (20.0, 1.0), (30.0, -1.5)):
+        q_i = H @ np.array([x_m, y_m, 1.0])
+        uv_i = q_i[:2] / q_i[2]
+        pix_i, _ = front.project_ego_to_pixel(np.array([x_m, y_m, 0.0]))
+        pixel_errs.append(float(np.hypot(uv_i[0] - pix_i[0, 0], uv_i[1] - pix_i[0, 1])))
+    print("max pixel error on 3 ground points:", f"{max(pixel_errs):.6e}")
+    """))
+
+    cells.append(md("""
+    The matrix is `3` by `3`. It matches the reference with max absolute difference `0.000000e+00`.
+
+    It sends `(10, 0, 1)` to `1292.507434  804.496243  8.078171`, and dividing lands on pixel `(160.000000, 99.588904)`. The difference versus the long chain is `0.000000e+00` in both column and row. The inverse brings back `X = 10.000000` and a `Y` of `1.793714e-15`. The round trip misses by `5.623e-15` meters. That is rounding, not a bias.
+
+    On three ground points the worst disagreement with `project_ego_to_pixel` is `3.177644e-14` pixels. On flat ground this matrix is not a sketch of the pinhole. It is the pinhole with the ground height filled in.
+
+    Write it `H = K @ [r1 r2 t]`. `r1` and `r2` are the first two columns of the rotation. `t` is the translation. A flat road is what lets one 3 by 3 undo the perspective in the first picture. The top-down map you already saw walks a meter grid and copies the color each cell projects to. On the ground, that projection is this matrix.
+
+    A curb, a speed bump, a car with a roof: anything off the plane, and the dropped column was not zero. The last sections measure that lie.
+    """))
+
+    cells.append(md("""
+    **Exercise — `build_ground_homography`.** Return `H = K @ [r1 r2 t]` for a ground plane at height `0`. `t` may arrive as shape `(3,)` or `(3, 1)`. Leave the `TODO` as it is to use the reference implementation.
+    """))
+
+    cells.append(code("""
+    def build_ground_homography_student(K_value, R_value, t_value):
+        # TODO: H = K @ [r1 r2 t] for the ground plane
+        raise NotImplementedError
+
+    def get_homography_fn():
+        try:
+            build_ground_homography_student(front.K, front.R, front.T)
+        except NotImplementedError:
+            print("Using reference build_ground_homography (TODO not implemented)")
+            return sol_ipm.build_ground_homography
+        print("Using your build_ground_homography")
+        return build_ground_homography_student
+
+    homography_fn = get_homography_fn()
+    H_check = homography_fn(front.K, front.R, front.T)
+    check_errs = []
+    for x_m, y_m in ((10.0, 0.0), (20.0, 1.0), (30.0, -1.5)):
+        q_i = H_check @ np.array([x_m, y_m, 1.0])
+        uv_i = q_i[:2] / q_i[2]
+        pix_i, valid_i = front.project_ego_to_pixel(np.array([x_m, y_m, 0.0]))
+        err_i = float(np.hypot(uv_i[0] - pix_i[0, 0], uv_i[1] - pix_i[0, 1]))
+        check_errs.append(err_i)
+        print(
+            f"ground {x_m:.1f} {y_m:.1f} pixel error {err_i:.6e} valid {bool(valid_i[0])}"
+        )
+    print("max pixel error:", f"{max(check_errs):.6e}")
+    tolerance_px = 1e-3
+    print("pixel tolerance:", f"{tolerance_px:.0e}")
+    assert max(check_errs) < tolerance_px
+    print("✅ correct")
+    """))
+
+    cells.append(md("""
+    The reference matrix is in use, because the `TODO` still raises. The largest pixel error against `project_ego_to_pixel` is `3.177644e-14`, under the tolerance `1e-03`. The ground point at `30.0` m and `-1.5` m is the one that shows that rounding. The other two points differ by `0.000000e+00`. Replace the `TODO` and the same check calls your function.
+    """))
+
+    cells.append(md("""
+    <details><summary>Solution</summary>
+
+    ```python
+    def build_ground_homography(K, R, t):
+        t_vec = np.asarray(t, dtype=float).reshape(3, 1)
+        return K @ np.hstack([R[:, 0:2], t_vec])
+    ```
+
+    </details>
+    """))
+
+    cells.append(md("## 7. Three cameras, still one map"))
+    cells.append(md("""
+    One forward camera looks ahead. It misses ground close to the bumper, off to either side. The folder has a left camera and a right camera, each turned outward. They land on the same meter grid. Where more than one camera sees a cell, the colors are averaged.
+
+    **Predict:** the stitched picture covers this whole grid. The cells the front camera leaves black are near the bumper and out to the sides.
     """))
 
     cells.append(code("""
@@ -897,20 +814,20 @@ def build() -> nbformat.NotebookNode:
     """))
 
     cells.append(md("""
-    All three frames are `180` by `320`. The stitched map is the same `360` by `200` grid as the front warp.
+    All three frames are `180` by `320`. The stitched map is the same `360` by `200` grid.
 
-    Front coverage is `0.9682`. Stitched coverage is `1.0000`. The side cameras color `2292` cells the front warp left black. Those cells sit between `4.1` m and `7.6` m forward, and `1974` of them are more than `6` m off the centerline. That is the near left and near right corner, beside the bumper, where a forward camera is looking over the road rather than at it.
+    Front coverage is `0.9682`. Stitched coverage is `1.0000`. The side cameras color `2292` cells the front warp left black. Those cells sit between `4.1` m and `7.6` m forward, and `1974` of them are more than `6` m off the centerline. That is the near corner beside the bumper, where a forward camera is looking over the road rather than at it.
 
-    Overlap is the common case, not the exception. The busiest cell is seen by `3` cameras. `69278` cells are seen by `2` or more, `7276` by all three, and `2722` by exactly one. Where masks overlap, the stitch averages the colors. It does not feather a seam. On this synthetic road the cameras agree, so the average looks like one picture. On a real rig, a bad calibration shows up as a doubled lane line in that overlap.
+    The busiest cell is seen by `3` cameras. `69278` cells are seen by two or more, `7276` by all three, and `2722` by exactly one. Where the views overlap, the stitch averages. On this drawing the cameras agree, so the average looks like one road. On a real car, a bad bolt-on angle shows up there as a doubled lane line.
+
+    A car that trusted only the front warp would be blind in those `2292` cells. A person standing just ahead of the front wheel can live in that patch.
     """))
 
-    cells.append(md("## 9. Where the flat road breaks"))
+    cells.append(md("## 8. One degree of tilt"))
     cells.append(md("""
-    The homography trusts two numbers you can get wrong: the pitch of the camera, and the assumption that the pixel came from the ground.
+    The matrix trusts the pitch of the camera. Suppose the camera is a degree more nose-down than the file says. You still see the true pixel of a ground point. You then intersect that pixel with the ground using the wrong pitch. The number below is estimated forward distance minus the true forward distance.
 
-    **Pitch** here is the nose-down angle in `create_euler_rotation`. Suppose the camera is slightly more nose-down than the calibration says. You still observe the true pixel of a ground point, but you intersect that pixel with the ground using the wrong pitch. `pitch_shift_meters` is that mistake, in meters: estimated forward distance minus the true forward distance.
-
-    **Predict:** no extra pitch gives a numerical zero. A small extra nose-down pitch is a modest miss nearby and a much larger miss far away. The error grows faster than the distance.
+    **Predict:** no extra pitch is a numerical zero. One extra degree is a modest miss nearby and a much larger miss far away. The miss grows faster than the distance.
     """))
 
     cells.append(code("""
@@ -960,102 +877,29 @@ def build() -> nbformat.NotebookNode:
 
     keep_inline()
     fig, ax = plt.subplots(figsize=(6, 3.4))
-    ax.plot(ranges, errors, marker="o")
+    ax.plot(ranges, errors, marker="o", color="#d4654f")
     ax.axhline(0.0, color="gray", linewidth=0.8)
     ax.set_xlabel("true forward distance (m)")
     ax.set_ylabel("estimated minus true (m)")
-    ax.set_title("extra nose-down pitch")
+    ax.set_title("one extra degree, nose down")
     plt.tight_layout()
     plt.show()
     """))
 
     cells.append(md("""
-    With `0` extra degrees, the error at `20` m is `-1.421e-14`. That is roundoff. The calibration, used on itself, returns the true distance.
+    With `0` extra degrees, the error at `20` m is `-1.421e-14`. Roundoff. The calibration, used on itself, returns the true distance.
 
-    With `1.0` extra degree of nose-down pitch the table is:
+    With `1.0` extra degree of nose-down pitch, a point at `10` m is read as `9.2522` m, error `-0.7478` m. At `20` m the error is `-3.3191` m, so the map says `16.6809` m. At `30` m the error is `-7.2636` m, and the map says `22.7364` m. At `40` m the map says `27.7675` m, error `-12.2325` m.
 
-    | true forward m | error m | estimated m |
-    | --- | --- | --- |
-    | `10` | `-0.7478` | `9.2522` |
-    | `20` | `-3.3191` | `16.6809` |
-    | `30` | `-7.2636` | `22.7364` |
-    | `40` | `-12.2325` | `27.7675` |
+    The distance grew by a factor of `4.0`. The absolute error grew by a factor of `16.36`. A rifle sight that is a degree off is a miss of inches nearby and a miss of many feet at range. This is that lever, pointed at the road. The reference function agrees at `40` m: difference `0.000e+00`. The curve bends down. It is not a straight line through the origin.
 
-    The sign is negative: the wrong pitch reads the point as closer than it is. A ray that actually hits the road at `40` m is explained as a road hit at `27.7675` m. The distance grew by a factor of `4.0` (`40 / 10`). The absolute error grew by a factor of `16.36`. A small angle error turns into a miss that scales roughly with distance squared, because you are tilting a long lever. The reference `pitch_shift_meters` agrees with this table at `40` m: difference `0.000e+00`.
-
-    This is why a camera that nods under braking cannot keep a flat-ground map in meters. `1.0` degree is a small motion of the nose. At `40` m the miss is `12.2325` m, which is the difference between "the lead car is far enough" and "it is not."
+    The sign is negative. The map pulls the point toward the bumper. A lead car at `40` m is reported at `27.7675` m. The brake comes early, for a gap that is still open. One degree is a nod a hard stop can give the nose. It is not a small error at range.
     """))
 
     cells.append(md("""
-    The second break is the ground itself. The sample draws a lead vehicle as one quad at a single forward distance, with the bottom on the road and the top above it. IPM treats every pixel as a ground pixel. A point on the vehicle that is above the road is shoved to wherever that ray eventually hits `Z = 0`.
+    **Exercise — `pitch_shift_meters`.** Given the calibration dict, an extra pitch in degrees, and a true forward distance, return estimated forward distance minus the true distance. Use the same camera the table just used. Leave the `TODO` as it is to use the reference implementation.
 
-    **Predict:** the point on the road under the vehicle stays at its true forward distance. A point partway up the vehicle is placed much farther away. The roof, which is above the camera, does not hit the road in front of the car at all. In the BEV image the vehicle color is smeared forward, not parked on its footprint.
-    """))
-
-    cells.append(code("""
-    box = np.array(
-        [
-            [22.0, -0.9, 0.0],
-            [22.0, 0.9, 0.0],
-            [22.0, 0.9, 1.5],
-            [22.0, -0.9, 1.5],
-        ],
-        dtype=np.float64,
-    )
-    print("box forward m, all corners:", " ".join(f"{v:.1f}" for v in box[:, 0]))
-    print("box lateral m min max:", f"{box[:, 1].min():.1f}", f"{box[:, 1].max():.1f}")
-    print("box height m min max:", f"{box[:, 2].min():.1f}", f"{box[:, 2].max():.1f}")
-    print("camera height m:", f"{cam_pos[2]:.1f}")
-
-    for height in (0.0, 0.5, 1.0, 1.5):
-        point = np.array([[22.0, 0.0, height]])
-        pixel, valid = front.project_ego_to_pixel(point)
-        estimated, hit = front.project_pixels_to_ground(pixel)
-        print(
-            f"height m {height:.1f} pixel row {pixel[0, 1]:.2f} "
-            f"valid {bool(valid[0])} ground hit {bool(hit[0])}"
-        )
-        if hit[0]:
-            print(
-                f"  ground forward m {estimated[0, 0]:.3f} "
-                f"shift m {estimated[0, 0] - 22.0:.3f}"
-            )
-
-    car = (
-        (bev_bgr[:, :, 0] > 100)
-        & (bev_bgr[:, :, 0] < 180)
-        & (bev_bgr[:, :, 1] < 90)
-        & (bev_bgr[:, :, 2] < 70)
-    )
-    car_image = (
-        (bgr[:, :, 0] > 100)
-        & (bgr[:, :, 0] < 180)
-        & (bgr[:, :, 1] < 90)
-        & (bgr[:, :, 2] < 70)
-    )
-    print("car pixels in the camera image:", int(car_image.sum()))
-    print("car pixels in the front BEV:", int(car.sum()))
-    car_rows, car_cols = np.where(car)
-    car_x = x_range[1] - car_rows * bev_resolution
-    car_y = y_range[1] - car_cols * bev_resolution
-    print("BEV car forward m min max:", f"{car_x.min():.1f}", f"{car_x.max():.1f}")
-    print("BEV car lateral m min max:", f"{car_y.min():.1f}", f"{car_y.max():.1f}")
-    """))
-
-    cells.append(md("""
-    Every corner of the quad is at forward distance `22.0` m. Laterally it runs from `-0.9` m to `0.9` m. The top is at `1.5` m, and the camera is at `1.4` m, so the roof is above the lens.
-
-    The road point under the vehicle, height `0.0`, maps to pixel row `90.01` and comes back to forward distance `22.000` m. Shift `-0.000` m. Height `0.5` m is pixel row `87.70` and is placed at `33.111` m, a shift of `11.111` m. Height `1.0` m lands at `72.000` m, a shift of `50.000` m, which is already past the `40.0` m edge of this grid. Height `1.5` m is a valid pixel (row `83.08`) but `ground hit` is false: the ray from a camera at `1.4` m through a point at `1.5` m is going up, so it never meets the road ahead.
-
-    The camera image contains `80` vehicle pixels. The front BEV contains `5543` pixels of that color, spread from `20.9` m to `40.0` m forward and from `-1.7` m to `2.1` m laterally. The warp asked each ground cell "which image pixel do you see?" and a lot of distant ground cells see the vehicle, because the vehicle sticks up into their line of sight. The car is smeared along the road out to the far edge of the map. Its true footprint was a single distance, `22.0` m.
-
-    That smear is not a bug in the resampler. It is the flat-ground assumption meeting an object with height. A pedestrian does the same thing. This is why a later module learns a bird's-eye map from the image instead of forcing every ray onto `Z = 0`. The homography remains the right tool for lane paint that really is on the road, and the wrong tool for anything standing on it.
-    """))
-
-    cells.append(md("""
-    **Exercise — `pitch_shift_meters`.** Given the calibration dict, an extra pitch in degrees, and a true forward distance, return estimated forward distance minus the true distance. Use the same camera model as the table above. Leave the `TODO` as it is to use the reference implementation.
-
-    The check expects a numerical zero when the extra pitch is `0`, and a larger absolute error at `40` m than at `10` m when the extra pitch is `1.0` degree.
+    The check wants a numerical zero when the extra pitch is `0`, and a larger absolute error at `40` m than at `10` m when the extra pitch is `1.0` degree.
     """))
 
     cells.append(code("""
@@ -1087,17 +931,19 @@ def build() -> nbformat.NotebookNode:
     """))
 
     cells.append(md("""
-    The check prints `✅`. Extra pitch `0` at `20` m returns `-1.421e-14`. Extra pitch `1.0` degree returns `-0.7478` m at `10` m and `-12.2325` m at `40` m, the same numbers as the table. The reference function is used because the `TODO` still raises.
+    The reference function is in use, because the `TODO` still raises. Extra pitch `0` at `20` m returns `-1.421e-14`. Extra pitch `1.0` degree returns `-0.7478` m at `10` m and `-12.2325` m at `40` m, the same misses as the plot. The miss at `40` m is the larger one. Replace the `TODO` and the same check calls your function.
     """))
 
     cells.append(md("""
     <details><summary>Solution</summary>
 
+    Project the true ground point with the file's pitch. Intersect that pixel with the ground again, using the pitch plus `delta_deg`. Return the estimated forward distance minus `range_m`.
+
     ```python
     def pitch_shift_meters(calib, delta_deg, range_m):
         width = int(calib["width"])
         height = int(calib["height"])
-        position = np.array(calib["cam_position_ego"], dtype=np.float64)
+        position = np.array(calib["cam_position_ego"], dtype=float)
         pitch = float(calib["pitch_deg"])
         yaw = float(calib["yaw_deg"])
         roll = float(calib["roll_deg"])
@@ -1125,13 +971,112 @@ def build() -> nbformat.NotebookNode:
     </details>
     """))
 
+    cells.append(md("## 9. A raised car smears"))
+    cells.append(md("""
+    The second break is the ground itself. The drawing puts a lead vehicle at one forward distance, wheels on the road, roof above it. The map treats every pixel as a floor pixel. A point above the road is shoved to wherever that ray eventually hits the asphalt.
+
+    **Predict:** the point on the road under the vehicle stays at its true distance. A point partway up the vehicle is placed much farther away. The roof is above the camera, so that ray never hits the road in front of the car. In the top-down image the vehicle color is smeared forward, not parked on its footprint.
+    """))
+
+    cells.append(code("""
+    box = np.array(
+        [
+            [22.0, -0.9, 0.0],
+            [22.0, 0.9, 0.0],
+            [22.0, 0.9, 1.5],
+            [22.0, -0.9, 1.5],
+        ],
+        dtype=np.float64,
+    )
+    print("box forward m, all corners:", " ".join(f"{v:.1f}" for v in box[:, 0]))
+    print("box lateral m min max:", f"{box[:, 1].min():.1f}", f"{box[:, 1].max():.1f}")
+    print("box height m min max:", f"{box[:, 2].min():.1f}", f"{box[:, 2].max():.1f}")
+    print("camera height m:", f"{cam_pos[2]:.1f}")
+
+    landed_h = []
+    landed_x = []
+    for height in (0.0, 0.5, 1.0, 1.5):
+        point = np.array([[22.0, 0.0, height]])
+        pixel, valid = front.project_ego_to_pixel(point)
+        estimated, hit = front.project_pixels_to_ground(pixel)
+        print(
+            f"height m {height:.1f} pixel row {pixel[0, 1]:.2f} "
+            f"valid {bool(valid[0])} ground hit {bool(hit[0])}"
+        )
+        if hit[0]:
+            print(
+                f"  ground forward m {estimated[0, 0]:.3f} "
+                f"shift m {estimated[0, 0] - 22.0:.3f}"
+            )
+            landed_h.append(height)
+            landed_x.append(float(estimated[0, 0]))
+
+    car = (
+        (bev_bgr[:, :, 0] > 100)
+        & (bev_bgr[:, :, 0] < 180)
+        & (bev_bgr[:, :, 1] < 90)
+        & (bev_bgr[:, :, 2] < 70)
+    )
+    car_image = (
+        (bgr[:, :, 0] > 100)
+        & (bgr[:, :, 0] < 180)
+        & (bgr[:, :, 1] < 90)
+        & (bgr[:, :, 2] < 70)
+    )
+    print("car pixels in the camera image:", int(car_image.sum()))
+    print("car pixels in the front BEV:", int(car.sum()))
+    car_rows, car_cols = np.where(car)
+    car_x = x_range[1] - car_rows * bev_resolution
+    car_y = y_range[1] - car_cols * bev_resolution
+    print("BEV car forward m min max:", f"{car_x.min():.1f}", f"{car_x.max():.1f}")
+    print("BEV car lateral m min max:", f"{car_y.min():.1f}", f"{car_y.max():.1f}")
+    footprint_row = int(round((x_range[1] - 22.0) / bev_resolution))
+    print("true footprint forward m:", f"{22.0:.1f}")
+    print("true footprint bev row:", footprint_row)
+
+    keep_inline()
+    fig, axes = plt.subplots(1, 3, figsize=(10, 3.2))
+    axes[0].imshow(rgb)
+    for height, color in ((0.0, "white"), (1.5, "#d4654f")):
+        corners = np.array([[22.0, -0.9, height], [22.0, 0.9, height]])
+        pix, _ = front.project_ego_to_pixel(corners)
+        axes[0].plot(pix[:, 0], pix[:, 1], color=color, marker="o", linewidth=1.2)
+    axes[0].set_title("box on the photo")
+    axes[0].axis("off")
+
+    axes[1].imshow(bev_rgb)
+    axes[1].axhline(footprint_row, color="white", linewidth=0.8)
+    axes[1].set_title("top-down smear")
+    axes[1].axis("off")
+
+    axes[2].plot(landed_h, landed_x, marker="o", color="#d4654f")
+    axes[2].axhline(22.0, color="gray", linewidth=0.8)
+    axes[2].set_xlabel("height of the point (m)")
+    axes[2].set_ylabel("where the flat map puts it (m)")
+    axes[2].set_title("raised points thrown forward")
+    plt.tight_layout()
+    plt.show()
+    """))
+
+    cells.append(md("""
+    Every corner of the box is at `22.0` m. Laterally it runs from `-0.9` m to `0.9` m. The roof is at `1.5` m and the camera is at `1.4` m, so the roof is above the lens. The white line in the middle picture is that footprint, top-down row `180`.
+
+    The road point, height `0.0`, is pixel row `90.01` and comes back to `22.000` m. Shift `-0.000` m. Height `0.5` m is pixel row `87.70` and is placed at `33.111` m, a shift of `11.111` m. Height `1.0` m is pixel row `85.39` and lands at `72.000` m, a shift of `50.000` m, already past the `40.0` m edge of this grid. Height `1.5` m is a real pixel, row `83.08`, and the ground hit is false: the ray from a camera at `1.4` m through a point at `1.5` m is going up.
+
+    The camera image contains `80` vehicle pixels. The top-down map contains `5543` pixels of that color, from `20.9` m to `40.0` m forward and from `-1.7` m to `2.1` m laterally. The right-hand plot is the same fact without the picture: lift the point off the floor and the flat map throws it forward. The gray line is the true `22.0` m. The red curve leaves it immediately.
+
+    Distant ground cells look up and see the side of the car, the way a long shadow at sunset is not the person. The car is smeared out to the far edge of the map. Its true footprint was one distance. A pedestrian does the same thing. Lane paint, which really is on the road, does not. The 3 by 3 remains the right tool for paint and the wrong tool for anything standing on the paint.
+    """))
+
     cells.append(md("## 10. Recap"))
     cells.append(md("""
-    - A pinhole divides by depth. With focal length `100.0` and lateral offset `2.0` m, the pixel offset is `20.0000` at `10` m, `10.0000` at `20` m, and `5.0000` at `40` m.
-    - `K` holds `fx`, `fy`, `cx`, and `cy`. Extrinsics take an ego point to the camera with `P_cam = R @ P_ego + T`. The ego frame is `X` forward, `Y` left, `Z` up. The camera frame is `X` right, `Y` down, `Z` forward.
-    - Stretching the frame to height `360` left the lanes meeting at column `159.5000`. On the ground plane, `H = K [r1 r2 t]` maps meters to pixels and back. The round trip on the `10` m point errs by `5.623e-15` m.
-    - The two solid lanes, `11.2` m apart, are columns `44` and `156` in the BEV for every forward distance. In the image their gap shrinks from `170.08` pixels at `8.0` m to `36.91` pixels at `30.0` m. Three cameras cover the grid; the front camera alone leaves `2292` near, wide cells black.
-    - A `1.0` degree pitch error reads `40` m as `27.7675` m (error `-12.2325` m), and the miss grows faster than range (`16.36` times, against a `4.0` times increase in distance). A vehicle point `0.5` m off the ground at `22.0` m is placed at `33.111` m. Flat-ground IPM is the right map for paint on the road and the wrong map for anything with height.
+    - Nearby things look big, so parallel lines meet. On row `84` the lane gap is `24.0` pixels. On row `122` it is `298.0` pixels, `12.42` times wider. The lines meet at column `159.5000`, row `82.7753`.
+    - Doubling the distance halves the offset. Focal length `100.0` and a sideways `2.0` m give pixel offsets `20.0000`, `10.0000`, and `5.0000` at `10`, `20`, and `40` m. Halving the focal length to `50.0` halves the offset again, to `10.0000`, and the far objects stay small.
+    - Stretching the photo fails. Height `360` instead of `180` still meets at column `159.5000`. A resize is not a divide by depth.
+    - A flat road lets one 3 by 3 undo that perspective. `H = K @ [r1 r2 t]` sends the `10.000000` m centerline point to pixel `(160.000000, 99.588904)` and back, missing by `5.623e-15` m. In the top-down map the lanes are columns `44` and `156`, a constant `11.2` m. In the photo that gap shrinks from `170.08` pixels at `8.0` m to `36.91` pixels at `30.0` m.
+    - The front camera alone leaves `2292` cells black, between `4.1` m and `7.6` m forward, beside the bumper. Three cameras cover the grid.
+    - One degree of nose-down tilt reads `40` m as `27.7675` m, error `-12.2325` m. From `10` m to `40` m the distance grows by `4.0` and the absolute error grows by `16.36`. The brake comes early.
+    - A raised car is not on the ground, so it smears. A point `0.5` m up at `22.0` m is placed at `33.111` m. The roof, at `1.5` m above a camera at `1.4` m, never hits the road ahead. `80` vehicle pixels in the photo become `5543` pixels on the map, spread from `20.9` m to `40.0` m.
 
     ### Go deeper
 
@@ -1147,7 +1092,11 @@ def build() -> nbformat.NotebookNode:
         "language": "python",
         "name": "python3",
     }
-    nb.metadata["language_info"] = {"name": "python", "pygments_lexer": "ipython3"}
+    nb.metadata["language_info"] = {
+        "name": "python",
+        "pygments_lexer": "ipython3",
+        "nbconvert_exporter": "python",
+    }
     nb.metadata["colab"] = {"provenance": []}
     return nb
 
