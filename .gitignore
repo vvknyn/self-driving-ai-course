@@ -33,3 +33,9 @@ artifacts/m01/*
 !artifacts/m01/.gitkeep
 !artifacts/m01/example/
 artifacts/progress.json
+
+# v2 course
+.venv/
+!course/dist/
+!course/**/*.png
+!tests/zero2fsd/fixtures/**/*.png

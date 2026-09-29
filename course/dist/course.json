@@ -1,0 +1,1013 @@
+{
+  "version": 1,
+  "repo": "vvknyn/self-driving-ai-course",
+  "loops": [
+    {
+      "id": "0",
+      "title": "The whole game",
+      "summary": "Play a junior version of the whole game. You get a complete car that drives badly, then open its boxes one at a time and swap in your own.",
+      "modules": [
+        {
+          "id": "0.1",
+          "title": "Your first self-driving car",
+          "summary": "Measure a lane, find paint in an image, estimate the lane, steer from the estimate, and watch the car fail on a tight bend.",
+          "planned_units": 4,
+          "paper": {
+            "title": "ALVINN: An Autonomous Land Vehicle in a Neural Network (Pomerleau, NIPS 1988)",
+            "url": "https://papers.nips.cc/paper/1988/hash/812b4ba287f5ee0bc9d43bbf5bbe87fb-Abstract.html"
+          },
+          "units": [
+            {
+              "id": "0.1.1",
+              "slug": "0-1-1",
+              "title": "Meet your car",
+              "status": "ready",
+              "minutes": 210
+            },
+            {
+              "id": "0.1.2",
+              "slug": "0-1-2",
+              "title": "Images are arrays",
+              "status": "ready",
+              "minutes": 210
+            },
+            {
+              "id": "0.1.3",
+              "slug": "0-1-3",
+              "title": "Your first perception box",
+              "status": "ready",
+              "minutes": 210
+            },
+            {
+              "id": "0.1.4",
+              "slug": "0-1-4",
+              "title": "Closing the loop",
+              "status": "ready",
+              "minutes": 240
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "1",
+      "title": "Classical car",
+      "summary": "Every classical box of the car becomes yours - transforms, control, camera geometry, lane perception, state estimation, tracking and planning.",
+      "modules": [
+        {
+          "id": "1.1",
+          "title": "Frames and transforms",
+          "summary": "The coordinate transforms used everywhere, from vectors and rotation matrices to homogeneous transforms.",
+          "planned_units": 5,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "1.2",
+          "title": "Longitudinal control and vehicle motion",
+          "summary": "The speed controller and the simulator's bicycle model, using derivatives, Euler integration and PID.",
+          "planned_units": 6,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "1.3",
+          "title": "Lateral control",
+          "summary": "The steering controller (pure pursuit, Stanley), with geometry and stability intuition.",
+          "planned_units": 5,
+          "paper": {
+            "title": "Stanley: The robot that won the DARPA Grand Challenge (Thrun et al., 2006)",
+            "url": "https://doi.org/10.1002/rob.20147"
+          },
+          "units": []
+        },
+        {
+          "id": "1.4",
+          "title": "Camera geometry",
+          "summary": "The simulator's camera renderer and inverse perspective mapping, using the pinhole model, intrinsics and extrinsics.",
+          "planned_units": 6,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "1.5",
+          "title": "Classical lane perception",
+          "summary": "Lane perception with least squares, RANSAC and polynomial fits.",
+          "planned_units": 6,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "1.6",
+          "title": "State estimation",
+          "summary": "Localisation from noisy odometry and GNSS, using probability, Gaussians, Bayes, and the Kalman and extended Kalman filters.",
+          "planned_units": 7,
+          "paper": {
+            "title": "A New Approach to Linear Filtering and Prediction Problems (Kalman, 1960)",
+            "url": "https://doi.org/10.1115/1.3662552"
+          },
+          "units": []
+        },
+        {
+          "id": "1.7",
+          "title": "Multi-object tracking",
+          "summary": "A tracker built on data association and the Hungarian algorithm.",
+          "planned_units": 5,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "1.8",
+          "title": "Planning",
+          "summary": "Lattice planning, A*, speed profiles and overtaking a slow car, using graph search and cost functions.",
+          "planned_units": 6,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "1.9",
+          "title": "Loop 1 capstone",
+          "summary": "Your all-classical car beats the provided car on the full scenario suite.",
+          "planned_units": 2,
+          "paper": null,
+          "units": []
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "title": "Learned car",
+      "summary": "Learned boxes must beat your own classical boxes.",
+      "modules": [
+        {
+          "id": "2.1",
+          "title": "Autograd from scratch",
+          "summary": "Build automatic differentiation from first principles.",
+          "planned_units": 5,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "2.2",
+          "title": "ML fundamentals",
+          "summary": "Losses, optimisation, generalisation and evaluation.",
+          "planned_units": 5,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "2.3",
+          "title": "Neural nets and CNNs in PyTorch",
+          "summary": "Neural networks and convolutional networks in PyTorch.",
+          "planned_units": 5,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "2.4",
+          "title": "Learned lane perception",
+          "summary": "Move from simulator frames to real nuScenes-mini frames and measure the domain gap.",
+          "planned_units": 5,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "2.5",
+          "title": "Object detection on real frames",
+          "summary": "Detect objects on real driving frames.",
+          "planned_units": 6,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "2.6",
+          "title": "Multi-task nets",
+          "summary": "One network, several driving tasks.",
+          "planned_units": 3,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "2.7",
+          "title": "Attention and transformers from scratch",
+          "summary": "Build attention and a transformer from scratch.",
+          "planned_units": 5,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "2.8",
+          "title": "BEV perception and point clouds",
+          "summary": "Bird's-eye-view perception and point-cloud networks.",
+          "planned_units": 6,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "2.9",
+          "title": "Occupancy and temporal fusion",
+          "summary": "Occupancy prediction and fusing frames over time.",
+          "planned_units": 4,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "2.10",
+          "title": "Motion forecasting",
+          "summary": "Predict where other road users will go.",
+          "planned_units": 4,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "2.11",
+          "title": "Imitation-learned planner",
+          "summary": "Imitation learning, covariate shift and DAgger, ending in the Loop 2 capstone.",
+          "planned_units": 4,
+          "paper": null,
+          "units": []
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "title": "Research car",
+      "summary": "Read, reproduce, extend and write up research. Specific papers are chosen when the pilot reaches this loop.",
+      "modules": [
+        {
+          "id": "3.1",
+          "title": "Reading and reproducing papers",
+          "summary": "How to read a paper and reproduce its result.",
+          "planned_units": 3,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "3.2",
+          "title": "RL for driving in the course sim",
+          "summary": "Reinforcement learning for driving in the course simulator.",
+          "planned_units": 6,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "3.3",
+          "title": "End-to-end driving",
+          "summary": "Drive directly from pixels to controls.",
+          "planned_units": 5,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "3.4",
+          "title": "World models and generative simulation",
+          "summary": "Learned world models and generative simulation.",
+          "planned_units": 5,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "3.5",
+          "title": "Vision-language-action models",
+          "summary": "Vision-language-action models for driving.",
+          "planned_units": 4,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "3.6",
+          "title": "Data engines and the long tail",
+          "summary": "Data engines and the long tail of rare driving situations.",
+          "planned_units": 4,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "3.7",
+          "title": "Safety, verification and scenario-based evaluation",
+          "summary": "Safety cases, verification and scenario-based evaluation.",
+          "planned_units": 5,
+          "paper": null,
+          "units": []
+        },
+        {
+          "id": "3.8",
+          "title": "Thesis",
+          "summary": "Reproduce a result, extend it, and write it up.",
+          "planned_units": 8,
+          "paper": null,
+          "units": []
+        }
+      ]
+    }
+  ],
+  "units": {
+    "0-1-1": {
+      "id": "0.1.1",
+      "slug": "0-1-1",
+      "title": "Meet your car",
+      "minutes": 210,
+      "box": "None yet: you instrument the car and measure how well it keeps its lane",
+      "outcomes": [
+        {
+          "can": "Define the lateral error e and read its sign (left of lane centre is positive)",
+          "proof": "Quiz questions on lateral error and the signed-mean trap"
+        },
+        {
+          "can": "Summarise a whole drive as mean |e|, max |e| and RMS, and say what each one hides",
+          "proof": "Your lane_error_stats passes check(\"0.1.1.a\") in the lab"
+        },
+        {
+          "can": "Count the steps and seconds a car spends off its lane with one line of NumPy",
+          "proof": "Your steps_off_lane passes check(\"0.1.1.b\") in the lab"
+        }
+      ],
+      "prerequisites": [],
+      "go_deeper": [
+        {
+          "title": "NumPy: the absolute basics for beginners (sections \"Array fundamentals\" and \"Basic array operations\")",
+          "url": "https://numpy.org/doc/stable/user/absolute_beginners.html"
+        },
+        {
+          "title": "CS231n Python Numpy Tutorial (sections \"Arrays\" and \"Array math\")",
+          "url": "https://cs231n.github.io/python-numpy-tutorial/"
+        },
+        {
+          "title": "Thrun et al., Stanley: The Robot that Won the DARPA Grand Challenge (2006), §9.2 \"Steering Control\", p. 684",
+          "url": "http://robots.stanford.edu/papers/thrun.stanley05.pdf"
+        }
+      ],
+      "paper": null,
+      "tutor_prompt": "You are a Socratic tutor for unit 0.1.1 \"Meet your car\" of a self-driving car course. I am a programmer with rusty maths and no machine-learning background. I have just read a lecture and done a lab on measuring how well a car keeps its lane.\n\nWhat the unit taught (use these definitions exactly):\n- The lateral error e is the sideways distance in metres from lane centre to the centre of the car's front axle. Left of centre is positive, right is negative.\n- A drive is a time series e_1 ... e_N, one value every 0.05 s (20 per second).\n- mean |e| is the typical distance from centre; max |e| is the worst moment; RMS = sqrt(mean of e squared) is the typical distance with big errors counted extra. RMS is never smaller than mean |e|.\n- A step is off the lane when |e| > 0.9 m, strictly.\n- The misconception to probe: \"the average of the signed errors measures how well the car keeps its lane\". It does not, because left and right errors cancel. The signed mean measures bias (which side the car favours).\n\nHow to run the session:\n1. Ask me ONE question at a time, then wait for my answer. Start by asking me to explain, in my own words, what the lateral error is and what its sign means.\n2. Never give me the answer. If I am wrong or vague, ask a smaller question, or give me a tiny set of numbers to work through by hand, so I find the mistake myself.\n3. Within the first three questions, test the misconception above: for example, give me a drive whose errors swing left and right, and ask whether its signed mean is a fair score.\n4. Ask at least one question where I must compute a number (a mean |e|, an RMS or a count off the lane) from three to five values you choose, and one where I must predict what a line of NumPy prints.\n5. Keep your turns short: two or three sentences, then the question.\n6. After about five exchanges, stop. List what I explained well, and what I should revisit, naming these lecture sections: \"Lateral error\", \"Summarising lane error\", \"The signed-mean trap\", \"Why RMS punishes big errors\", \"Counting steps off the lane\", \"Arrays, not loops\".\n",
+      "lecture_md": "# Meet your car\n\n## The car you were handed\n\nPicture a two-lane road on a clear day. A dashed yellow line runs down the middle and a solid white line marks the right edge. You are in the right-hand lane, rolling at a steady 8 m/s (about 29 km/h), and you are not steering. The car is.\n\nEvery 0.05 seconds, the same four things happen:\n\n1. The **camera** takes a picture of the road ahead.\n2. The **perception box** looks at that picture and reports where the lane is.\n3. The **controller box** turns that report into a steering angle.\n4. The **vehicle** moves a little, and the camera takes the next picture.\n\nThis course's car lives in a flat-world teaching simulator: the road is paint on a perfectly flat plane, and the car moves like a simple bicycle with a 2.7 m wheelbase. Nothing about it is secret. You will open every box during this course, starting with perception in unit 0.1.3 and the controller in unit 0.1.4. In this unit you open nothing. You **instrument** the car instead: you record what it did and boil a whole drive down to a few honest numbers.\n\n![Left: the 320 by 180 camera picture 80 m into the gentle loop, with the first bend visible ahead. Right: the whole loop from above, with the path the provided car drove.](/learnfsd-course/figures/0-1-1/car_and_view.png)\n\nThe right panel shows `gentle`, one of the three test roads: a stadium-shaped loop with two 100 m straights and two bends of radius 80 m, 702.7 m in all. The other two are `straight` (200 m of straight road) and `curvy`, which is 30 m of straight followed by six quarter-circle bends of radius 20 m that alternate left and right.\n\n## Lateral error\n\nHow would you say, in one number, how well a car is keeping its lane? Teams building real robot cars had to answer this too. Stanford's Stanley, which won the 2005 DARPA Grand Challenge desert race, built its steering on exactly one number:\n\n> \"The key error metric is the cross-track error, x(t), as shown in Figure 24, which measures the lateral distance of the center of the vehicle's front wheels from the nearest point on the trajectory.\" (Thrun et al., 2006, p. 684)\n\nThis course calls that number the **lateral error**, written $e$. It is the sideways distance, in metres, from the centre of your lane to the centre of the car's front axle (the point between the front wheels, where the simulator mounts the camera).\n\n$e$ has a sign, and the sign carries information:\n\n- $e > 0$: the car is to the **left** of lane centre.\n- $e < 0$: the car is to the **right** of lane centre.\n- $e = 0$: the front axle is exactly on the centre line of the lane.\n\n![A lane seen from above. A car whose front axle is 0.5 m left of centre has e = +0.5 m; one 0.3 m right of centre has e = -0.3 m.](/learnfsd-course/figures/0-1-1/sign_convention.png)\n\nLeft is positive everywhere in this course, for offsets, headings and steering angles. Hold on to that; every sign bug you will ever write comes from forgetting it.\n\nThe lane is 3.6 m wide, so the yellow line is 1.8 m to your left and the white line 1.8 m to your right. When $|e|$ reaches 1.8 m the front axle is on a line, and the simulator ends the run.\n\nA drive is not one number but a **time series**: one value of $e$ at every step. Call them $e_1, e_2, \\ldots, e_N$, where $N$ is the number of steps. With a step every 0.05 s you get 20 values per second, so one lap of `gentle`, which takes the provided car 88.85 s, is $N = 1778$ values. In the lab they arrive as a NumPy array called `tel.lat`.\n\n## Summarising lane error\n\nNobody can compare two cars by reading 1,778 numbers each. You want a few numbers that each answer a clear question. Here are the three this course uses. In each, the symbol $\\sum_{t=1}^{N}$ means \"add up the thing that follows for $t = 1, 2, \\ldots, N$\", and $|e_t|$ is the size of $e_t$ with its sign dropped.\n\n**Mean absolute error** answers \"how far from centre was the car, typically?\":\n\n$$\\text{mean}|e| = \\frac{1}{N}\\sum_{t=1}^{N} |e_t|$$\n\n**Maximum absolute error** answers \"how bad was the worst moment?\":\n\n$$\\max|e| = \\max_{t} |e_t|$$\n\n**Root mean square (RMS) error** answers \"how far from centre, typically, counting big errors extra?\". Read it from the inside out: square each error, take the mean of the squares, then take the square root.\n\n$$\\text{RMS}(e) = \\sqrt{\\frac{1}{N}\\sum_{t=1}^{N} e_t^{2}}$$\n\n**Worked example.** Take five lateral errors, in metres:\n\n$$e = (0.1,\\ -0.3,\\ 0.2,\\ -0.4,\\ 0.4)$$\n\n- Drop the signs: $|e| = (0.1, 0.3, 0.2, 0.4, 0.4)$. They add up to $1.4$, and $1.4 / 5 = 0.28$. So $\\text{mean}|e| = 0.28$ m.\n- The largest of those is $0.4$, so $\\max|e| = 0.4$ m.\n- Square each error: $(0.01, 0.09, 0.04, 0.16, 0.16)$. The squares add up to $0.46$, and $0.46 / 5 = 0.092$. The square root of $0.092$ is $0.303$, so $\\text{RMS}(e) = 0.303$ m.\n\nNotice the units. Squares of metres are square metres; the square root brings you back to metres, which is why RMS can sit beside mean $|e|$ on the same scale.\n\nFor the provided car's lap of `gentle`, the simulator reports mean $|e|$ = 0.38 m, max $|e|$ = 0.53 m and RMS = 0.44 m. In the lab you will write the function that computes all three.\n\n## The signed-mean trap\n\nHere is the tempting shortcut: \"Just average $e$ itself. Left and right errors will show which side the car favours, and a small average means good lane-keeping.\"\n\nTry it on the worked example. The signed mean is\n\n$$\\frac{0.1 - 0.3 + 0.2 - 0.4 + 0.4}{5} = \\frac{0.0}{5} = 0.0 \\text{ m}$$\n\nA perfect score, for a car that was off centre at every single step. The positive errors cancelled the negative ones.\n\nThis is not a toy problem. Here are two real drives from the simulator:\n\n![Two lateral-error traces. The provided car on gentle sits on the left, inside the bends: signed mean +0.38 m, mean |e| 0.38 m. A car with a stiffer steering gain on curvy swings to the inside of every bend, left then right: signed mean +0.02 m, but mean |e| 0.50 m. Dotted lines mark ±0.9 m.](/learnfsd-course/figures/0-1-1/signed_mean_trap.png)\n\nOn the left, the provided car on `gentle` drifts to the inside of each left-hand bend and stays there, so every error is positive and the signed mean equals mean $|e|$: both are 0.38 m. On the right, a car with a stiffer steering setting (you will meet steering gains in unit 0.1.4) drives `curvy`. It cuts to the inside of every bend, which is left on the left bends and right on the right bends. Its signed mean is +0.02 m, which makes it look far better than the first car. Its mean $|e|$ is 0.50 m, so it is actually further from centre, on average.\n\nThe signed mean answers a different question: \"on average, which side does the car favour?\". That is called **bias**, and it is worth knowing. It is not a measure of how far the car strays, and it must never be used as a quality score. Taking the absolute value, or squaring, turns every error into a cost that cannot be cancelled.\n\n## Why RMS punishes big errors\n\nTake two five-step drives with the same mean $|e|$:\n\n- Drive A: $(0.2, 0.2, 0.2, 0.2, 0.2)$, which is always a little off.\n- Drive B: $(0, 0, 0, 0, 1.0)$, which is perfect, then one big swerve.\n\nBoth have $\\text{mean}|e| = 1.0/5 = 0.2$ m. Now the RMS:\n\n- A: the squares are all $0.04$, their mean is $0.04$, and $\\sqrt{0.04} = 0.2$ m.\n- B: the squares are $(0, 0, 0, 0, 1.0)$, their mean is $0.2$, and $\\sqrt{0.2} = 0.447$ m.\n\nWhy the difference? The swerve of 1.0 m is 5 times the steady 0.2 m, but its square, $1.0$, is 25 times $0.04$. Squaring grows big numbers much faster than small ones, so one large error dominates the mean of the squares.\n\nThat matches driving. Being 0.2 m off centre all the time never puts a wheel near a line. Being 1.0 m off for a moment might. When the worst moments matter most, look at RMS and $\\max|e|$, not only mean $|e|$.\n\nOne more fact you can check on every example here: RMS is never smaller than mean $|e|$ (0.303 ≥ 0.28, 0.447 ≥ 0.2). The two are equal only when every $|e_t|$ is the same, as in drive A. The more uneven the errors, the wider the gap.\n\n## Counting steps off the lane\n\nSome questions are yes or no at each step. \"Was the car more than 0.9 m from centre just now?\" The course uses 0.9 m, half the 1.8 m distance from lane centre to a line, as its **off-lane** limit. A step is off the lane when\n\n$$|e_t| > 0.9 \\text{ m}$$\n\nThe comparison is strict: a step at exactly 0.9 m is on the limit, not over it.\n\nNumPy answers this question for every step at once. `np.abs(e) > 0.9` gives an array of `True` and `False`, one per step. Python counts `True` as 1 and `False` as 0, so `.sum()` of that array is the number of steps off the lane.\n\nWorked example with the five errors above and a stricter limit of 0.35 m: the sizes $(0.1, 0.3, 0.2, 0.4, 0.4)$ compared with $> 0.35$ give `[False, False, False, True, True]`, and the sum is 2 steps.\n\nTo turn a count of steps into time, divide by 20 steps per second. The provided car on `curvy` spends 40 steps more than 0.9 m from centre, which is $40 / 20 = 2.0$ seconds, before it leaves the road 48 m into the 218.5 m route.\n\n## Arrays, not loops\n\nYou could compute mean $|e|$ with a Python loop:\n\n```python\ntotal = 0.0\nfor x in e:\n    total += abs(x)\nmean_abs = total / len(e)\n```\n\nNumPy lets you write the formula instead:\n\n```python\nmean_abs = np.abs(e).mean()\n```\n\n`np.abs(e)` makes a new array holding the size of every element. `.mean()` adds them up and divides by how many there are. `e ** 2` squares every element, `np.sqrt` takes a square root, `.max()` finds the largest element, and a comparison such as `e > 0.9` compares every element. Applying an operation to a whole array at once is called **vectorisation**.\n\nVectorised code is shorter, it reads like the maths, and it runs much faster, because the loop happens inside NumPy's compiled code instead of in Python, one element at a time. You will time the difference in the lab. The grader checks your answers against the plain-loop computation, so both styles must agree.\n\n## Go deeper\n\n- **NumPy: the absolute basics for beginners**, sections \"Array fundamentals\" and \"Basic array operations\". This is the official guide to everything this unit used: making arrays, `abs`, `mean`, `max` and comparisons.\n- **CS231n Python Numpy Tutorial**, sections \"Arrays\" and \"Array math\". A compact tour by Stanford's computer-vision course. Its \"Boolean array indexing\" part prepares you for unit 0.1.2.\n- **Thrun et al., \"Stanley: The Robot that Won the DARPA Grand Challenge\" (2006)**, §9.2 \"Steering Control\", p. 684. It shows how the winning car of a 2005 desert race defined its cross-track error and steered to shrink it. Read the definition now, and come back to the steering law after unit 0.1.4.\n",
+      "colab_url": "https://colab.research.google.com/github/vvknyn/self-driving-ai-course/blob/main/course/0.1.1-meet-your-car/lab.ipynb",
+      "quiz": [
+        {
+          "id": "q1",
+          "type": "numeric",
+          "prompt": "The centre of a car's front axle is 0.4 m to the **right** of lane centre. What is its lateral error $e$, in metres?",
+          "answer": -0.4,
+          "tolerance": 0.001,
+          "explain": "Left of centre is positive in this course, so right of centre is negative: $e = -0.4$ m. The size, 0.4 m, says how far; the sign says which side.",
+          "section": "lateral-error"
+        },
+        {
+          "id": "q2",
+          "type": "numeric",
+          "prompt": "Four steps of a drive have lateral errors $(0.5, -0.2, -0.6, 0.1)$ m. What is mean $|e|$, in metres?",
+          "answer": 0.35,
+          "tolerance": 0.005,
+          "explain": "Drop the signs first: $(0.5, 0.2, 0.6, 0.1)$. They add up to 1.4, and $1.4 / 4 = 0.35$ m. If you got $-0.05$, you averaged the signed values: that is the signed mean, not mean $|e|$.",
+          "section": "summarising-lane-error"
+        },
+        {
+          "id": "q3",
+          "type": "numeric",
+          "prompt": "Two steps have lateral errors $(0.3, -0.4)$ m. What is their RMS, in metres, to three decimals?",
+          "answer": 0.354,
+          "tolerance": 0.002,
+          "explain": "Inside out: the squares are $0.09$ and $0.16$, their mean is $0.25 / 2 = 0.125$, and $\\sqrt{0.125} = 0.354$ m. Squaring makes the minus sign irrelevant, and the root brings the units back to metres.",
+          "section": "summarising-lane-error"
+        },
+        {
+          "id": "q4",
+          "type": "mcq",
+          "prompt": "Over a whole drive, car X has a signed mean lateral error of +0.01 m and car Y has +0.30 m. Which statement do these two numbers justify?",
+          "choices": [
+            "Car X keeps its lane better than car Y.",
+            "On average, car Y sat further left of centre than car X did.",
+            "Car X was never more than 0.01 m from lane centre.",
+            "Car Y left the lane at some point."
+          ],
+          "answer": 1,
+          "explain": "The signed mean measures bias, which side the car favours on average. It cannot rank quality: car X could swing 0.5 m left and 0.5 m right and still average +0.01 m, as the stiffer car on `curvy` did (signed mean +0.02 m, mean $|e|$ 0.50 m). To compare how far the cars strayed, you need mean $|e|$ or RMS.",
+          "section": "the-signed-mean-trap"
+        },
+        {
+          "id": "q5",
+          "type": "mcq",
+          "prompt": "Drives P and Q both have mean $|e|$ = 0.2 m. Drive P has RMS 0.21 m and drive Q has RMS 0.45 m. Which drive most likely contains one large swerve?",
+          "choices": [
+            "Drive P",
+            "Drive Q",
+            "Neither: equal mean $|e|$ means the drives were equally smooth.",
+            "Both equally: RMS and mean $|e|$ always agree."
+          ],
+          "answer": 1,
+          "explain": "Squaring grows big errors much faster than small ones, so one large error lifts the RMS far above mean $|e|$. RMS equals mean $|e|$ only when every error has the same size, so drive P (0.21 against 0.2) was steady and drive Q (0.45 against 0.2) was uneven.",
+          "section": "why-rms-punishes-big-errors"
+        },
+        {
+          "id": "q6",
+          "type": "numeric",
+          "prompt": "What does `steps_off_lane(np.array([0.9, -1.2, 0.3, -0.9, 1.0]))` return with the default limit of 0.9 m?",
+          "answer": 2,
+          "tolerance": 0,
+          "explain": "The sizes are $(0.9, 1.2, 0.3, 0.9, 1.0)$. The test is strict, $|e| > 0.9$, so the two steps at exactly 0.9 do not count; 1.2 and 1.0 do. That makes 2. Forgetting the absolute value gives 1, and using $\\ge$ gives 4.",
+          "section": "counting-steps-off-the-lane"
+        },
+        {
+          "id": "q7",
+          "type": "numeric",
+          "prompt": "A car spends 37 steps off the lane. How many seconds is that?",
+          "answer": 1.85,
+          "tolerance": 0.001,
+          "explain": "One step is 0.05 s, so there are 20 steps per second: $37 / 20 = 1.85$ s.",
+          "section": "counting-steps-off-the-lane"
+        },
+        {
+          "id": "q8",
+          "type": "mcq",
+          "prompt": "What does `print(np.array([-0.5, 0.5]) ** 2)` print?",
+          "choices": [
+            "`[-0.25  0.25]`",
+            "`[0.25 0.25]`",
+            "`0.5`",
+            "An error: you cannot square a whole array."
+          ],
+          "answer": 1,
+          "explain": "`** 2` squares every element of the array at once (vectorisation), and the square of a negative number is positive. The result is still an array of the same shape, not a single number; `.mean()` is what would reduce it to one.",
+          "section": "arrays-not-loops"
+        }
+      ],
+      "cards": [
+        {
+          "id": "c1",
+          "front": "What is the lateral error $e$, and which sign means left?",
+          "back": "The sideways distance, in metres, from lane centre to the centre of the front axle. $e > 0$ means left of centre, $e < 0$ right."
+        },
+        {
+          "id": "c2",
+          "front": "Why is the signed mean of $e$ never a quality score?",
+          "back": "Left and right errors cancel. A car that swings to both sides can average near 0 m while being far from centre. The signed mean measures bias (which side), not size."
+        },
+        {
+          "id": "c3",
+          "front": "How do you compute RMS$(e)$, in words?",
+          "back": "From the inside out: square each error, take the mean of the squares, take the square root. Big errors count extra, so RMS is never below mean $|e|$."
+        },
+        {
+          "id": "c4",
+          "front": "When is a step off the lane in this course?",
+          "back": "When $|e| > 0.9$ m, strictly. 0.9 m is half the 1.8 m from lane centre to a line."
+        },
+        {
+          "id": "c5",
+          "front": "How do you count the steps off the lane in one line of NumPy?",
+          "back": "`(np.abs(e) > 0.9).sum()`: the comparison gives one True or False per step, and `.sum()` counts True as 1."
+        },
+        {
+          "id": "c6",
+          "front": "How long is one simulator step, and how do you turn steps into seconds?",
+          "back": "0.05 s, so 20 steps make a second: divide the number of steps by 20."
+        }
+      ]
+    },
+    "0-1-2": {
+      "id": "0.1.2",
+      "slug": "0-1-2",
+      "title": "Images are arrays",
+      "minutes": 210,
+      "box": "Perception, first half: the paint masks that find the yellow and white lines in a camera frame",
+      "outcomes": [
+        {
+          "can": "Index and slice a camera frame: its shape, its dtype, one pixel by row and column (row 0 is the top), one colour channel",
+          "proof": "Practice problems in the lab, and the quiz questions on frame indexing"
+        },
+        {
+          "can": "Build yellow and white paint masks that survive camera noise, using a colour distance and a threshold",
+          "proof": "Your paint_masks passes check(\"0.1.2.a\") in the lab"
+        },
+        {
+          "can": "Explain why exact colour equality fails on noisy images, and why uint8 arithmetic wraps around",
+          "proof": "Quiz questions on exact equality and the uint8 trap, and the break-it exercise in the lab"
+        }
+      ],
+      "prerequisites": [
+        "0-1-1"
+      ],
+      "go_deeper": [
+        {
+          "title": "NumPy: the absolute basics for beginners (sections \"Array attributes\" and \"Indexing and slicing\")",
+          "url": "https://numpy.org/doc/stable/user/absolute_beginners.html"
+        },
+        {
+          "title": "CS231n Python Numpy Tutorial (sections \"Array indexing\", \"Datatypes\" and, under Matplotlib, \"Images\")",
+          "url": "https://cs231n.github.io/python-numpy-tutorial/"
+        },
+        {
+          "title": "Pomerleau, ALVINN: An Autonomous Land Vehicle in a Neural Network (1988), p. 306, \"Network Architecture\" and Figure 1",
+          "url": "https://proceedings.neurips.cc/paper_files/paper/1988/file/812b4ba287f5ee0bc9d43bbf5bbe87fb-Paper.pdf"
+        }
+      ],
+      "paper": null,
+      "tutor_prompt": "You are a Socratic tutor for unit 0.1.2 \"Images are arrays\" of a self-driving car course. I am a programmer with rusty maths and no machine-learning background. I have just read a lecture and done a lab on finding the lane paint in a camera frame.\n\nWhat the unit taught (use these facts exactly):\n- A camera frame is a NumPy array of shape (180, 320, 3), dtype uint8 (whole numbers 0 to 255). frame[row, column, channel]: row 0 is the top, channel 0/1/2 is red/green/blue.\n- The simulator paints five colours: sky (135, 190, 235), grass (70, 130, 60), road (90, 90, 95), yellow paint (230, 200, 40), white paint (240, 240, 240).\n- The distance between two colours is the straight-line distance in red-green-blue space: sqrt of the sum of the squared differences. Road to yellow is 186.3.\n- Camera noise of sigma 6 nudges every channel. A pixel is paint when its distance to the paint colour is below a threshold; 60 works because noise moves paint less than about 28, and the nearest other colour is more than 90 away.\n- A mask is a bool array of shape (180, 320). IoU = (pixels marked in both) / (pixels marked in either). Pixel accuracy is the wrong score because paint is rare.\n- Misconception 1 to probe: \"frame == colour finds the paint\". It does not on noisy frames: all three nudges must round to 0, which with sigma 6 happens with probability about 0.0003.\n- Misconception 2 to probe: \"subtracting two uint8 arrays gives a negative number\". It wraps around instead: 90 - 230 gives 116. The fix is frame.astype(float) before subtracting.\n\nHow to run the session:\n1. Ask me ONE question at a time, then wait for my answer. Start by asking me what frame[0, 319] is, and which way the row index runs.\n2. Never give me the answer. If I am wrong or vague, ask a smaller question, or give me two or three colours to work through by hand, so I find the mistake myself.\n3. Within the first three questions, test misconception 1: ask whether frame == (230, 200, 40) would find the yellow line in a noisy frame, and why.\n4. Ask at least one question where I compute a colour distance by hand, one where I compute an IoU from counts you give me, and one where I predict what a uint8 subtraction prints.\n5. Keep your turns short: two or three sentences, then the question.\n6. After about five exchanges, stop. List what I explained well, and what I should revisit, naming these lecture sections: \"A frame is a grid of numbers\", \"Colour is a point in space\", \"Paint is a colour threshold\", \"Scoring a mask with IoU\", \"Why exact equality fails\", \"The uint8 wraparound trap\".\n",
+      "lecture_md": "# Images are arrays\n\n## A frame is a grid of numbers\n\nA paper from 1988 describes a van that drove itself along a 400 m path through a wooded area of the Carnegie Mellon University campus, steered by a small neural network called ALVINN. The network never saw the camera picture the way you do. It saw numbers:\n\n> \"The first retina, consisting of 30x32 units, receives video camera input from a road scene. The activation level of each unit in this retina is proportional to the intensity in the blue color band of the corresponding patch of the image.\" (Pomerleau, 1988, p. 306)\n\nA grid of 30 by 32 brightness values, 960 numbers, was all the network saw of the camera picture.\n\nYour car's camera gives you more numbers, but they are still just numbers. Every 0.05 s it hands the perception box one **frame**: a NumPy array of shape `(180, 320, 3)`. That is 180 rows, 320 columns, and 3 colour values per pixel, $180 \\times 320 \\times 3 = 172{,}800$ numbers in all.\n\nYou pick one number out with three indices, `frame[row, column, channel]`:\n\n- **row** runs from 0 at the **top** of the picture to 179 at the bottom. Rows near the bottom show the road just in front of the car.\n- **column** runs from 0 at the left edge to 319 at the right edge.\n- **channel** is 0 for red, 1 for green and 2 for blue. Leave it out and you get all three: `frame[0, 0]` is the top-left pixel's colour, `(135, 190, 235)`, which is sky blue.\n\nEvery value is a whole number from 0 to 255. The array's **dtype**, its number type, is `uint8`: an unsigned integer stored in 8 bits, and 8 bits can hold $2^8 = 256$ different values. 0 means none of that colour and 255 means as much as the camera can record.\n\n![Left: the camera frame on the straight road, with a small red box where the road meets the yellow line. Right: the 6 by 6 pixels inside that box, drawn large, each labelled with its red, green and blue values.](/learnfsd-course/figures/0-1-2/frame_grid.png)\n\nZoom in on the red box and the picture dissolves into its numbers. The grey road pixels are all `(90, 90, 95)`; the yellow paint pixels are all `(230, 200, 40)`. The boundary between them is a staircase, because a slanted line drawn on a grid of squares always is.\n\nThis flat-world teaching simulator paints the world in exactly five colours:\n\n| Surface | Red | Green | Blue |\n|---|---|---|---|\n| sky | 135 | 190 | 235 |\n| grass | 70 | 130 | 60 |\n| road | 90 | 90 | 95 |\n| yellow paint | 230 | 200 | 40 |\n| white paint | 240 | 240 | 240 |\n\nIn the frame above, rows 0 to 75 are all sky: the horizon of a flat world sits at row 75.5. The paint the car needs is a thin sliver. Of the frame's $180 \\times 320 = 57{,}600$ pixels, 709 are yellow and 872 are white, 2.7% in all. The job of this unit is to find them.\n\n## Colour is a point in space\n\nThree numbers can be read as a position in space. Treat red, green and blue as three axes, like the length, width and height of a room, and every colour becomes a point in a cube whose sides run from 0 to 255. Similar colours are points close together.\n\nThat gives you a way to ask \"how close is this pixel's colour to yellow?\": measure the straight-line distance between the two points. For a pixel colour $p = (p_R, p_G, p_B)$ and a reference colour $c = (c_R, c_G, c_B)$, where the subscripts $R$, $G$ and $B$ name the red, green and blue values,\n\n$$d(p, c) = \\sqrt{(p_R - c_R)^2 + (p_G - c_G)^2 + (p_B - c_B)^2}$$\n\nThis is Pythagoras' theorem with one extra axis. The distance is 0 when the colours are identical, and grows as they differ.\n\n**Worked example.** How far is road grey $p = (90, 90, 95)$ from yellow paint $c = (230, 200, 40)$?\n\n- Differences: $90 - 230 = -140$, $90 - 200 = -110$, $95 - 40 = 55$.\n- Squares: $19{,}600$, $12{,}100$ and $3{,}025$. They add up to $34{,}725$.\n- Square root: $\\sqrt{34{,}725} = 186.3$.\n\nWork out every pair of the five colours the same way and two facts stand out. The colour nearest to yellow is grass, 175.8 away. The colour nearest to white is sky, only 116.4 away. Keep those two numbers in mind.\n\n## Paint is a colour threshold\n\nReal cameras are not perfect. Each value comes back nudged up or down a little by electrical **noise**. The simulator can imitate this: with `noise_sigma=6` it adds a random amount to every channel of every pixel. The symbol $\\sigma$ (sigma) is the typical size of the nudge, its standard deviation: about two thirds of the nudges are smaller than 6, and very few are bigger than 18. The result is rounded and kept within 0 to 255.\n\n![The same 6 by 6 pixels, clean on the left and with noise of sigma 6 on the right. After noise, no two road pixels are identical, and no yellow pixel is exactly (230, 200, 40).](/learnfsd-course/figures/0-1-2/noisy_patch.png)\n\nPixel (150, 60) was `(230, 200, 40)` and is now `(226, 196, 34)`. Its distance from yellow is $\\sqrt{(-4)^2 + (-4)^2 + (-6)^2} = \\sqrt{68} = 8.25$. Not zero, but tiny next to the 186.3 between road and yellow.\n\nSo decide it with a **threshold**, a cut-off distance written $\\tau$ (tau): a pixel counts as yellow paint when\n\n$$d(p, c_{\\text{yellow}}) < \\tau$$\n\nAsking that question of every pixel gives a **mask**: a `bool` array of shape `(180, 320)` holding `True` where the answer is yes. With `yellow` holding the three numbers of yellow paint, NumPy asks all 57,600 questions in two lines:\n\n```python\ndistance = np.linalg.norm(frame.astype(float) - yellow, axis=-1)  # shape (180, 320)\nyellow_mask = distance < tau                                      # shape (180, 320), dtype bool\n```\n\n`frame.astype(float) - yellow` subtracts the three-number `yellow` from every pixel at once, which NumPy calls **broadcasting**. `np.linalg.norm(..., axis=-1)` then takes the square root of the sum of squares along the last axis, the colour axis, leaving one distance per pixel. The `astype(float)` matters, as the last section shows.\n\nHow big should $\\tau$ be? Look at the distance of every pixel in a noisy frame:\n\n![Histograms of the distance from every pixel of a noisy frame to yellow (left) and to white (right), coloured by what each pixel truly is. Paint pixels sit below 30; every other pixel is more than 90 away. A red line marks the threshold of 60.](/learnfsd-course/figures/0-1-2/colour_distance.png)\n\nIn this frame, noise moved no yellow pixel more than 27.8 from yellow and no white pixel more than 24.8 from white. The nearest pixel that is *not* yellow paint is 151.2 away from yellow; the nearest non-white one is a noisy sky pixel 92.2 from white. Any $\\tau$ inside that gap separates paint from everything else. The provided perception box uses $\\tau = 60$.\n\nStray outside the gap and you see why it has to be there. On this frame, $\\tau = 10$ keeps only 55% of the yellow paint. For white, $\\tau = 120$ reaches past the gap into the sky: it marks 18,098 pixels instead of 872.\n\n## Scoring a mask with IoU\n\nHow do you say how good a mask is? The simulator knows which pixels truly are paint, so there is a correct mask $T$ (for \"truth\") to compare your mask $M$ with. The course uses **intersection over union**, IoU:\n\n$$\\text{IoU}(M, T) = \\frac{|M \\cap T|}{|M \\cup T|}$$\n\nHere $M \\cap T$ (the intersection) is the set of pixels marked in both masks, $M \\cup T$ (the union) is the set marked in either, and $|\\cdot|$ means \"how many pixels\". In NumPy, `&` is \"both\" and `|` is \"either\", so the IoU is `(M & T).sum() / (M | T).sum()`.\n\n**Worked example.** The truth has 10 paint pixels. Your mask marks 8 of them, plus 4 pixels that are not paint. The intersection is 8. The union is the 10 true pixels plus your 4 wrong ones, 14. So IoU $= 8 / 14 = 0.571$.\n\nIoU is 1 only when the two masks are identical, and it punishes both kinds of mistake: missed paint shrinks the top, and false paint grows the bottom.\n\nWhy not simply count the fraction of pixels you got right? Because paint is so rare. A mask that marks nothing at all is right about 98.8% of the pixels for yellow, since only 1.2% of the frame is yellow paint. Its IoU is 0. The grader for this unit asks for IoU of at least 0.85 for both masks, on six noisy frames drawn from all three roads.\n\n## Why exact equality fails\n\nHere is the tempting shortcut: \"The simulator paints yellow as exactly `(230, 200, 40)`. So find yellow with `frame == yellow`.\"\n\nOn a clean frame this works perfectly: IoU 1.0. On a noisy frame it finds nothing:\n\n![Rows 100 to 179 of the noisy frame; the mask from exact equality, which is empty (0 pixels, IoU 0.00); and the mask from a distance threshold of 60, which finds all 1,581 paint pixels (IoU 1.00).](/learnfsd-course/figures/0-1-2/exact_vs_threshold.png)\n\nTo equal yellow exactly, a noisy pixel needs all three of its nudges to round to 0. One nudge does that only when it lands between $-0.5$ and $+0.5$, which with $\\sigma = 6$ happens with probability 0.066. All three at once: $0.066^3 = 0.0003$. Out of 709 yellow pixels you would expect to find about 0.2, and in this frame you find none.\n\nThe lesson reaches far beyond paint. Measured data never lands exactly on its ideal value, so never test it for equality: test whether it is close enough. (There is a second trap in `frame == yellow` too. It compares channel by channel, giving shape `(180, 320, 3)`, so you would need `np.all(..., axis=-1)` just to get one answer per pixel.)\n\n## The uint8 wraparound trap\n\nSuppose you skip `astype(float)` and subtract directly: `frame - yellow`, with both arrays `uint8`. That is easy to do by accident, because the simulator's own colour table, `PALETTE`, is `uint8` too. A `uint8` cannot hold a negative number, so NumPy wraps the result around, silently: it adds 256 until the answer fits.\n\n$$90 - 230 = -140 \\quad\\longrightarrow\\quad -140 + 256 = 116$$\n\nSo road grey minus yellow comes out as `(116, 146, 55)` instead of `(-140, -110, 55)`. Squares overflow the same way: $20^2 = 400$ does not fit either, and $400 - 256 = 144$.\n\nThe damage depends on the noise. A paint pixel keeps a correct, small distance only if no channel dipped below the paint colour. When one did, $-2$ becomes $254$, and the pixel looks nothing like paint. In the noisy frame above that leaves 13.5% of the yellow pixels and 13.9% of the white ones, so the masks score an IoU of 0.14. No error, no warning: just a mask that is mostly empty.\n\nThe fix is one call: convert to a type that can go negative before you subtract, `frame.astype(float)`. Whenever you do arithmetic on image data, convert first.\n\n## Go deeper\n\n- **NumPy: the absolute basics for beginners**, sections \"Array attributes\" (shape, dtype) and \"Indexing and slicing\", which ends with picking out values with a condition and combining conditions with `&` and `|`.\n- **CS231n Python Numpy Tutorial**, sections \"Array indexing\" (read \"Boolean array indexing\"), \"Datatypes\" and, under Matplotlib, \"Images\".\n- **Pomerleau, \"ALVINN: An Autonomous Land Vehicle in a Neural Network\" (1988)**, p. 306, \"Network Architecture\" and Figure 1: the 30 by 32 camera grid and why it used the blue band. This is the module paper; you will read it properly in unit 0.1.4.\n",
+      "colab_url": "https://colab.research.google.com/github/vvknyn/self-driving-ai-course/blob/main/course/0.1.2-images-are-arrays/lab.ipynb",
+      "quiz": [
+        {
+          "id": "q1",
+          "type": "numeric",
+          "prompt": "A camera frame has shape `(180, 320, 3)`. How many numbers does it hold?",
+          "answer": 172800,
+          "tolerance": 0,
+          "explain": "Multiply the sizes of the three axes: $180 \\times 320 \\times 3 = 172{,}800$. That is 57,600 pixels, each with a red, a green and a blue value.",
+          "section": "a-frame-is-a-grid-of-numbers"
+        },
+        {
+          "id": "q2",
+          "type": "mcq",
+          "prompt": "`frame` has shape `(180, 320, 3)`. What is `frame[0, 319]`?",
+          "choices": [
+            "The red, green and blue values of the top-left pixel",
+            "The red, green and blue values of the top-right pixel",
+            "The red, green and blue values of the bottom-right pixel",
+            "An error: index 319 is out of range"
+          ],
+          "answer": 1,
+          "explain": "The first index is the row, and row 0 is the **top**. The second is the column, and column 319 is the last one, at the right edge. Leaving out the channel index returns all three colour values of that pixel. The bottom-right pixel would be `frame[179, 319]`.",
+          "section": "a-frame-is-a-grid-of-numbers"
+        },
+        {
+          "id": "q3",
+          "type": "numeric",
+          "prompt": "How far is the colour $(100, 100, 100)$ from road grey $(90, 90, 95)$?",
+          "answer": 15,
+          "tolerance": 0.01,
+          "explain": "Differences $(10, 10, 5)$; squares $(100, 100, 25)$, which add up to 225; and $\\sqrt{225} = 15$. Close to road grey, and very far from either paint colour.",
+          "section": "colour-is-a-point-in-space"
+        },
+        {
+          "id": "q4",
+          "type": "mcq",
+          "prompt": "The simulator paints yellow as exactly $(230, 200, 40)$. Why does `np.all(frame == yellow, axis=-1)` find almost no yellow pixels in a frame with camera noise of $\\sigma = 6$?",
+          "choices": [
+            "Noise changes the paint's colour to a different colour, such as orange.",
+            "A noisy pixel matches only if all three of its nudges round to 0, and with $\\sigma = 6$ that happens for about 3 pixels in 10,000.",
+            "`==` cannot compare arrays of different shapes.",
+            "Noise makes the yellow line thinner, so there are fewer pixels to find."
+          ],
+          "answer": 1,
+          "explain": "One nudge rounds to 0 with probability 0.066 when $\\sigma = 6$, so all three do with probability $0.066^3 = 0.0003$. The pixels still look yellow, and each is within about 30 of yellow; they are just never exactly on it. That is why you test for *close enough* with a distance and a threshold.",
+          "section": "why-exact-equality-fails"
+        },
+        {
+          "id": "q5",
+          "type": "numeric",
+          "prompt": "The true mask has 20 paint pixels. Your mask marks 15 of them, plus 5 pixels that are not paint. What is the IoU?",
+          "answer": 0.6,
+          "tolerance": 0.001,
+          "explain": "The intersection is the 15 pixels marked in both. The union is the 20 true pixels plus your 5 wrong ones, 25. IoU $= 15 / 25 = 0.6$. Missing 5 true pixels and adding 5 false ones both cost you.",
+          "section": "scoring-a-mask-with-iou"
+        },
+        {
+          "id": "q6",
+          "type": "numeric",
+          "prompt": "Paint covers 1.2% of a frame. What is the IoU of a mask that marks no pixels at all?",
+          "answer": 0,
+          "tolerance": 0,
+          "explain": "Nothing is marked, so the intersection is empty: the IoU is 0 divided by the number of true paint pixels, which is 0. The same mask is *right* about 98.8% of the pixels, which is why pixel accuracy is the wrong score when the thing you look for is rare.",
+          "section": "scoring-a-mask-with-iou"
+        },
+        {
+          "id": "q7",
+          "type": "mcq",
+          "prompt": "In a noisy frame, no white paint pixel is more than 25 from white, and the nearest pixel that is not white paint is 92 from white. Which threshold $\\tau$ separates white paint from everything else?",
+          "choices": [
+            "$\\tau = 5$",
+            "$\\tau = 60$",
+            "$\\tau = 120$",
+            "$\\tau = 255$"
+          ],
+          "answer": 1,
+          "explain": "$\\tau$ must be bigger than the largest distance noise produces (25), and smaller than the distance to the nearest other colour (92). Only 60 sits in that gap. $\\tau = 5$ misses most of the paint; $\\tau = 120$ reaches into the sky and marks thousands of sky pixels as paint.",
+          "section": "paint-is-a-colour-threshold"
+        },
+        {
+          "id": "q8",
+          "type": "mcq",
+          "prompt": "What does `np.array([90], dtype=np.uint8) - np.array([230], dtype=np.uint8)` give?",
+          "choices": [
+            "`[-140]`",
+            "`[116]`",
+            "`[0]`",
+            "An `OverflowError`"
+          ],
+          "answer": 1,
+          "explain": "A `uint8` cannot hold a negative number, so NumPy wraps the result around, silently, by adding 256: $-140 + 256 = 116$. No error, no warning. Convert with `.astype(float)` before you subtract image data.",
+          "section": "the-uint8-wraparound-trap"
+        }
+      ],
+      "cards": [
+        {
+          "id": "c1",
+          "front": "What do the three indices of `frame[row, column, channel]` mean, and where is row 0?",
+          "back": "Row (0 is the **top**, 179 the bottom), column (0 is the left edge, 319 the right), channel (0 red, 1 green, 2 blue). A frame has shape `(180, 320, 3)`."
+        },
+        {
+          "id": "c2",
+          "front": "What is the dtype of a camera frame, and what values can it hold?",
+          "back": "`uint8`: an unsigned 8-bit integer, whole numbers from 0 to 255 and nothing else."
+        },
+        {
+          "id": "c3",
+          "front": "How far apart are two colours $p$ and $c$?",
+          "back": "The straight-line distance in colour space: $\\sqrt{(p_R - c_R)^2 + (p_G - c_G)^2 + (p_B - c_B)^2}$. In NumPy: `np.linalg.norm(frame.astype(float) - c, axis=-1)`."
+        },
+        {
+          "id": "c4",
+          "front": "Why do you never find paint with `frame == colour`?",
+          "back": "Measured data never lands exactly on its ideal value. With noise, every channel is nudged, so almost no pixel equals the paint colour. Test whether the distance is below a threshold instead."
+        },
+        {
+          "id": "c5",
+          "front": "What is IoU, and why not score a mask by the fraction of pixels it gets right?",
+          "back": "Intersection over union: pixels marked in both masks divided by pixels marked in either. Paint is rare, so a mask that marks nothing is 98.8% right but has IoU 0."
+        },
+        {
+          "id": "c6",
+          "front": "What is `90 - 230` in `uint8`, and how do you avoid it?",
+          "back": "116: the result wraps around by adding 256, silently. Convert first: `frame.astype(float)` before any arithmetic on image data."
+        }
+      ]
+    },
+    "0-1-3": {
+      "id": "0.1.3",
+      "slug": "0-1-3",
+      "title": "Your first perception box",
+      "minutes": 210,
+      "box": "Perception, second half: turning paint masks into the lane offset and heading the controller needs",
+      "outcomes": [
+        {
+          "can": "Turn an image row into a distance ahead on a flat road, and explain why one pixel column covers more ground the further away it is",
+          "proof": "Practice problems 1 and 2 in the lab, and the quiz questions on the horizon, row distances and metres per column"
+        },
+        {
+          "can": "Estimate the car's offset and heading from paint masks with two lane-centre points and a straight line, and report no estimate when the paint is missing",
+          "proof": "Your estimate_lane passes check(\"0.1.3.a\") in the lab"
+        },
+        {
+          "can": "Drive the car on your own perception, and explain why a straight-line lane model is biased on bends and why a flipped sign drives the car off the road",
+          "proof": "Your estimate_lane passes check(\"0.1.3.b\"), the straight-roads and break-it sections of the lab, and the quiz questions on bends and signs"
+        }
+      ],
+      "prerequisites": [
+        "0-1-2"
+      ],
+      "go_deeper": [
+        {
+          "title": "Stanford CS231A Course Notes 1, \"Camera Models\" (Hata and Savarese), section 2 \"Pinhole cameras\"",
+          "url": "https://web.stanford.edu/class/cs231a/course_notes/01-camera-models.pdf"
+        },
+        {
+          "title": "Aly, Real time Detection of Lane Markers in Urban Streets (2008), section II.A \"Inverse Perspective Mapping (IPM)\" and Figures 2 and 3",
+          "url": "https://arxiv.org/abs/1411.7113"
+        },
+        {
+          "title": "Szeliski, Computer Vision: Algorithms and Applications (2nd ed.), section 2.1.4 \"3D to 2D projections\"",
+          "url": "https://szeliski.org/Book/"
+        }
+      ],
+      "paper": null,
+      "tutor_prompt": "You are a Socratic tutor for unit 0.1.3 \"Your first perception box\" of a self-driving car course. I am a programmer with rusty maths and no machine-learning background. I have just read a lecture and done a lab on turning a camera frame into the car's position in its lane.\n\nWhat the unit taught (use these facts exactly):\n- The simulator's road is exactly flat. The camera is 1.4 m above the ground at the front axle, tipped down 5 degrees, focal length f = 160 pixels, image centre column 159.5 and row 89.5. The horizon is row 75.5.\n- A row is a distance: the ray of row v falls theta = 5 degrees + arctan((v - 89.5) / 160) below horizontal and meets the ground d = 1.4 / tan(theta) metres ahead. Row 150 sees 2.91 m ahead, row 100 sees 9.09 m.\n- One pixel column covers about d / f metres of ground: 0.0189 m in row 150, 0.0574 m in row 100. Sliding the car 0.5 m moves the white line 26.5 columns in row 150 but 9 in row 100.\n- The box: paint masks; in a near band (rows 125 to 179) and a far band (rows 95 to 115), each line's centroid, turned into a ground point (forward, left); the lane centre is the midpoint of the yellow and white points; a straight line through the near and far lane-centre points. offset = -(c1 - slope * f1), heading = -arctan(slope). Left is positive.\n- With fewer than 3 pixels of a line in a band, the box returns LaneEstimate(nan, nan, False), never 0 and 0.\n- On a bend of radius R the straight line through two points is a chord: with the car centred the box reports about s1 * s2 / (2R) offset and -arctan((s1 + s2) / (2R)) heading, with s1 about 2.7 m and s2 about 7.2 m. That is 0.12 m and 0.062 rad on the 80 m bends of gentle. It is a bias, not noise.\n- Misconception to probe: \"a pixel column is a fixed number of metres\". It is not; it grows with distance ahead.\n- A flipped offset sign makes the controller steer away from the centre: positive feedback, the error roughly doubling every half second until the car leaves the road after 5 s.\n\nHow to run the session:\n1. Ask me ONE question at a time, then wait for my answer. Start by asking me why every pixel in one row of the image sees ground at the same distance ahead.\n2. Never give me the answer. If I am wrong or vague, ask a smaller question, or give me numbers to work through by hand, so I find the mistake myself.\n3. Within the first three questions, test the misconception: ask whether the lane's width in columns in row 150 lets me convert columns to metres in row 100, and why.\n4. Ask at least one question where I compute a distance ahead for a row you give me, one where I compute an offset from two lane-centre points you give me, and one where I explain what the box reports on a bend with the car perfectly centred.\n5. Keep your turns short: two or three sentences, then the question.\n6. After about five exchanges, stop. List what I explained well, and what I should revisit, naming these lecture sections: \"The horizon\", \"Rows are distances\", \"Metres per pixel\", \"From masks to a lane estimate\", \"What valid=False is for\", \"Straight roads only\", \"Swap your perception into the car\".\n",
+      "lecture_md": "# Your first perception box\n\n## The horizon\n\nYour `paint_masks` from unit 0.1.2 finds the paint pixels, but the controller wants two numbers: how far the car is from lane centre in metres (the **offset**, positive when left of centre) and which way it points relative to the lane in radians (the **heading**, positive when pointing left of the lane). This unit builds the box in between, `estimate_lane(obs)`, which returns a `LaneEstimate(offset_m, heading_rad, valid)`.\n\nThe bridge from pixels to metres is one assumption. A 2008 lane-detection paper states it in its first step:\n\n> \"To get the IPM of the input image, we assume a flat road, and use the camera intrinsic (focal length and optical center) and extrinsic (pitch angle, yaw angle, and height above ground) parameters to perform this transformation.\" (Aly, 2008, §II.A)\n\nIPM, inverse perspective mapping, redraws the picture as if seen from straight above, so \"lanes that appear to converge at the horizon line are now vertical and parallel.\" You will do it for just the pixels you need.\n\nIn this flat-world teaching simulator the ground is exactly a plane, and you know every camera number. The camera sits $h = 1.4$ m above the ground, directly above the front axle, tipped down by a **pitch** of $p = 5°$. Its **focal length** is $f = 160$ pixels: a ray at angle $\\alpha$ from the direction the camera points lands $f \\tan\\alpha$ pixels from the image centre, which is column $c_x = 159.5$, row $c_y = 89.5$.\n\nThe horizon is where a ray parallel to the ground lands. That ray points 5° *above* the camera's axis, so it lands $f \\tan 5° = 160 \\times 0.0875 = 14.0$ rows above the centre: row $89.5 - 14.0 = 75.5$. Rows above it see sky, which is why rows 0 to 75 of the 0.1.2 frame were all sky.\n\n## Rows are distances\n\nTake a row $v$ below the horizon. Its ray points $\\arctan\\frac{v - c_y}{f}$ below the camera's axis, and the axis points $p$ below horizontal, so the ray falls at\n\n$$\\theta = p + \\arctan\\frac{v - c_y}{f}$$\n\nbelow horizontal. It starts at height $h$ and meets the ground a distance $d$ ahead: a right-angled triangle with $\\tan\\theta = h / d$, so\n\n$$d = \\frac{h}{\\tan\\theta}$$\n\n![Left: side view of rays for five rows meeting the ground 2.06 to 11.45 m ahead. Right: distance ahead against row, rising steeply towards the horizon at row 75.5.](/learnfsd-course/figures/0-1-3/rows_to_distance.png)\n\n**Worked example.** How far ahead is the ground seen in row 150?\n\n- $(150 - 89.5) / 160 = 0.378$, and $\\arctan 0.378 = 20.71°$.\n- $\\theta = 5° + 20.71° = 25.71°$, and $\\tan 25.71° = 0.4815$.\n- $d = 1.4 / 0.4815 = 2.91$ m.\n\nThe column never appears in the formula: every pixel in row 150 sees ground 2.91 m ahead. A row is a distance.\n\n`Camera.pixel_to_ground(u, v)` does this for you: it takes a column $u$ and a row $v$ and returns the ground point `(forward, left)` in metres from the camera, left positive, or NaN (not a number) above the horizon. The lab checks the worked example against it; module 1.4 opens it up.\n\nThe distances are uneven: at the bottom one row is 4 cm of road, near row 100 it is 36 cm, and ten rows below the horizon you are past 50 m. Rows near the horizon are too coarse to trust, so the box measures in two bands: the **near band**, rows 125 to 179 (2.1 to 4.4 m ahead), and the **far band**, rows 95 to 115 (5.6 to 11.5 m).\n\n## Metres per pixel\n\nThe tempting shortcut: \"The lane is 3.6 m wide. Count the columns it spans, divide, and you know the metres per column; multiply any pixel's column by it.\" That fails, because **a pixel column is not a fixed number of metres**. Sideways distances shrink with distance, just as a far-off car looks smaller.\n\n![The straight road with lines 1 m apart on the ground, far apart at the bottom of the frame and crowding together near the horizon.](/learnfsd-course/figures/0-1-3/perspective_grid.png)\n\nA point $L$ metres to the left and about $d$ metres ahead appears roughly $f L / d$ columns from the centre, so one column covers about\n\n$$\\text{metres per column} \\approx \\frac{d}{f}$$\n\nMeasured with `pixel_to_ground`, one column covers 0.0189 m in row 150 (2.91 m ahead), 0.0574 m in row 100 (9.09 m ahead) and 0.312 m in row 80 (50.1 m ahead), each close to $d/f$; the 5° pitch accounts for the differences.\n\n**Worked example.** The 3.6 m lane spans $3.6 / 0.0189 = 191$ columns in row 150 but $3.6 / 0.0574 = 63$ in row 100. Slide the car 0.5 m left and the white line moves $0.5 / 0.0189 = 26.5$ columns in row 150, but only $0.5 / 0.0574 = 8.7$ in row 100; the lab measures both. To turn a pixel into metres you need its row as well as its column.\n\n## From masks to a lane estimate\n\nOffset and heading describe the **lane centre**, halfway between the yellow line and the white line, which are 3.6 m apart. The box finds two points on it and draws a straight line through them:\n\n1. **Masks:** `yellow, white = paint_masks(obs.frame)`.\n2. **Centroids:** in each band, each line's **centroid** is the mean column and mean row of its paint pixels there. The centroid of a thin line lies on the line, so it is a point on the paint; `pixel_to_ground` turns it into `(forward, left)`.\n3. **Lane centre:** in each band, the midpoint of the yellow and white ground points. That gives a near point $(f_1, c_1)$ and a far point $(f_2, c_2)$, forward first.\n4. **Line:** its **slope**, the metres it drifts left per metre ahead, is $(c_2 - c_1) / (f_2 - f_1)$.\n\nAt the car, forward $= 0$, the line is at left $= c_1 - \\text{slope} \\cdot f_1$; if the lane centre is 0.4 m to the car's right, the car is 0.4 m left of the lane centre. The line points $\\arctan(\\text{slope})$ left of the car; if the lane points left of the car, the car points right of the lane. So\n\n$$\\text{offset} = -(c_1 - \\text{slope} \\cdot f_1), \\qquad \\text{heading} = -\\arctan(\\text{slope})$$\n\nBoth minus signs switch from the lane seen by the car to the car seen by the lane.\n\n![Left: the worked-example frame with the two bands and each line's centroid marked. Right: the same paint from above, the two lane-centre points, and the line through them passing 0.39 m right of the car.](/learnfsd-course/figures/0-1-3/lane_estimate.png)\n\n**Worked example.** The car is on the straight road, truly 0.4 m left of centre and turned 0.05 rad left (the frame above).\n\n- Near band: the yellow line's 553 pixels have their centroid at column 83.02, row 159.85: ground point (2.55, 1.27). The white line's 543 pixels give (2.87, −2.33). Their midpoint, the near lane centre, is (2.71, −0.53).\n- Far band: yellow (99 pixels) at (7.05, 1.05), white (104 pixels) at (7.33, −2.57), lane centre (7.19, −0.76).\n- $\\text{slope} = (-0.76 + 0.53) / (7.19 - 2.71) = -0.0512$: the lane centre drifts right as it goes ahead.\n- $c_1 - \\text{slope} \\cdot f_1 = -0.53 + 0.0512 \\times 2.71 = -0.39$, so the offset is $+0.39$ m (truth 0.40), and the heading is $-\\arctan(-0.0512) = +0.051$ rad (truth 0.05). The arithmetic uses unrounded values.\n\n## What valid=False is for\n\nSometimes there is nothing to measure: turn the car 0.6 rad left on a straight road and the white line leaves the near band: 0 pixels, so no lane centre and no line. The box counts a line as seen in a band only with at least 3 pixels there.\n\nWhat should `estimate_lane` return then? Offset 0 and heading 0 is a lie: it tells the controller \"you are perfectly centred\" when you know nothing, and the controller will act on it. Return `LaneEstimate(math.nan, math.nan, False)`. `valid=False` says plainly there is no estimate, and the NaNs spoil any sum that forgets to check, so the mistake shows up.\n\nWhat to do then is the controller's decision: the provided controller checks `valid` first and, when it is `False`, holds the wheel straight. With the provided box on `gentle`, all 1,778 steps are valid.\n\n## Straight roads only\n\nYour box fits a *straight* line, which is exact on a straight road: on 40 centred, aligned frames along it, every estimate is within 0.01 m and 0.003 rad. On a bend the lane centre is a curve, and a straight line through two points on a curve, a **chord**, does not point along the curve at the car. The estimate is wrong even when the car is placed perfectly:\n\n![From above, a car exactly on lane centre on bends of radius 80 m and 20 m. The line through the two lane-centre points misses the car and leans right, much more on the tight bend.](/learnfsd-course/figures/0-1-3/chord_bias.png)\n\nYou can predict the error. On a bend of radius $R$ turning left, the lane centre $s$ metres ahead has drifted about $s^2 / (2R)$ to the left. With the near point $s_1$ metres ahead and the far point $s_2$, the line through them has\n\n$$\\text{slope} = \\frac{s_2^2 - s_1^2}{2R\\,(s_2 - s_1)} = \\frac{s_1 + s_2}{2R}, \\qquad \\text{left at the car} = -\\frac{s_1 s_2}{2R}$$\n\nso the box reports an offset of $s_1 s_2 / (2R)$ and a heading of $-\\arctan\\frac{s_1 + s_2}{2R}$ where both should be 0. With $s_1 \\approx 2.7$ m and $s_2 \\approx 7.2$ m, that predicts errors of 0.12 m and 0.062 rad on `gentle` ($R = 80$ m) and 0.49 m and 0.25 rad on `curvy` ($R = 20$ m). On 40 centred frames in each road's bends, the median errors are 0.13 m and 0.065 rad on `gentle`, as predicted, and 0.60 m and 0.30 rad on `curvy`: there, your lane's radius is only 18.2 m on right bends, and the far midpoint sits about 0.1 m inside the lane centre.\n\nThis is a **bias**, not noise: on a left bend the box always says \"left of centre, pointing right\", so the controller steers further left and the car cuts to the inside. That is why the grader tests your function on straight roads only: none of those bend frames falls within its tolerances of 0.25 m and 0.05 rad. Better lane models fit curves through many rows; that is module 1.5, \"Classical lane perception\". Unit 0.1.4 shows what this bias does to the car on `curvy`.\n\n## Swap your perception into the car\n\n`Car(perception=estimate_lane)` is the provided car with your perception inside: every 0.05 s it calls your function with an `Observation` holding the camera frame `obs.frame`, the speed `obs.speed` and the time `obs.t`.\n\nCheck `0.1.3.b` drives that car around `gentle`: it must complete the lap with a mean lateral error below 0.5 m (the provided box manages 0.38 m), and it refuses a car still running the provided perception.\n\nOne flipped sign turns a working box into a dangerous one. With the offset's sign wrong, the car believes it is left of centre when it is right, and steers *away* from the centre; each correction makes the error bigger, and the bigger error a bigger wrong correction. This is **positive feedback**. In the lab the error roughly doubles every half second until the car leaves the lane after 5 s, still on the first straight.\n\n## Go deeper\n\n- **Stanford CS231A Course Notes 1, \"Camera Models\"** (Hata and Savarese), §2 \"Pinhole cameras\": the similar triangles behind $f L / d$.\n- **Aly, \"Real time Detection of Lane Markers in Urban Streets\" (2008)**, §II.A \"Inverse Perspective Mapping (IPM)\" and Figures 2 and 3: the flat-road top view of a real street. The rest can wait for module 1.5.\n- **Szeliski, \"Computer Vision: Algorithms and Applications\" (2nd ed.)**, §2.1.4 \"3D to 2D projections\", subsections \"Perspective\" and \"Camera intrinsics\". A graduate textbook (free after a short form); keep it for module 1.4.\n",
+      "colab_url": "https://colab.research.google.com/github/vvknyn/self-driving-ai-course/blob/main/course/0.1.3-your-first-perception-box/lab.ipynb",
+      "quiz": [
+        {
+          "id": "q1",
+          "type": "numeric",
+          "prompt": "The camera has focal length $f = 160$ pixels, centre row $c_y = 89.5$, and is tipped down by $5°$. In which row is the horizon? (Give a decimal row.)",
+          "answer": 75.5,
+          "tolerance": 0.1,
+          "explain": "A ray parallel to the ground points $5°$ above the camera's axis, so it lands $f \\tan 5° = 160 \\times 0.0875 = 14.0$ rows above the centre: $89.5 - 14.0 = 75.5$. Every row above it sees sky.",
+          "section": "the-horizon"
+        },
+        {
+          "id": "q2",
+          "type": "numeric",
+          "prompt": "How far ahead, in metres, is the ground seen in row 170? The camera is $h = 1.4$ m up, pitch $5°$, $f = 160$, $c_y = 89.5$.",
+          "answer": 2.266,
+          "tolerance": 0.01,
+          "explain": "$(170 - 89.5) / 160 = 0.503$ and $\\arctan 0.503 = 26.71°$, so $\\theta = 5° + 26.71° = 31.71°$. Then $d = 1.4 / \\tan 31.71° = 1.4 / 0.618 = 2.27$ m. Rows lower in the image see ground closer to the car.",
+          "section": "rows-are-distances"
+        },
+        {
+          "id": "q3",
+          "type": "mcq",
+          "prompt": "In row 150 the 3.6 m lane spans 191 columns, so a teammate converts every column to $3.6 / 191 = 0.0189$ m, in every row. What happens to a sideways distance measured in row 100?",
+          "choices": [
+            "It comes out right: the lane is 3.6 m wide in every row.",
+            "It comes out about 3 times too small, because row 100 sees ground 9.09 m ahead, where one column covers about 0.057 m.",
+            "It comes out about 3 times too big, because far-away paint looks wider.",
+            "It comes out right for the white line but wrong for the yellow one."
+          ],
+          "answer": 1,
+          "explain": "One column covers about $d / f$ metres of ground, so it depends on the row: 0.0189 m at 2.91 m ahead, 0.0574 m at 9.09 m. A pixel column is not a fixed number of metres. Using the near value in row 100 shrinks every sideways distance there by a factor of about 3.",
+          "section": "metres-per-pixel"
+        },
+        {
+          "id": "q4",
+          "type": "mcq",
+          "prompt": "Your line through the two lane-centre points reaches the car (forward $= 0$) at left $= +0.3$ m. What should `offset_m` be?",
+          "choices": [
+            "$+0.3$ m: the lane centre is 0.3 m to the left.",
+            "$-0.3$ m: the lane centre is 0.3 m to the car's left, so the car is 0.3 m right of the lane centre.",
+            "$0.3 / 3.6$, a fraction of the lane width.",
+            "It cannot be known without the heading."
+          ],
+          "answer": 1,
+          "explain": "The line is the lane seen by the car; `offset_m` is the car seen by the lane, positive when the car is left of centre. If the lane centre is to your left, you are to its right: $\\text{offset} = -(c_1 - \\text{slope} \\cdot f_1)$.",
+          "section": "from-masks-to-a-lane-estimate"
+        },
+        {
+          "id": "q5",
+          "type": "numeric",
+          "prompt": "Your box finds the near lane-centre point at $(f_1, c_1) = (3.0, -0.2)$ and the far one at $(f_2, c_2) = (8.0, 0.05)$, in metres (forward, left). What is `offset_m`?",
+          "answer": 0.35,
+          "tolerance": 0.005,
+          "explain": "$\\text{slope} = (0.05 + 0.2) / (8.0 - 3.0) = 0.05$. At the car the line is at $c_1 - \\text{slope} \\cdot f_1 = -0.2 - 0.15 = -0.35$: the lane centre is 0.35 m to the car's right, so the offset is $+0.35$ m. The heading is $-\\arctan 0.05 = -0.050$ rad: the car points right of the lane.",
+          "section": "from-masks-to-a-lane-estimate"
+        },
+        {
+          "id": "q6",
+          "type": "mcq",
+          "prompt": "The car has turned so far that the white line has left the near band: 0 pixels there. What should `estimate_lane` return?",
+          "choices": [
+            "`LaneEstimate(0.0, 0.0, True)`: the safest guess is the lane centre.",
+            "The last good estimate, still marked `valid=True`.",
+            "`LaneEstimate(math.nan, math.nan, False)`.",
+            "Raise an exception, so the car stops."
+          ],
+          "answer": 2,
+          "explain": "There is nothing to measure, so say so. Zeros tell the controller \"you are centred and aligned\" when you know nothing, and it will act on that; an old estimate marked valid claims a measurement that was never made. `valid=False` hands the decision to the controller, and the NaNs spoil any sum that forgets to check.",
+          "section": "what-validfalse-is-for"
+        },
+        {
+          "id": "q7",
+          "type": "mcq",
+          "prompt": "Your box is almost exact on straight roads. The car sits exactly on lane centre, aligned with it, inside a left bend of `gentle`. What does the box report?",
+          "choices": [
+            "0 m and 0 rad, because the car is centred.",
+            "Left of centre and pointing right, about 0.13 m and 0.065 rad, and the same again on the next frame.",
+            "Errors that scatter around 0, because the bend makes the paint harder to find.",
+            "`valid=False`, because the lane curves out of the far band."
+          ],
+          "answer": 1,
+          "explain": "A straight line through two points on a curve, a chord, misses the car and leans towards the outside of the bend. The formula predicts an offset of $s_1 s_2 / (2R) = 0.12$ m and a heading of $-\\arctan\\frac{s_1 + s_2}{2R} = -0.062$ rad for $R = 80$ m. That is a bias, not noise: it is the same every frame, so averaging does not remove it.",
+          "section": "straight-roads-only"
+        },
+        {
+          "id": "q8",
+          "type": "mcq",
+          "prompt": "A teammate's box returns the offset with the wrong sign and is otherwise correct. What does the car do on `gentle`?",
+          "choices": [
+            "It completes the lap, a little further from centre.",
+            "It steers away from the centre; each correction makes the error bigger, which roughly doubles every half second until the car leaves the road about 5 s in.",
+            "It swings from side to side around the lane centre.",
+            "Nothing changes: the heading term keeps it in the lane."
+          ],
+          "answer": 1,
+          "explain": "A car right of centre is told it is left, so the controller steers right, away from the centre. The bigger error gives a bigger wrong correction: positive feedback. In the lab the error goes 0.043, 0.081, 0.155, 0.288, 0.544, 1.010 m at half-second intervals, and the car is off the road after 5 s, still on the first straight.",
+          "section": "swap-your-perception-into-the-car"
+        }
+      ],
+      "cards": [
+        {
+          "id": "c1",
+          "front": "Where is the horizon in the camera image, and why?",
+          "back": "Row $c_y - f \\tan p = 89.5 - 160 \\tan 5° = 75.5$. A ray parallel to the ground points $p$ above the camera's axis. Rows above it see sky; rows below see road."
+        },
+        {
+          "id": "c2",
+          "front": "How far ahead is the ground seen in image row $v$ on a flat road?",
+          "back": "The ray falls $\\theta = p + \\arctan\\frac{v - c_y}{f}$ below horizontal and starts $h$ up, so $d = h / \\tan\\theta$. Row 150 gives 2.91 m. The column does not matter: a row is a distance."
+        },
+        {
+          "id": "c3",
+          "front": "How many metres of ground does one pixel column cover?",
+          "back": "About $d / f$, where $d$ is how far ahead that row sees: 0.0189 m at 2.91 m, 0.0574 m at 9.09 m. There is no fixed metres-per-column; you need the row too."
+        },
+        {
+          "id": "c4",
+          "front": "Given the lane-centre line through $(f_1, c_1)$ and $(f_2, c_2)$, what are the offset and the heading?",
+          "back": "$\\text{slope} = (c_2 - c_1) / (f_2 - f_1)$, $\\text{offset} = -(c_1 - \\text{slope} \\cdot f_1)$, $\\text{heading} = -\\arctan(\\text{slope})$. The minus signs switch from the lane seen by the car to the car seen by the lane."
+        },
+        {
+          "id": "c5",
+          "front": "What does `estimate_lane` return when a band has fewer than 3 pixels of a line?",
+          "back": "`LaneEstimate(math.nan, math.nan, False)`. Never `0.0, 0.0`: that claims the car is centred and aligned. The controller decides what to do without an estimate."
+        },
+        {
+          "id": "c6",
+          "front": "Why is a two-point straight-line lane estimate wrong on a bend, even with the car perfectly placed?",
+          "back": "The line through two points on a curve (a chord) misses the car: offset $\\approx s_1 s_2 / (2R)$, heading $\\approx -\\arctan\\frac{s_1 + s_2}{2R}$. It is a bias, the same every frame, so it pushes the car to the inside of the bend. Curved lane models come in module 1.5."
+        }
+      ]
+    },
+    "0-1-4": {
+      "id": "0.1.4",
+      "slug": "0-1-4",
+      "title": "Closing the loop",
+      "minutes": 240,
+      "box": "Controller: the steering law that turns your lane estimate into a wheel angle, every 0.05 s",
+      "outcomes": [
+        {
+          "can": "Explain why a closed-loop controller corrects an error that an open-loop plan lets grow, and write a P steering law with the right signs, the 0.5 rad clip and a straight wheel when the estimate is not valid",
+          "proof": "Your p_steer passes check(\"0.1.4.a\") in the lab, and the quiz questions on open loop and on signs"
+        },
+        {
+          "can": "Predict what too little and too much gain do to the car, and explain why the wheel's 1 rad/s limit caps the useful gain",
+          "proof": "Practice problem 1 and the tuning and break-it sections of the lab, and the quiz questions on the two gains and on k_off = 6"
+        },
+        {
+          "can": "Build a car that runs your own perception and your own controller, and complete gentle with it",
+          "proof": "Your my_car passes check(\"0.1.4.b\") in the lab"
+        },
+        {
+          "can": "Compute the offset a P-steered car carries in a steady bend, and explain why the car with the two-point box leaves curvy",
+          "proof": "Practice problems 2 and 3 and the inside-the-bend section of the lab, and the quiz questions on bends and on curvy"
+        }
+      ],
+      "prerequisites": [
+        "0-1-3"
+      ],
+      "go_deeper": [
+        {
+          "title": "Åström and Murray, Feedback Systems (2nd ed.), section 1.1 \"What Is Feedback?\" and section 1.6 \"Simple Forms of Feedback\"",
+          "url": "http://www.cds.caltech.edu/~murray/books/AM08/pdf/fbs-public_24Jul2020.pdf"
+        },
+        {
+          "title": "Thrun et al., Stanley: The Robot that Won the DARPA Grand Challenge (2006), section 9.2 \"Steering Control\", Eq. 7 and Figure 24",
+          "url": "http://robots.stanford.edu/papers/thrun.stanley05.pdf"
+        },
+        {
+          "title": "Pomerleau, ALVINN: An Autonomous Land Vehicle in a Neural Network (1988): start with Figure 1 and \"Network Architecture\"",
+          "url": "https://proceedings.neurips.cc/paper_files/paper/1988/file/812b4ba287f5ee0bc9d43bbf5bbe87fb-Paper.pdf"
+        }
+      ],
+      "paper": {
+        "title": "ALVINN: An Autonomous Land Vehicle in a Neural Network (Pomerleau, NIPS 1988)",
+        "url": "https://proceedings.neurips.cc/paper_files/paper/1988/file/812b4ba287f5ee0bc9d43bbf5bbe87fb-Paper.pdf",
+        "questions": [
+          "How big is the picture ALVINN \"sees\", and how many numbers is that?",
+          "Which colour channel does the video retina use, and why?",
+          "What does each output unit stand for, and what does the middle one mean?",
+          "Why didn't Pomerleau train on real road photos, and what did he use instead?",
+          "What did the real vehicle actually do, and how did that compare with the traditional method?",
+          "Name one thing the author says ALVINN could not yet do well."
+        ]
+      },
+      "tutor_prompt": "You are a Socratic tutor for unit 0.1.4 \"Closing the loop\" of a self-driving car course. I am a programmer with rusty maths and no machine-learning background. I have just read a lecture and done a lab on steering a car from its lane estimate with feedback.\n\nWhat the unit taught (use these facts exactly):\n- The simulator is a flat-world teaching simulator. Every 0.05 s the controller receives the lane estimate (offset in metres and heading in radians, left positive) and returns a steering angle in radians, left positive. The car drives at 8 m/s, its wheelbase is L = 2.7 m, the wheel turns at most 0.5 rad either way and at most 1 rad/s.\n- Open loop replays fixed commands and never measures the result: the provided car's steering replayed with the wheel 0.002 rad off leaves gentle after 67.2 m. Closed loop computes each command from the latest measurement: the provided car with the same error completes, mean |lateral error| 0.381 m instead of 0.376 m.\n- The P law: delta = -(k_off * offset + k_head * heading), clipped to plus or minus 0.5 rad, and 0.0 when the estimate is not valid. The minus sign steers against the error (negative feedback). The provided gains are k_off = 0.35 and k_head = 2.7. Example: 0.4 m left, pointing 0.05 rad left gives -0.275 rad; pointing 0.05 rad right instead gives -0.005 rad.\n- The heading term acts as a brake on the swing: pushed 1.10 m left with k_off = 0.35, k_head = 0 overshoots the centre by 0.30 m, k_head = 1 settles in 1.15 s, k_head = 2.7 takes 3.10 s.\n- Sweeping k_off on gentle with k_head = 2.7: 0.05 leaves the road at 125.3 m; 0.35 gives 0.376 m; 1.5 gives 0.017 m; 3.0 gives 0.042 m; 6.0 leaves after 33.8 m, because the wheel's 1 rad/s limit makes every correction late.\n- Holding a circle of radius R needs delta about arctan(L / R). In a steady bend the body points delta to the outside (heading = -delta), so the P law settles at offset = (k_head - 1) * delta / k_off: 0.160 m on gentle's bends of radius 81.8 m. With k_head = 1 the offset is zero.\n- With perfect lane values the P law completes curvy. With the two-point box it leaves curvy at 48.3 m: on a left bend the box reports a heading far to the right of the truth, and k_head = 2.7 turns that bias into steering left, deeper inside the bend.\n- Misconception to probe: \"more gain, tighter tracking\". It holds only up to a point; past it the rate-limited wheel is always late and the car oscillates.\n\nHow to run the session:\n1. Ask me ONE question at a time, then wait for my answer. Start by asking me why a tiny steering error crashes a replayed plan but not a car that steers from its measurements.\n2. Never give me the answer. If I am wrong or vague, ask a smaller question, or give me numbers to work through by hand, so I find the mistake myself.\n3. Within the first three questions, test the misconception: ask what I expect if k_off goes from 1.5 to 6, and why.\n4. Ask at least one question where I compute a steering angle from an offset and heading you give me, one where I explain what the heading term does when the car is already heading back to the centre, and one where I compute the settled offset in a bend of a radius you give me.\n5. Keep your turns short: two or three sentences, then the question.\n6. After about five exchanges, stop. List what I explained well, and what I should revisit, naming these lecture sections: \"Open loop and closed loop\", \"The P controller\", \"Two errors, two gains\", \"Tuning the gains\", \"Why curves need error\", \"Why your car leaves curvy\", \"Closing the loop\", \"A 1988 car that learned to steer\".\n",
+      "lecture_md": "# Closing the loop\n\n## Open loop and closed loop\n\nYour car now sees through your perception box. This unit opens the last box, the **controller**: every 0.05 s it receives your `LaneEstimate` and returns a steering angle.\n\nRecord every steering angle the provided car used on its lap of `gentle`, then replay the recording without looking at the camera. Replayed exactly, it gives the same lap. Now set the wheel 0.002 rad (0.11 degrees) off. The replayed car leaves the road after 67.2 m, 8.4 s in, still on the first straight. The provided car, with the same 0.002 rad error, completes the lap with a mean |lateral error| of 0.381 m instead of 0.376 m.\n\n![Offset against time on gentle. The provided car and the provided car with the wheel 0.002 rad off overlap and complete; the replayed steering drifts steadily left and leaves the road at 8.4 s.](/learnfsd-course/figures/0-1-4/open_vs_closed.png)\n\nThe replay is **open loop**: its commands were fixed in advance, so nothing notices the error and it adds up. The provided car is **closed loop**: each command is computed from the latest measurement, so an error is corrected as soon as it shows. Åström and Murray define it:\n\n> \"The term feedback refers to a situation in which two (or more) dynamical systems are connected together such that each system influences the other\" (§1.1)\n\nHere the two systems are the car, turning a steering angle into a new position, and the controller, turning the camera's view of that position into the next steering angle.\n\n## The P controller\n\nThe 2006 paper on Stanford's robot car Stanley puts it in one line: \"The larger this error, the stronger the steering response toward the trajectory.\" (Thrun et al., p. 684). The simplest law with that property is **proportional control**:\n\n$$u = k_p\\,(r - y) = k_p\\,e$$\n\n(Åström & Murray, Eq. 1.3). Here $u$ is the controller's output, $r$ the **reference** (the value you want), $y$ the measured value, $e = r - y$ the control error and $k_p$ the **gain**, how hard to push per unit of error.\n\nFor your car, $u$ is the steering angle $\\delta$ (radians, left positive), the reference is offset 0 and the measurement is the offset $e_{\\text{off}}$. So $r - y = -e_{\\text{off}}$ and\n\n$$\\delta = -k_{\\text{off}}\\, e_{\\text{off}}$$\n\nwith $k_{\\text{off}}$ in radians of wheel per metre. The minus sign is the whole point: 0.4 m left of centre with $k_{\\text{off}} = 0.35$ gives $\\delta = -0.14$ rad, steering right, towards the centre. Steering *against* the error is **negative feedback**; drop the minus sign and you get unit 0.1.3's positive feedback.\n\nTwo guards complete the law:\n\n- **Clip** the result to ±0.5 rad, the furthest the simulator's wheel turns, with `np.clip`.\n- If `est.valid` is `False`, return 0.0: hold the wheel straight rather than steer on NaNs.\n\n## Two errors, two gains\n\nA car on lane centre but pointing 0.05 rad left is fine now, not in a second: at 8 m/s it moves $8 \\sin 0.05 = 0.40$ m sideways every second. A heading error is an offset in the making, so the controller uses both errors:\n\n$$\\delta = -\\left(k_{\\text{off}}\\, e_{\\text{off}} + k_{\\text{head}}\\, \\psi\\right), \\quad \\text{clipped to } \\pm 0.5$$\n\nwhere $\\psi$ is the heading in radians, left positive, and $k_{\\text{head}}$ has no units. The provided car uses $k_{\\text{off}} = 0.35$ and $k_{\\text{head}} = 2.7$.\n\n**Worked example.** The car is 0.4 m left of centre and pointing 0.05 rad left:\n\n$$\\delta = -(0.35 \\times 0.4 + 2.7 \\times 0.05) = -(0.14 + 0.135) = -0.275 \\text{ rad}$$\n\nFirmly right. Same offset, but pointing 0.05 rad *right*, back towards the centre: $\\delta = -(0.14 - 0.135) = -0.005$ rad, almost straight. The car is already coming back, so the controller eases off. Without the heading term it would steer right all the way to the centre, arrive pointing across the lane and swing past.\n\nThe lab pushes the car 1.10 m left, then hands over to the P law with $k_{\\text{off}} = 0.35$. With $k_{\\text{head}} = 0$ the car swings 0.30 m past the centre. With $k_{\\text{head}} = 1$ it settles within 5 cm in 1.15 s, never a millimetre past. With $k_{\\text{head}} = 2.7$ it creeps back and takes 3.10 s. The heading gain is a brake on the swing: too little overshoots, too much is sluggish.\n\n## Tuning the gains\n\nKeep $k_{\\text{head}} = 2.7$ and sweep $k_{\\text{off}}$ on `gentle`:\n\n![Left: offset against time for four values of k_off; 0.05 drifts off at the first bend, 6 swings ever wider and leaves on the straight. Right: the wheel angle, smooth for 1.5, zigzagging at full speed for 6.](/learnfsd-course/figures/0-1-4/gain_sweep.png)\n\n- $k_{\\text{off}} = 0.05$: offsets go uncorrected for seconds; at the first bend the car drifts inside and leaves the road at 125.3 m.\n- $0.35$, the provided value: completes, mean |lateral error| 0.376 m.\n- $1.5$: completes, 0.017 m.\n- $3.0$ (in the lab): completes, 0.042 m.\n- $6.0$: leaves the road after 33.8 m, 4.3 s in, still on the first straight.\n\nThe tempting conclusion is **\"more gain, tighter tracking\"**. It holds from 0.05 to 1.5, then fails: 3.0 is worse than 1.5, and 6.0 crashes. The reason is the wheel, which turns at most 1 rad/s. With $k_{\\text{off}} = 6$, a 5 cm offset asks for 0.3 rad of wheel, which takes 0.3 s to reach, 2.4 m of travel at 8 m/s. By then the car has crossed the centre and the controller wants the opposite. The right panel shows it: at $k_{\\text{off}} = 6$ the wheel turns at full speed in 80% of steps, always late, each swing wider than the last. There is a best range of gains, and the car's limits set its top.\n\n## Why curves need error\n\nTo follow a circle of radius $R$, a car with wheelbase $L = 2.7$ m (front axle to rear axle) holds its wheel at about\n\n$$\\delta \\approx \\arctan\\frac{L}{R}$$\n\nbecause the car turns about the point where lines drawn square to its front and rear wheels meet. On `gentle`'s bends your lane has radius 81.8 m (80 m plus 1.8 m: your lane is on the outside), so $\\delta = \\arctan(2.7 / 81.8) = 0.0330$ rad.\n\nA P law turns the wheel only when there is error. With both errors zero it says $\\delta = 0$, and the car runs straight off the circle. So in a steady bend the car must carry errors that add up to the right $\\delta$.\n\nWhich errors? The car's position is measured at its front axle, which travels where the front wheels point: the car's heading plus $\\delta$. For the front axle to run along the lane, the front wheels point along the lane, so the body points $\\delta$ to the *outside*: $\\psi = -\\delta$ on a left bend. The heading term then gives $-k_{\\text{head}}\\psi = 2.7\\,\\delta$, 2.7 times what is needed. The offset term must take back the extra $1.7\\,\\delta$: $k_{\\text{off}}\\, e_{\\text{off}} = (k_{\\text{head}} - 1)\\,\\delta$, so\n\n$$e_{\\text{off}} = \\frac{(k_{\\text{head}} - 1)\\,\\delta}{k_{\\text{off}}}$$\n\n**Worked example.** On `gentle`: $1.7 \\times 0.0330 / 0.35 = 0.160$ m, to the left, the inside of the bend. Given perfect lane values instead of your box's, the car settles at 0.162 m.\n\n![Left: with perfect lane values, the offset on gentle rises in each bend to the predicted 0.160 m. Right: on curvy the offset swings towards +0.60 m in left bends and -0.72 m in right bends.](/learnfsd-course/figures/0-1-4/steady_state.png)\n\nOn `curvy` the bends have radius 20 m, so your lane's radius is 21.8 m on left bends and 18.2 m on right bends: $\\delta = 0.123$ and $0.147$ rad, predicting 0.599 m and −0.715 m. Each bend is only 31 m long, so the offset is still moving when the next one begins; with perfect lane values the car stays within 0.67 m and completes `curvy`.\n\nÅström and Murray name this: \"proportional control has the drawback that the process variable often deviates from its reference value\" (§1.6). Here the deviation grows as the bend tightens, because $\\delta \\approx L/R$.\n\nSet $k_{\\text{head}} = 1$ and the offset vanishes. Stanley's law, Eq. 7, is $\\delta(t) = \\psi(t) + \\arctan\\frac{k\\,x(t)}{u(t)}$, where \"The angle ψ in this diagram describes the orientation of the nearest path segment, measured relative to the vehicle's own orientation\" (p. 684): minus your heading, with gain exactly 1. Module 1.3 derives it.\n\n## Why your car leaves curvy\n\nWith perfect lane values the P law gets round `curvy`. The provided car does not: it leaves the road at 48.3 m, 6.1 s in, off the inside of the first left bend. Yours will too, if your box works like it.\n\n![Left: on curvy, perfect lane values stay within 0.67 m; the two-point box drifts left before the first bend and leaves at 48.3 m. Right: the box's heading lies far right of the true heading.](/learnfsd-course/figures/0-1-4/curvy_box.png)\n\nThe cause is unit 0.1.3's chord bias: on a left bend the box says \"left of centre, pointing right\" even when the car is centred, and the controller multiplies the heading by 2.7. It starts early: the far band sees 5.6 to 11.5 m ahead, so at 30.3 m, where the bend begins, the car is already 0.56 m left.\n\n**Worked example.** At 44.3 m the car is truly 1.70 m left, heading −0.085 rad; the box reports 2.32 m and −0.342 rad.\n\n- On the true values: $-(0.35 \\times 1.70 + 2.7 \\times (-0.085)) = -0.366$ rad, hard right, back to the centre.\n- On the box's values: $-(0.35 \\times 2.32 + 2.7 \\times (-0.342)) = +0.110$ rad, left, deeper inside.\n\nA heading error of 0.257 rad times 2.7 is 0.69 rad of phantom left steering, outweighing everything else.\n\nRetuning can hide this: $k_{\\text{off}} = 1.5$, or $k_{\\text{head}} = 1$, gets round `curvy` (mean errors 0.085 and 0.131 m), but the bias remains. The real fixes are perception that fits the curve (module 1.5) and a controller that looks ahead along the road (module 1.3).\n\n## Closing the loop\n\nYour last step is `my_car = Car(perception=estimate_lane, controller=my_controller)`, where `my_controller(est, obs)` returns `p_steer(est, K_OFF, K_HEAD)`. A controller that returns a number is a steering angle; the `Car` pairs it with the provided speed controller, which holds 8 m/s (module 1.2).\n\nCheck `0.1.4.b` requires a `Car` running neither provided box to complete `gentle` with a mean |lateral error| below 0.5 m. Then it drives `curvy`, ungraded, so you see what your own car does there. Every box is now yours.\n\n## A 1988 car that learned to steer\n\nYour car has hand-written perception and control. In 1988, Dean Pomerleau replaced both with one network: ALVINN, \"a 3-layer back-propagation network designed for the task of road following\" (p. 305).\n\n- **Inputs:** a 30x32 video retina fed the blue colour band, an 8x32 laser range-finder retina and one feedback unit: 1217 inputs, into 29 hidden units.\n- **Outputs:** 45 direction units, from sharp left to sharp right, the middle one \"travel straight ahead\" (p. 306). Its training target is the curvature \"which would bring the vehicle to the road center 7 meters ahead of its current position\" (p. 306): it aims at a point ahead, not at the error at the car.\n- **Training:** 1200 simulated road snapshots.\n- **Result:** it drove the NAVLAB van \"at a speed of 1/2 meter per second along a 400 meter path through a wooded area\" (pp. 308–309). CMU's traditional system, on the faster Warp computer, managed 1 m/s.\n- **Limit:** at a fork it could output two directions, and \"The result is often an oscillation\" (p. 312).\n\nIt is this module's paper.\n\n## Go deeper\n\n- **Åström & Murray, \"Feedback Systems\" (2nd ed.)**, §1.1 \"What Is Feedback?\" and §1.6 \"Simple Forms of Feedback\": proportional control and its offset.\n- **Thrun et al., \"Stanley: The Robot that Won the DARPA Grand Challenge\" (2006)**, §9.2 \"Steering Control\", Eq. 7 and Figure 24 (p. 684).\n- **Pomerleau, \"ALVINN: An Autonomous Land Vehicle in a Neural Network\" (1988)**: start with Figure 1 and \"Network Architecture\".\n",
+      "colab_url": "https://colab.research.google.com/github/vvknyn/self-driving-ai-course/blob/main/course/0.1.4-closing-the-loop/lab.ipynb",
+      "quiz": [
+        {
+          "id": "q1",
+          "type": "mcq",
+          "prompt": "The provided car's steering on `gentle` is recorded and replayed without the camera, with the wheel 0.002 rad off. The replay leaves the road on the first straight; the provided car with the same error completes the lap. Why?",
+          "choices": [
+            "The replay runs slower than the live car, so the timing drifts.",
+            "The replay is open loop: nothing measures the error, so it adds up. The live car measures the offset every 0.05 s and steers against it.",
+            "0.002 rad is too small to matter; the replay must have a bug.",
+            "The live car's perception box cancels the 0.002 rad before it reaches the wheel."
+          ],
+          "answer": 1,
+          "explain": "The exact replay drives the identical lap, so the recording is fine. With a constant 0.002 rad error, every step the open-loop car drifts a little further and nothing notices. The closed-loop car sees the drift in its next estimate and steers against it, so the same error costs only 0.005 m of mean |lateral error|. The perception box does not know about the error at all; feedback corrects its effect, whatever caused it.",
+          "section": "open-loop-and-closed-loop"
+        },
+        {
+          "id": "q2",
+          "type": "mcq",
+          "prompt": "The car is 0.3 m right of lane centre, pointing along the lane. A teammate's controller returns $-0.105$ rad. What is wrong?",
+          "choices": [
+            "Nothing: $0.35 \\times 0.3 = 0.105$, the right size.",
+            "The sign: $-0.105$ steers right, away from the centre, so each correction makes the error bigger.",
+            "The size: it should use the full $\\pm 0.5$ rad to get back quickly.",
+            "It should return 0.0, because the heading is 0."
+          ],
+          "answer": 1,
+          "explain": "Right of centre means $e_{\\text{off}} = -0.3$, so $\\delta = -k_{\\text{off}}\\, e_{\\text{off}} = -0.35 \\times (-0.3) = +0.105$ rad: steer left, towards the centre. The size is right; the missing minus sign turns negative feedback into positive feedback. A zero heading only makes the heading term zero, not the offset term.",
+          "section": "the-p-controller"
+        },
+        {
+          "id": "q3",
+          "type": "numeric",
+          "prompt": "Your `p_steer` gets `LaneEstimate(offset_m=-0.5, heading_rad=0.1, valid=True)` with `k_off = 0.4` and `k_head = 1.0`. What does it return, in radians?",
+          "answer": 0.1,
+          "tolerance": 0.001,
+          "explain": "$\\delta = -(0.4 \\times (-0.5) + 1.0 \\times 0.1) = -(-0.2 + 0.1) = +0.1$ rad. The car is 0.5 m right of centre (steer left, $+0.2$) but already pointing 0.1 rad left, back towards the centre (steer right, $-0.1$). The two terms partly cancel: the heading term eases off because the car is already returning. No clipping: $0.1 < 0.5$.",
+          "section": "two-errors-two-gains"
+        },
+        {
+          "id": "q4",
+          "type": "mcq",
+          "prompt": "On `gentle`, with `k_head = 2.7`, raising `k_off` from 0.35 to 1.5 cuts the mean |lateral error| from 0.376 m to 0.017 m. What do you expect at `k_off = 6`?",
+          "choices": [
+            "Even tighter tracking, under 0.017 m.",
+            "About the same as 1.5: the error cannot go below zero.",
+            "The car swings wider and wider and leaves the road on the first straight, because the wheel turns at most 1 rad/s and is always late.",
+            "The car steers too little and drifts off at the first bend."
+          ],
+          "answer": 2,
+          "explain": "\"More gain, tighter tracking\" holds only up to a point. At `k_off = 6` a 5 cm offset asks for 0.3 rad of wheel, which takes 0.3 s to reach; by then the car has crossed the centre and the controller wants the opposite. The wheel turns at full speed in 80% of steps and the car leaves after 33.8 m. Drifting off at the first bend is what too little gain does (0.05).",
+          "section": "tuning-the-gains"
+        },
+        {
+          "id": "q5",
+          "type": "numeric",
+          "prompt": "A car with wheelbase $L = 2.7$ m follows a circle of radius 40 m. About what wheel angle, in radians, does it hold?",
+          "answer": 0.0674,
+          "tolerance": 0.001,
+          "explain": "$\\delta \\approx \\arctan(L / R) = \\arctan(2.7 / 40) = \\arctan(0.0675) = 0.0674$ rad. A P law only produces that angle if the errors ask for it, so in this bend the car carries an offset of $(k_{\\text{head}} - 1)\\,\\delta / k_{\\text{off}}$, about 0.33 m with the provided gains.",
+          "section": "why-curves-need-error"
+        },
+        {
+          "id": "q6",
+          "type": "numeric",
+          "prompt": "With perfect lane values and `k_off = 0.35`, which `k_head` makes the settled offset in a long steady bend exactly zero?",
+          "answer": 1.0,
+          "tolerance": 0.01,
+          "explain": "In a steady bend the body points $\\delta$ to the outside ($\\psi = -\\delta$), so the heading term gives $k_{\\text{head}}\\,\\delta$. The car needs exactly $\\delta$, so with $k_{\\text{head}} = 1$ the offset term has nothing left to supply and the offset is $(1 - 1)\\,\\delta / k_{\\text{off}} = 0$. It does not depend on `k_off`. Stanley's law has this heading term with gain 1.",
+          "section": "why-curves-need-error"
+        },
+        {
+          "id": "q7",
+          "type": "mcq",
+          "prompt": "With perfect lane values, the P law (0.35, 2.7) completes `curvy`. Your car, with the same law and the two-point box, leaves the road at 48.3 m. Why?",
+          "choices": [
+            "A P law cannot hold any bend: it needs zero error to steer.",
+            "On a left bend the box's straight line reports a heading far to the right of the truth, and `k_head = 2.7` turns that into steering left, so the car cuts to the inside.",
+            "The bends are sharper than the wheel's 0.5 rad limit.",
+            "The box returns `valid=False` in the bend and the car goes straight."
+          ],
+          "answer": 1,
+          "explain": "The perfect-values run shows the law itself copes: it holds each bend with an offset under 0.67 m. The difference is the box's chord bias. At 44.3 m the car is truly 1.70 m left, heading $-0.085$ rad, and the law would steer right ($-0.366$ rad). The box says $-0.342$ rad, and $2.7 \\times$ that error gives steering left ($+0.110$ rad). A P law needs some error to hold a bend, but that alone does not crash the car; the wheel needs only about 0.12 to 0.15 rad here, well inside its limit.",
+          "section": "why-your-car-leaves-curvy"
+        },
+        {
+          "id": "q8",
+          "type": "mcq",
+          "prompt": "What did ALVINN's network output?",
+          "choices": [
+            "A steering-wheel angle computed by a proportional law from the lane offset.",
+            "One of 45 direction units, from sharp left to sharp right, standing for a turn curvature; it was trained toward the curvature that reaches the road centre 7 m ahead.",
+            "The positions of the two lane lines in the image.",
+            "A speed and a braking command."
+          ],
+          "answer": 1,
+          "explain": "Pomerleau's network maps a 30x32 blue-band image (plus a range finder and a feedback unit) straight to 45 direction units; the middle one is \"travel straight ahead\". Its training target aims at a point 7 m ahead rather than reacting to the error at the car. There is no hand-written gain and no separate lane estimate.",
+          "section": "a-1988-car-that-learned-to-steer"
+        }
+      ],
+      "cards": [
+        {
+          "id": "c1",
+          "front": "What is the difference between open-loop and closed-loop control?",
+          "back": "Open loop fixes its commands in advance and never measures the result, so errors add up. Closed loop computes each command from the latest measurement, so an error is corrected as soon as it shows. A 0.002 rad wheel error crashes a replayed lap of `gentle`; the closed-loop car barely notices."
+        },
+        {
+          "id": "c2",
+          "front": "Write the car's P steering law, with its signs and guards.",
+          "back": "$\\delta = -(k_{\\text{off}}\\, e_{\\text{off}} + k_{\\text{head}}\\, \\psi)$, left positive, clipped to $\\pm 0.5$ rad; 0.0 when the estimate is not valid. The minus sign steers against the error: negative feedback."
+        },
+        {
+          "id": "c3",
+          "front": "Why does the controller use the heading as well as the offset?",
+          "back": "A heading error is an offset in the making: 0.05 rad at 8 m/s is 0.40 m sideways per second. The heading term eases off when the car is already returning, which brakes the swing: $k_{\\text{head}} = 0$ overshoots by 0.30 m, 1 settles in 1.15 s, 2.7 creeps (3.10 s)."
+        },
+        {
+          "id": "c4",
+          "front": "Does more gain always mean tighter tracking?",
+          "back": "No. On `gentle`, `k_off` 1.5 gives 0.017 m, 3.0 gives 0.042 m, and 6 leaves the road: the wheel turns at most 1 rad/s, so a high-gain command arrives late and each swing is wider. There is a best range of gains."
+        },
+        {
+          "id": "c5",
+          "front": "Where does a P-steered car settle in a steady bend of radius $R$?",
+          "back": "It must hold $\\delta \\approx \\arctan(L/R)$, with its body pointing $\\delta$ outside ($\\psi = -\\delta$), so $e_{\\text{off}} = (k_{\\text{head}} - 1)\\,\\delta / k_{\\text{off}}$: 0.160 m on `gentle` with the provided gains. Zero when $k_{\\text{head}} = 1$, as in Stanley's law."
+        },
+        {
+          "id": "c6",
+          "front": "Why does the car with the two-point box leave `curvy`?",
+          "back": "On a left bend the box's straight line reports a heading far to the right of the truth, and $k_{\\text{head}} = 2.7$ turns that bias into steering left, so the car cuts inside and leaves at 48.3 m. With perfect lane values the same law completes `curvy`."
+        }
+      ]
+    }
+  },
+  "figures": [
+    "0-1-1/car_and_view.png",
+    "0-1-1/sign_convention.png",
+    "0-1-1/signed_mean_trap.png",
+    "0-1-2/colour_distance.png",
+    "0-1-2/exact_vs_threshold.png",
+    "0-1-2/frame_grid.png",
+    "0-1-2/noisy_patch.png",
+    "0-1-3/chord_bias.png",
+    "0-1-3/lane_estimate.png",
+    "0-1-3/perspective_grid.png",
+    "0-1-3/rows_to_distance.png",
+    "0-1-4/curvy_box.png",
+    "0-1-4/gain_sweep.png",
+    "0-1-4/open_vs_closed.png",
+    "0-1-4/steady_state.png"
+  ]
+}

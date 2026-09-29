@@ -1,0 +1,14 @@
+- id: q1
+  type: mcq
+  prompt: "Which value is a lateral error?"
+  choices: [Speed, Offset from lane centre, Steering angle]
+  answer: 1
+  explain: "Lateral error is measured sideways from lane centre."
+  section: measuring-lane-error
+- id: q2
+  type: numeric
+  prompt: "What is the mean absolute error of [0.5, -0.5]?"
+  answer: 0.5
+  tolerance: 0.01
+  explain: "The absolute values are both 0.5."
+  section: measuring-lane-error

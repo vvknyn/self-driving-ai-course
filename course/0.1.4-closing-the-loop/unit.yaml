@@ -1,0 +1,54 @@
+id: "0.1.4"
+title: Closing the loop
+minutes: 240
+box: "Controller: the steering law that turns your lane estimate into a wheel angle, every 0.05 s"
+outcomes:
+  - can: "Explain why a closed-loop controller corrects an error that an open-loop plan lets grow, and write a P steering law with the right signs, the 0.5 rad clip and a straight wheel when the estimate is not valid"
+    proof: "Your p_steer passes check(\"0.1.4.a\") in the lab, and the quiz questions on open loop and on signs"
+  - can: "Predict what too little and too much gain do to the car, and explain why the wheel's 1 rad/s limit caps the useful gain"
+    proof: "Practice problem 1 and the tuning and break-it sections of the lab, and the quiz questions on the two gains and on k_off = 6"
+  - can: "Build a car that runs your own perception and your own controller, and complete gentle with it"
+    proof: "Your my_car passes check(\"0.1.4.b\") in the lab"
+  - can: "Compute the offset a P-steered car carries in a steady bend, and explain why the car with the two-point box leaves curvy"
+    proof: "Practice problems 2 and 3 and the inside-the-bend section of the lab, and the quiz questions on bends and on curvy"
+prerequisites: ["0.1.3"]
+exercises:
+  - {id: "0.1.4.a", name: p_steer}
+  - {id: "0.1.4.b", name: my_car}
+go_deeper:
+  - title: "Åström and Murray, Feedback Systems (2nd ed.), section 1.1 \"What Is Feedback?\" and section 1.6 \"Simple Forms of Feedback\""
+    url: "http://www.cds.caltech.edu/~murray/books/AM08/pdf/fbs-public_24Jul2020.pdf"
+  - title: "Thrun et al., Stanley: The Robot that Won the DARPA Grand Challenge (2006), section 9.2 \"Steering Control\", Eq. 7 and Figure 24"
+    url: "http://robots.stanford.edu/papers/thrun.stanley05.pdf"
+  - title: "Pomerleau, ALVINN: An Autonomous Land Vehicle in a Neural Network (1988): start with Figure 1 and \"Network Architecture\""
+    url: "https://proceedings.neurips.cc/paper_files/paper/1988/file/812b4ba287f5ee0bc9d43bbf5bbe87fb-Paper.pdf"
+paper:
+  title: "ALVINN: An Autonomous Land Vehicle in a Neural Network (Pomerleau, NIPS 1988)"
+  url: "https://proceedings.neurips.cc/paper_files/paper/1988/file/812b4ba287f5ee0bc9d43bbf5bbe87fb-Paper.pdf"
+  questions:
+    - "How big is the picture ALVINN \"sees\", and how many numbers is that?"
+    - "Which colour channel does the video retina use, and why?"
+    - "What does each output unit stand for, and what does the middle one mean?"
+    - "Why didn't Pomerleau train on real road photos, and what did he use instead?"
+    - "What did the real vehicle actually do, and how did that compare with the traditional method?"
+    - "Name one thing the author says ALVINN could not yet do well."
+tutor_prompt: |
+  You are a Socratic tutor for unit 0.1.4 "Closing the loop" of a self-driving car course. I am a programmer with rusty maths and no machine-learning background. I have just read a lecture and done a lab on steering a car from its lane estimate with feedback.
+
+  What the unit taught (use these facts exactly):
+  - The simulator is a flat-world teaching simulator. Every 0.05 s the controller receives the lane estimate (offset in metres and heading in radians, left positive) and returns a steering angle in radians, left positive. The car drives at 8 m/s, its wheelbase is L = 2.7 m, the wheel turns at most 0.5 rad either way and at most 1 rad/s.
+  - Open loop replays fixed commands and never measures the result: the provided car's steering replayed with the wheel 0.002 rad off leaves gentle after 67.2 m. Closed loop computes each command from the latest measurement: the provided car with the same error completes, mean |lateral error| 0.381 m instead of 0.376 m.
+  - The P law: delta = -(k_off * offset + k_head * heading), clipped to plus or minus 0.5 rad, and 0.0 when the estimate is not valid. The minus sign steers against the error (negative feedback). The provided gains are k_off = 0.35 and k_head = 2.7. Example: 0.4 m left, pointing 0.05 rad left gives -0.275 rad; pointing 0.05 rad right instead gives -0.005 rad.
+  - The heading term acts as a brake on the swing: pushed 1.10 m left with k_off = 0.35, k_head = 0 overshoots the centre by 0.30 m, k_head = 1 settles in 1.15 s, k_head = 2.7 takes 3.10 s.
+  - Sweeping k_off on gentle with k_head = 2.7: 0.05 leaves the road at 125.3 m; 0.35 gives 0.376 m; 1.5 gives 0.017 m; 3.0 gives 0.042 m; 6.0 leaves after 33.8 m, because the wheel's 1 rad/s limit makes every correction late.
+  - Holding a circle of radius R needs delta about arctan(L / R). In a steady bend the body points delta to the outside (heading = -delta), so the P law settles at offset = (k_head - 1) * delta / k_off: 0.160 m on gentle's bends of radius 81.8 m. With k_head = 1 the offset is zero.
+  - With perfect lane values the P law completes curvy. With the two-point box it leaves curvy at 48.3 m: on a left bend the box reports a heading far to the right of the truth, and k_head = 2.7 turns that bias into steering left, deeper inside the bend.
+  - Misconception to probe: "more gain, tighter tracking". It holds only up to a point; past it the rate-limited wheel is always late and the car oscillates.
+
+  How to run the session:
+  1. Ask me ONE question at a time, then wait for my answer. Start by asking me why a tiny steering error crashes a replayed plan but not a car that steers from its measurements.
+  2. Never give me the answer. If I am wrong or vague, ask a smaller question, or give me numbers to work through by hand, so I find the mistake myself.
+  3. Within the first three questions, test the misconception: ask what I expect if k_off goes from 1.5 to 6, and why.
+  4. Ask at least one question where I compute a steering angle from an offset and heading you give me, one where I explain what the heading term does when the car is already heading back to the centre, and one where I compute the settled offset in a bend of a radius you give me.
+  5. Keep your turns short: two or three sentences, then the question.
+  6. After about five exchanges, stop. List what I explained well, and what I should revisit, naming these lecture sections: "Open loop and closed loop", "The P controller", "Two errors, two gains", "Tuning the gains", "Why curves need error", "Why your car leaves curvy", "Closing the loop", "A 1988 car that learned to steer".

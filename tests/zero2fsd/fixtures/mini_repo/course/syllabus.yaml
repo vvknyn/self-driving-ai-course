@@ -1,0 +1,17 @@
+loops:
+  - id: "0"
+    title: Fixture loop
+    summary: One tiny loop for the machinery tests.
+    modules:
+      - id: "0.1"
+        title: Fixture module
+        summary: One ready unit and one planned.
+        planned_units: 2
+        units:
+          - {id: "0.1.1", folder: 0.1.1-mini, title: Mini unit, status: ready}
+          - {id: "0.1.2", folder: 0.1.2-not-written, title: Not written yet, status: planned}
+      - id: "0.2"
+        title: Later module
+        summary: No units yet.
+        planned_units: 3
+        paper: {title: A paper, url: "https://example.org/paper"}

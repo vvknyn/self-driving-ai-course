@@ -1,0 +1,154 @@
+# Course map: loops -> modules -> units.  Ids are L.M.U (loop.module.unit).
+# A unit is `ready` once its folder holds unit.yaml, lecture.md, lab.py/lab.ipynb, quiz.yaml and cards.yaml;
+# only ready units enter the course bundle.  Modules list `planned_units` until their units are written.
+# Paper links were checked on 2026-09-28: the NeurIPS page loads; the two DOIs resolve in Crossref to the named papers.
+loops:
+  - id: "0"
+    title: The whole game
+    summary: Play a junior version of the whole game. You get a complete car that drives badly, then open its boxes one at a time and swap in your own.
+    modules:
+      - id: "0.1"
+        title: Your first self-driving car
+        summary: Measure a lane, find paint in an image, estimate the lane, steer from the estimate, and watch the car fail on a tight bend.
+        planned_units: 4
+        paper:
+          title: "ALVINN: An Autonomous Land Vehicle in a Neural Network (Pomerleau, NIPS 1988)"
+          url: https://papers.nips.cc/paper/1988/hash/812b4ba287f5ee0bc9d43bbf5bbe87fb-Abstract.html
+        units:
+          - {id: "0.1.1", folder: 0.1.1-meet-your-car, title: Meet your car, status: ready}
+          - {id: "0.1.2", folder: 0.1.2-images-are-arrays, title: Images are arrays, status: ready}
+          - {id: "0.1.3", folder: 0.1.3-your-first-perception-box, title: Your first perception box, status: ready}
+          - {id: "0.1.4", folder: 0.1.4-closing-the-loop, title: Closing the loop, status: ready}
+
+  - id: "1"
+    title: Classical car
+    summary: Every classical box of the car becomes yours - transforms, control, camera geometry, lane perception, state estimation, tracking and planning.
+    modules:
+      - id: "1.1"
+        title: Frames and transforms
+        summary: The coordinate transforms used everywhere, from vectors and rotation matrices to homogeneous transforms.
+        planned_units: 5
+      - id: "1.2"
+        title: Longitudinal control and vehicle motion
+        summary: The speed controller and the simulator's bicycle model, using derivatives, Euler integration and PID.
+        planned_units: 6
+      - id: "1.3"
+        title: Lateral control
+        summary: The steering controller (pure pursuit, Stanley), with geometry and stability intuition.
+        planned_units: 5
+        paper:
+          title: "Stanley: The robot that won the DARPA Grand Challenge (Thrun et al., 2006)"
+          url: https://doi.org/10.1002/rob.20147
+      - id: "1.4"
+        title: Camera geometry
+        summary: The simulator's camera renderer and inverse perspective mapping, using the pinhole model, intrinsics and extrinsics.
+        planned_units: 6
+      - id: "1.5"
+        title: Classical lane perception
+        summary: Lane perception with least squares, RANSAC and polynomial fits.
+        planned_units: 6
+      - id: "1.6"
+        title: State estimation
+        summary: Localisation from noisy odometry and GNSS, using probability, Gaussians, Bayes, and the Kalman and extended Kalman filters.
+        planned_units: 7
+        paper:
+          title: "A New Approach to Linear Filtering and Prediction Problems (Kalman, 1960)"
+          url: https://doi.org/10.1115/1.3662552
+      - id: "1.7"
+        title: Multi-object tracking
+        summary: A tracker built on data association and the Hungarian algorithm.
+        planned_units: 5
+      - id: "1.8"
+        title: Planning
+        summary: Lattice planning, A*, speed profiles and overtaking a slow car, using graph search and cost functions.
+        planned_units: 6
+      - id: "1.9"
+        title: Loop 1 capstone
+        summary: Your all-classical car beats the provided car on the full scenario suite.
+        planned_units: 2
+
+  - id: "2"
+    title: Learned car
+    summary: Learned boxes must beat your own classical boxes.
+    modules:
+      - id: "2.1"
+        title: Autograd from scratch
+        summary: Build automatic differentiation from first principles.
+        planned_units: 5
+      - id: "2.2"
+        title: ML fundamentals
+        summary: Losses, optimisation, generalisation and evaluation.
+        planned_units: 5
+      - id: "2.3"
+        title: Neural nets and CNNs in PyTorch
+        summary: Neural networks and convolutional networks in PyTorch.
+        planned_units: 5
+      - id: "2.4"
+        title: Learned lane perception
+        summary: Move from simulator frames to real nuScenes-mini frames and measure the domain gap.
+        planned_units: 5
+      - id: "2.5"
+        title: Object detection on real frames
+        summary: Detect objects on real driving frames.
+        planned_units: 6
+      - id: "2.6"
+        title: Multi-task nets
+        summary: One network, several driving tasks.
+        planned_units: 3
+      - id: "2.7"
+        title: Attention and transformers from scratch
+        summary: Build attention and a transformer from scratch.
+        planned_units: 5
+      - id: "2.8"
+        title: BEV perception and point clouds
+        summary: Bird's-eye-view perception and point-cloud networks.
+        planned_units: 6
+      - id: "2.9"
+        title: Occupancy and temporal fusion
+        summary: Occupancy prediction and fusing frames over time.
+        planned_units: 4
+      - id: "2.10"
+        title: Motion forecasting
+        summary: Predict where other road users will go.
+        planned_units: 4
+      - id: "2.11"
+        title: Imitation-learned planner
+        summary: Imitation learning, covariate shift and DAgger, ending in the Loop 2 capstone.
+        planned_units: 4
+
+  - id: "3"
+    title: Research car
+    summary: Read, reproduce, extend and write up research. Specific papers are chosen when the pilot reaches this loop.
+    modules:
+      - id: "3.1"
+        title: Reading and reproducing papers
+        summary: How to read a paper and reproduce its result.
+        planned_units: 3
+      - id: "3.2"
+        title: RL for driving in the course sim
+        summary: Reinforcement learning for driving in the course simulator.
+        planned_units: 6
+      - id: "3.3"
+        title: End-to-end driving
+        summary: Drive directly from pixels to controls.
+        planned_units: 5
+      - id: "3.4"
+        title: World models and generative simulation
+        summary: Learned world models and generative simulation.
+        planned_units: 5
+      - id: "3.5"
+        title: Vision-language-action models
+        summary: Vision-language-action models for driving.
+        planned_units: 4
+      - id: "3.6"
+        title: Data engines and the long tail
+        summary: Data engines and the long tail of rare driving situations.
+        planned_units: 4
+      - id: "3.7"
+        title: Safety, verification and scenario-based evaluation
+        summary: Safety cases, verification and scenario-based evaluation.
+        planned_units: 5
+      - id: "3.8"
+        title: Thesis
+        summary: Reproduce a result, extend it, and write it up.
+        planned_units: 8

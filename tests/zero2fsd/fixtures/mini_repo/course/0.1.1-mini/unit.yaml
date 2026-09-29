@@ -1,0 +1,13 @@
+id: "0.1.1"
+title: Mini unit
+minutes: 60
+outcomes:
+  - {can: Summarise a lateral-error trace, proof: lane_error_stats passes its tests}
+prerequisites: []
+box: none
+go_deeper:
+  - {title: An example source, url: "https://example.org/source"}
+tutor_prompt: Explain lane error to me.
+exercises:
+  - {id: "0.1.1.a", name: lane_error_stats}
+  - {id: "0.1.1.b", name: steps_off_lane}

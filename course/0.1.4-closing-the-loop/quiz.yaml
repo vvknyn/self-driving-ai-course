@@ -1,0 +1,76 @@
+- id: q1
+  type: mcq
+  prompt: "The provided car's steering on `gentle` is recorded and replayed without the camera, with the wheel 0.002 rad off. The replay leaves the road on the first straight; the provided car with the same error completes the lap. Why?"
+  choices:
+    - "The replay runs slower than the live car, so the timing drifts."
+    - "The replay is open loop: nothing measures the error, so it adds up. The live car measures the offset every 0.05 s and steers against it."
+    - "0.002 rad is too small to matter; the replay must have a bug."
+    - "The live car's perception box cancels the 0.002 rad before it reaches the wheel."
+  answer: 1
+  explain: "The exact replay drives the identical lap, so the recording is fine. With a constant 0.002 rad error, every step the open-loop car drifts a little further and nothing notices. The closed-loop car sees the drift in its next estimate and steers against it, so the same error costs only 0.005 m of mean |lateral error|. The perception box does not know about the error at all; feedback corrects its effect, whatever caused it."
+  section: open-loop-and-closed-loop
+- id: q2
+  type: mcq
+  prompt: "The car is 0.3 m right of lane centre, pointing along the lane. A teammate's controller returns $-0.105$ rad. What is wrong?"
+  choices:
+    - "Nothing: $0.35 \\times 0.3 = 0.105$, the right size."
+    - "The sign: $-0.105$ steers right, away from the centre, so each correction makes the error bigger."
+    - "The size: it should use the full $\\pm 0.5$ rad to get back quickly."
+    - "It should return 0.0, because the heading is 0."
+  answer: 1
+  explain: "Right of centre means $e_{\\text{off}} = -0.3$, so $\\delta = -k_{\\text{off}}\\, e_{\\text{off}} = -0.35 \\times (-0.3) = +0.105$ rad: steer left, towards the centre. The size is right; the missing minus sign turns negative feedback into positive feedback. A zero heading only makes the heading term zero, not the offset term."
+  section: the-p-controller
+- id: q3
+  type: numeric
+  prompt: "Your `p_steer` gets `LaneEstimate(offset_m=-0.5, heading_rad=0.1, valid=True)` with `k_off = 0.4` and `k_head = 1.0`. What does it return, in radians?"
+  answer: 0.1
+  tolerance: 0.001
+  explain: "$\\delta = -(0.4 \\times (-0.5) + 1.0 \\times 0.1) = -(-0.2 + 0.1) = +0.1$ rad. The car is 0.5 m right of centre (steer left, $+0.2$) but already pointing 0.1 rad left, back towards the centre (steer right, $-0.1$). The two terms partly cancel: the heading term eases off because the car is already returning. No clipping: $0.1 < 0.5$."
+  section: two-errors-two-gains
+- id: q4
+  type: mcq
+  prompt: "On `gentle`, with `k_head = 2.7`, raising `k_off` from 0.35 to 1.5 cuts the mean |lateral error| from 0.376 m to 0.017 m. What do you expect at `k_off = 6`?"
+  choices:
+    - "Even tighter tracking, under 0.017 m."
+    - "About the same as 1.5: the error cannot go below zero."
+    - "The car swings wider and wider and leaves the road on the first straight, because the wheel turns at most 1 rad/s and is always late."
+    - "The car steers too little and drifts off at the first bend."
+  answer: 2
+  explain: "\"More gain, tighter tracking\" holds only up to a point. At `k_off = 6` a 5 cm offset asks for 0.3 rad of wheel, which takes 0.3 s to reach; by then the car has crossed the centre and the controller wants the opposite. The wheel turns at full speed in 80% of steps and the car leaves after 33.8 m. Drifting off at the first bend is what too little gain does (0.05)."
+  section: tuning-the-gains
+- id: q5
+  type: numeric
+  prompt: "A car with wheelbase $L = 2.7$ m follows a circle of radius 40 m. About what wheel angle, in radians, does it hold?"
+  answer: 0.0674
+  tolerance: 0.001
+  explain: "$\\delta \\approx \\arctan(L / R) = \\arctan(2.7 / 40) = \\arctan(0.0675) = 0.0674$ rad. A P law only produces that angle if the errors ask for it, so in this bend the car carries an offset of $(k_{\\text{head}} - 1)\\,\\delta / k_{\\text{off}}$, about 0.33 m with the provided gains."
+  section: why-curves-need-error
+- id: q6
+  type: numeric
+  prompt: "With perfect lane values and `k_off = 0.35`, which `k_head` makes the settled offset in a long steady bend exactly zero?"
+  answer: 1.0
+  tolerance: 0.01
+  explain: "In a steady bend the body points $\\delta$ to the outside ($\\psi = -\\delta$), so the heading term gives $k_{\\text{head}}\\,\\delta$. The car needs exactly $\\delta$, so with $k_{\\text{head}} = 1$ the offset term has nothing left to supply and the offset is $(1 - 1)\\,\\delta / k_{\\text{off}} = 0$. It does not depend on `k_off`. Stanley's law has this heading term with gain 1."
+  section: why-curves-need-error
+- id: q7
+  type: mcq
+  prompt: "With perfect lane values, the P law (0.35, 2.7) completes `curvy`. Your car, with the same law and the two-point box, leaves the road at 48.3 m. Why?"
+  choices:
+    - "A P law cannot hold any bend: it needs zero error to steer."
+    - "On a left bend the box's straight line reports a heading far to the right of the truth, and `k_head = 2.7` turns that into steering left, so the car cuts to the inside."
+    - "The bends are sharper than the wheel's 0.5 rad limit."
+    - "The box returns `valid=False` in the bend and the car goes straight."
+  answer: 1
+  explain: "The perfect-values run shows the law itself copes: it holds each bend with an offset under 0.67 m. The difference is the box's chord bias. At 44.3 m the car is truly 1.70 m left, heading $-0.085$ rad, and the law would steer right ($-0.366$ rad). The box says $-0.342$ rad, and $2.7 \\times$ that error gives steering left ($+0.110$ rad). A P law needs some error to hold a bend, but that alone does not crash the car; the wheel needs only about 0.12 to 0.15 rad here, well inside its limit."
+  section: why-your-car-leaves-curvy
+- id: q8
+  type: mcq
+  prompt: "What did ALVINN's network output?"
+  choices:
+    - "A steering-wheel angle computed by a proportional law from the lane offset."
+    - "One of 45 direction units, from sharp left to sharp right, standing for a turn curvature; it was trained toward the curvature that reaches the road centre 7 m ahead."
+    - "The positions of the two lane lines in the image."
+    - "A speed and a braking command."
+  answer: 1
+  explain: "Pomerleau's network maps a 30x32 blue-band image (plus a range finder and a feedback unit) straight to 45 direction units; the middle one is \"travel straight ahead\". Its training target aims at a point 7 m ahead rather than reacting to the error at the car. There is no hand-written gain and no separate lane estimate."
+  section: a-1988-car-that-learned-to-steer
