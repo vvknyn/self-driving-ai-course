@@ -1,0 +1,18 @@
+- id: c1
+  front: "What is the difference between open-loop and closed-loop control?"
+  back: "Open loop fixes its commands in advance and never measures the result, so errors add up. Closed loop computes each command from the latest measurement, so an error is corrected as soon as it shows. A 0.002 rad wheel error crashes a replayed lap of `gentle`; the closed-loop car barely notices."
+- id: c2
+  front: "Write the car's P steering law, with its signs and guards."
+  back: "$\\delta = -(k_{\\text{off}}\\, e_{\\text{off}} + k_{\\text{head}}\\, \\psi)$, left positive, clipped to $\\pm 0.5$ rad; 0.0 when the estimate is not valid. The minus sign steers against the error: negative feedback."
+- id: c3
+  front: "Why does the controller use the heading as well as the offset?"
+  back: "A heading error is an offset in the making: 0.05 rad at 8 m/s is 0.40 m sideways per second. The heading term eases off when the car is already returning, which brakes the swing: $k_{\\text{head}} = 0$ overshoots by 0.30 m, 1 settles in 1.15 s, 2.7 creeps (3.10 s)."
+- id: c4
+  front: "Does more gain always mean tighter tracking?"
+  back: "No. On `gentle`, `k_off` 1.5 gives 0.017 m, 3.0 gives 0.042 m, and 6 leaves the road: the wheel turns at most 1 rad/s, so a high-gain command arrives late and each swing is wider. There is a best range of gains."
+- id: c5
+  front: "Where does a P-steered car settle in a steady bend of radius $R$?"
+  back: "It must hold $\\delta \\approx \\arctan(L/R)$, with its body pointing $\\delta$ outside ($\\psi = -\\delta$), so $e_{\\text{off}} = (k_{\\text{head}} - 1)\\,\\delta / k_{\\text{off}}$: 0.160 m on `gentle` with the provided gains. Zero when $k_{\\text{head}} = 1$, as in Stanley's law."
+- id: c6
+  front: "Why does the car with the two-point box leave `curvy`?"
+  back: "On a left bend the box's straight line reports a heading far to the right of the truth, and $k_{\\text{head}} = 2.7$ turns that bias into steering left, so the car cuts inside and leaves at 48.3 m. With perfect lane values the same law completes `curvy`."
