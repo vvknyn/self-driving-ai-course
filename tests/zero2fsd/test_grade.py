@@ -266,3 +266,15 @@ def test_the_grader_never_reads_the_reference_solutions():
 def test_grading_is_repeatable():
     first = [check("0.1.3.a", provided.estimate_lane, show=False).details for _ in range(2)]
     assert first[0] == first[1]
+
+
+@pytest.mark.parametrize("got, verdict", [
+    (None, "not answered yet"),
+    (0.2 + 1e-9, "\033[32m\N{CHECK MARK} mean |e|"),
+    (0.25, "\033[31m\N{BALLOT X} mean |e|: expected 0.2, got 0.25"),
+    ("0.2", "\033[31m\N{BALLOT X}"),
+    (np.array([0.2, 0.2]), "\033[31m\N{BALLOT X}"),
+])
+def test_practice_prints_whether_an_ungraded_answer_is_right_and_never_raises(got, verdict, capsys):
+    assert grade_pkg.practice("mean |e|", got, 0.2) is None
+    assert verdict in capsys.readouterr().out

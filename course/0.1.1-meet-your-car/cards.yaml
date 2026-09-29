@@ -1,0 +1,18 @@
+- id: c1
+  front: "What is the lateral error $e$, and which sign means left?"
+  back: "The sideways distance, in metres, from lane centre to the centre of the front axle. $e > 0$ means left of centre, $e < 0$ right."
+- id: c2
+  front: "Why is the signed mean of $e$ never a quality score?"
+  back: "Left and right errors cancel. A car that swings to both sides can average near 0 m while being far from centre. The signed mean measures bias (which side), not size."
+- id: c3
+  front: "How do you compute RMS$(e)$, in words?"
+  back: "From the inside out: square each error, take the mean of the squares, take the square root. Big errors count extra, so RMS is never below mean $|e|$."
+- id: c4
+  front: "When is a step off the lane in this course?"
+  back: "When $|e| > 0.9$ m, strictly. 0.9 m is half the 1.8 m from lane centre to a line."
+- id: c5
+  front: "How do you count the steps off the lane in one line of NumPy?"
+  back: "`(np.abs(e) > 0.9).sum()`: the comparison gives one True or False per step, and `.sum()` counts True as 1."
+- id: c6
+  front: "How long is one simulator step, and how do you turn steps into seconds?"
+  back: "0.05 s, so 20 steps make a second: divide the number of steps by 20."

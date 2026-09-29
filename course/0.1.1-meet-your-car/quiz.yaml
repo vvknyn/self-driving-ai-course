@@ -1,0 +1,68 @@
+- id: q1
+  type: numeric
+  prompt: "The centre of a car's front axle is 0.4 m to the **right** of lane centre. What is its lateral error $e$, in metres?"
+  answer: -0.4
+  tolerance: 0.001
+  explain: "Left of centre is positive in this course, so right of centre is negative: $e = -0.4$ m. The size, 0.4 m, says how far; the sign says which side."
+  section: lateral-error
+- id: q2
+  type: numeric
+  prompt: "Four steps of a drive have lateral errors $(0.5, -0.2, -0.6, 0.1)$ m. What is mean $|e|$, in metres?"
+  answer: 0.35
+  tolerance: 0.005
+  explain: "Drop the signs first: $(0.5, 0.2, 0.6, 0.1)$. They add up to 1.4, and $1.4 / 4 = 0.35$ m. If you got $-0.05$, you averaged the signed values: that is the signed mean, not mean $|e|$."
+  section: summarising-lane-error
+- id: q3
+  type: numeric
+  prompt: "Two steps have lateral errors $(0.3, -0.4)$ m. What is their RMS, in metres, to three decimals?"
+  answer: 0.354
+  tolerance: 0.002
+  explain: "Inside out: the squares are $0.09$ and $0.16$, their mean is $0.25 / 2 = 0.125$, and $\\sqrt{0.125} = 0.354$ m. Squaring makes the minus sign irrelevant, and the root brings the units back to metres."
+  section: summarising-lane-error
+- id: q4
+  type: mcq
+  prompt: "Over a whole drive, car X has a signed mean lateral error of +0.01 m and car Y has +0.30 m. Which statement do these two numbers justify?"
+  choices:
+    - "Car X keeps its lane better than car Y."
+    - "On average, car Y sat further left of centre than car X did."
+    - "Car X was never more than 0.01 m from lane centre."
+    - "Car Y left the lane at some point."
+  answer: 1
+  explain: "The signed mean measures bias, which side the car favours on average. It cannot rank quality: car X could swing 0.5 m left and 0.5 m right and still average +0.01 m, as the stiffer car on `curvy` did (signed mean +0.02 m, mean $|e|$ 0.50 m). To compare how far the cars strayed, you need mean $|e|$ or RMS."
+  section: the-signed-mean-trap
+- id: q5
+  type: mcq
+  prompt: "Drives P and Q both have mean $|e|$ = 0.2 m. Drive P has RMS 0.21 m and drive Q has RMS 0.45 m. Which drive most likely contains one large swerve?"
+  choices:
+    - "Drive P"
+    - "Drive Q"
+    - "Neither: equal mean $|e|$ means the drives were equally smooth."
+    - "Both equally: RMS and mean $|e|$ always agree."
+  answer: 1
+  explain: "Squaring grows big errors much faster than small ones, so one large error lifts the RMS far above mean $|e|$. RMS equals mean $|e|$ only when every error has the same size, so drive P (0.21 against 0.2) was steady and drive Q (0.45 against 0.2) was uneven."
+  section: why-rms-punishes-big-errors
+- id: q6
+  type: numeric
+  prompt: "What does `steps_off_lane(np.array([0.9, -1.2, 0.3, -0.9, 1.0]))` return with the default limit of 0.9 m?"
+  answer: 2
+  tolerance: 0
+  explain: "The sizes are $(0.9, 1.2, 0.3, 0.9, 1.0)$. The test is strict, $|e| > 0.9$, so the two steps at exactly 0.9 do not count; 1.2 and 1.0 do. That makes 2. Forgetting the absolute value gives 1, and using $\\ge$ gives 4."
+  section: counting-steps-off-the-lane
+- id: q7
+  type: numeric
+  prompt: "A car spends 37 steps off the lane. How many seconds is that?"
+  answer: 1.85
+  tolerance: 0.001
+  explain: "One step is 0.05 s, so there are 20 steps per second: $37 / 20 = 1.85$ s."
+  section: counting-steps-off-the-lane
+- id: q8
+  type: mcq
+  prompt: "What does `print(np.array([-0.5, 0.5]) ** 2)` print?"
+  choices:
+    - "`[-0.25  0.25]`"
+    - "`[0.25 0.25]`"
+    - "`0.5`"
+    - "An error: you cannot square a whole array."
+  answer: 1
+  explain: "`** 2` squares every element of the array at once (vectorisation), and the square of a negative number is positive. The result is still an array of the same shape, not a single number; `.mean()` is what would reduce it to one."
+  section: arrays-not-loops

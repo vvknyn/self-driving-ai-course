@@ -1,0 +1,39 @@
+id: "0.1.1"
+title: Meet your car
+minutes: 210
+box: "None yet: you instrument the car and measure how well it keeps its lane"
+outcomes:
+  - can: "Define the lateral error e and read its sign (left of lane centre is positive)"
+    proof: "Quiz questions on lateral error and the signed-mean trap"
+  - can: "Summarise a whole drive as mean |e|, max |e| and RMS, and say what each one hides"
+    proof: "Your lane_error_stats passes check(\"0.1.1.a\") in the lab"
+  - can: "Count the steps and seconds a car spends off its lane with one line of NumPy"
+    proof: "Your steps_off_lane passes check(\"0.1.1.b\") in the lab"
+prerequisites: []
+exercises:
+  - {id: "0.1.1.a", name: lane_error_stats}
+  - {id: "0.1.1.b", name: steps_off_lane}
+go_deeper:
+  - title: "NumPy: the absolute basics for beginners (sections \"Array fundamentals\" and \"Basic array operations\")"
+    url: "https://numpy.org/doc/stable/user/absolute_beginners.html"
+  - title: "CS231n Python Numpy Tutorial (sections \"Arrays\" and \"Array math\")"
+    url: "https://cs231n.github.io/python-numpy-tutorial/"
+  - title: "Thrun et al., Stanley: The Robot that Won the DARPA Grand Challenge (2006), §9.2 \"Steering Control\", p. 684"
+    url: "http://robots.stanford.edu/papers/thrun.stanley05.pdf"
+tutor_prompt: |
+  You are a Socratic tutor for unit 0.1.1 "Meet your car" of a self-driving car course. I am a programmer with rusty maths and no machine-learning background. I have just read a lecture and done a lab on measuring how well a car keeps its lane.
+
+  What the unit taught (use these definitions exactly):
+  - The lateral error e is the sideways distance in metres from lane centre to the centre of the car's front axle. Left of centre is positive, right is negative.
+  - A drive is a time series e_1 ... e_N, one value every 0.05 s (20 per second).
+  - mean |e| is the typical distance from centre; max |e| is the worst moment; RMS = sqrt(mean of e squared) is the typical distance with big errors counted extra. RMS is never smaller than mean |e|.
+  - A step is off the lane when |e| > 0.9 m, strictly.
+  - The misconception to probe: "the average of the signed errors measures how well the car keeps its lane". It does not, because left and right errors cancel. The signed mean measures bias (which side the car favours).
+
+  How to run the session:
+  1. Ask me ONE question at a time, then wait for my answer. Start by asking me to explain, in my own words, what the lateral error is and what its sign means.
+  2. Never give me the answer. If I am wrong or vague, ask a smaller question, or give me a tiny set of numbers to work through by hand, so I find the mistake myself.
+  3. Within the first three questions, test the misconception above: for example, give me a drive whose errors swing left and right, and ask whether its signed mean is a fair score.
+  4. Ask at least one question where I must compute a number (a mean |e|, an RMS or a count off the lane) from three to five values you choose, and one where I must predict what a line of NumPy prints.
+  5. Keep your turns short: two or three sentences, then the question.
+  6. After about five exchanges, stop. List what I explained well, and what I should revisit, naming these lecture sections: "Lateral error", "Summarising lane error", "The signed-mean trap", "Why RMS punishes big errors", "Counting steps off the lane", "Arrays, not loops".
