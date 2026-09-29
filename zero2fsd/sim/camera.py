@@ -43,6 +43,13 @@ def _strip(road, s0, s1, d_lo, d_hi):
     return np.stack([lo[:-1], lo[1:], hi[1:], hi[:-1]], axis=1)
 
 
+def to_vehicle(state, x, y):
+    """World point(s) (x, y) in the car's frame: (forward, left) metres from the car, left positive."""
+    c, s = math.cos(state.yaw), math.sin(state.yaw)
+    dx, dy = x - state.x, y - state.y
+    return dx * c + dy * s, -dx * s + dy * c
+
+
 class Camera:
     def __init__(self, width=320, height=180, hfov_deg=90.0, height_m=1.4, pitch_deg=5.0):
         self.width, self.height, self.mount_height = width, height, height_m
@@ -97,9 +104,7 @@ class Camera:
 
     def _polygons(self, quads, state):
         """Near-plane clip world quads in the vehicle frame and project them to flat pixel lists."""
-        c, s = math.cos(state.yaw), math.sin(state.yaw)
-        dx, dy = quads[..., 0] - state.x, quads[..., 1] - state.y
-        F, L = dx * c + dy * s, -dx * s + dy * c
+        F, L = to_vehicle(state, quads[..., 0], quads[..., 1])
         inside = F >= NEAR_PLANE
         whole = inside.all(axis=1)
         polys = self._flatten(F[whole], L[whole])

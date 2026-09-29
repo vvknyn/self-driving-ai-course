@@ -1,0 +1,18 @@
+- id: c1
+  front: "Where is the horizon in the camera image, and why?"
+  back: "Row $c_y - f \\tan p = 89.5 - 160 \\tan 5° = 75.5$. A ray parallel to the ground points $p$ above the camera's axis. Rows above it see sky; rows below see road."
+- id: c2
+  front: "How far ahead is the ground seen in image row $v$ on a flat road?"
+  back: "The ray falls $\\theta = p + \\arctan\\frac{v - c_y}{f}$ below horizontal and starts $h$ up, so $d = h / \\tan\\theta$. Row 150 gives 2.91 m. The column does not matter: a row is a distance."
+- id: c3
+  front: "How many metres of ground does one pixel column cover?"
+  back: "About $d / f$, where $d$ is how far ahead that row sees: 0.0189 m at 2.91 m, 0.0574 m at 9.09 m. There is no fixed metres-per-column; you need the row too."
+- id: c4
+  front: "Given the lane-centre line through $(f_1, c_1)$ and $(f_2, c_2)$, what are the offset and the heading?"
+  back: "$\\text{slope} = (c_2 - c_1) / (f_2 - f_1)$, $\\text{offset} = -(c_1 - \\text{slope} \\cdot f_1)$, $\\text{heading} = -\\arctan(\\text{slope})$. The minus signs switch from the lane seen by the car to the car seen by the lane."
+- id: c5
+  front: "What does `estimate_lane` return when a band has fewer than 3 pixels of a line?"
+  back: "`LaneEstimate(math.nan, math.nan, False)`. Never `0.0, 0.0`: that claims the car is centred and aligned. The controller decides what to do without an estimate."
+- id: c6
+  front: "Why is a two-point straight-line lane estimate wrong on a bend, even with the car perfectly placed?"
+  back: "The line through two points on a curve (a chord) misses the car: offset $\\approx s_1 s_2 / (2R)$, heading $\\approx -\\arctan\\frac{s_1 + s_2}{2R}$. It is a bias, the same every frame, so it pushes the car to the inside of the bend. Curved lane models come in module 1.5."

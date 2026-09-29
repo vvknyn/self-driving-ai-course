@@ -42,6 +42,9 @@ def fmt(value) -> str:
         value = value.item()
     if isinstance(value, np.ndarray):
         return np.array2string(value, precision=4, threshold=8, edgeitems=3)
+    if type(value) in (tuple, list):  # a plain container, such as a (forward, left) point: format each item
+        items = ", ".join(fmt(v) for v in value)
+        return f"({items})" if isinstance(value, tuple) else f"[{items}]"
     if isinstance(value, float | np.floating):
         return f"{value:.6g}"
     return value if isinstance(value, str) else repr(value)

@@ -35,8 +35,8 @@
               "id": "0.1.3",
               "slug": "0-1-3",
               "title": "Your first perception box",
-              "status": "planned",
-              "minutes": null
+              "status": "ready",
+              "minutes": 210
             },
             {
               "id": "0.1.4",
@@ -630,6 +630,179 @@
           "back": "116: the result wraps around by adding 256, silently. Convert first: `frame.astype(float)` before any arithmetic on image data."
         }
       ]
+    },
+    "0-1-3": {
+      "id": "0.1.3",
+      "slug": "0-1-3",
+      "title": "Your first perception box",
+      "minutes": 210,
+      "box": "Perception, second half: turning paint masks into the lane offset and heading the controller needs",
+      "outcomes": [
+        {
+          "can": "Turn an image row into a distance ahead on a flat road, and explain why one pixel column covers more ground the further away it is",
+          "proof": "Practice problems 1 and 2 in the lab, and the quiz questions on the horizon, row distances and metres per column"
+        },
+        {
+          "can": "Estimate the car's offset and heading from paint masks with two lane-centre points and a straight line, and report no estimate when the paint is missing",
+          "proof": "Your estimate_lane passes check(\"0.1.3.a\") in the lab"
+        },
+        {
+          "can": "Drive the car on your own perception, and explain why a straight-line lane model is biased on bends and why a flipped sign drives the car off the road",
+          "proof": "Your estimate_lane passes check(\"0.1.3.b\"), the straight-roads and break-it sections of the lab, and the quiz questions on bends and signs"
+        }
+      ],
+      "prerequisites": [
+        "0-1-2"
+      ],
+      "go_deeper": [
+        {
+          "title": "Stanford CS231A Course Notes 1, \"Camera Models\" (Hata and Savarese), section 2 \"Pinhole cameras\"",
+          "url": "https://web.stanford.edu/class/cs231a/course_notes/01-camera-models.pdf"
+        },
+        {
+          "title": "Aly, Real time Detection of Lane Markers in Urban Streets (2008), section II.A \"Inverse Perspective Mapping (IPM)\" and Figures 2 and 3",
+          "url": "https://arxiv.org/abs/1411.7113"
+        },
+        {
+          "title": "Szeliski, Computer Vision: Algorithms and Applications (2nd ed.), section 2.1.4 \"3D to 2D projections\"",
+          "url": "https://szeliski.org/Book/"
+        }
+      ],
+      "paper": null,
+      "tutor_prompt": "You are a Socratic tutor for unit 0.1.3 \"Your first perception box\" of a self-driving car course. I am a programmer with rusty maths and no machine-learning background. I have just read a lecture and done a lab on turning a camera frame into the car's position in its lane.\n\nWhat the unit taught (use these facts exactly):\n- The simulator's road is exactly flat. The camera is 1.4 m above the ground at the front axle, tipped down 5 degrees, focal length f = 160 pixels, image centre column 159.5 and row 89.5. The horizon is row 75.5.\n- A row is a distance: the ray of row v falls theta = 5 degrees + arctan((v - 89.5) / 160) below horizontal and meets the ground d = 1.4 / tan(theta) metres ahead. Row 150 sees 2.91 m ahead, row 100 sees 9.09 m.\n- One pixel column covers about d / f metres of ground: 0.0189 m in row 150, 0.0574 m in row 100. Sliding the car 0.5 m moves the white line 26.5 columns in row 150 but 9 in row 100.\n- The box: paint masks; in a near band (rows 125 to 179) and a far band (rows 95 to 115), each line's centroid, turned into a ground point (forward, left); the lane centre is the midpoint of the yellow and white points; a straight line through the near and far lane-centre points. offset = -(c1 - slope * f1), heading = -arctan(slope). Left is positive.\n- With fewer than 3 pixels of a line in a band, the box returns LaneEstimate(nan, nan, False), never 0 and 0.\n- On a bend of radius R the straight line through two points is a chord: with the car centred the box reports about s1 * s2 / (2R) offset and -arctan((s1 + s2) / (2R)) heading, with s1 about 2.7 m and s2 about 7.2 m. That is 0.12 m and 0.062 rad on the 80 m bends of gentle. It is a bias, not noise.\n- Misconception to probe: \"a pixel column is a fixed number of metres\". It is not; it grows with distance ahead.\n- A flipped offset sign makes the controller steer away from the centre: positive feedback, the error roughly doubling every half second until the car leaves the road after 5 s.\n\nHow to run the session:\n1. Ask me ONE question at a time, then wait for my answer. Start by asking me why every pixel in one row of the image sees ground at the same distance ahead.\n2. Never give me the answer. If I am wrong or vague, ask a smaller question, or give me numbers to work through by hand, so I find the mistake myself.\n3. Within the first three questions, test the misconception: ask whether the lane's width in columns in row 150 lets me convert columns to metres in row 100, and why.\n4. Ask at least one question where I compute a distance ahead for a row you give me, one where I compute an offset from two lane-centre points you give me, and one where I explain what the box reports on a bend with the car perfectly centred.\n5. Keep your turns short: two or three sentences, then the question.\n6. After about five exchanges, stop. List what I explained well, and what I should revisit, naming these lecture sections: \"The horizon\", \"Rows are distances\", \"Metres per pixel\", \"From masks to a lane estimate\", \"What valid=False is for\", \"Straight roads only\", \"Swap your perception into the car\".\n",
+      "lecture_md": "# Your first perception box\n\n## The horizon\n\nYour `paint_masks` from unit 0.1.2 finds the paint pixels, but the controller wants two numbers: how far the car is from lane centre in metres (the **offset**, positive when left of centre) and which way it points relative to the lane in radians (the **heading**, positive when pointing left of the lane). This unit builds the box in between, `estimate_lane(obs)`, which returns a `LaneEstimate(offset_m, heading_rad, valid)`.\n\nThe bridge from pixels to metres is one assumption. A 2008 lane-detection paper states it in its first step:\n\n> \"To get the IPM of the input image, we assume a flat road, and use the camera intrinsic (focal length and optical center) and extrinsic (pitch angle, yaw angle, and height above ground) parameters to perform this transformation.\" (Aly, 2008, §II.A)\n\nIPM, inverse perspective mapping, redraws the picture as if seen from straight above, so \"lanes that appear to converge at the horizon line are now vertical and parallel.\" You will do it for just the pixels you need.\n\nIn this flat-world teaching simulator the ground is exactly a plane, and you know every camera number. The camera sits $h = 1.4$ m above the ground, directly above the front axle, tipped down by a **pitch** of $p = 5°$. Its **focal length** is $f = 160$ pixels: a ray at angle $\\alpha$ from the direction the camera points lands $f \\tan\\alpha$ pixels from the image centre, which is column $c_x = 159.5$, row $c_y = 89.5$.\n\nThe horizon is where a ray parallel to the ground lands. That ray points 5° *above* the camera's axis, so it lands $f \\tan 5° = 160 \\times 0.0875 = 14.0$ rows above the centre: row $89.5 - 14.0 = 75.5$. Rows above it see sky, which is why rows 0 to 75 of the 0.1.2 frame were all sky.\n\n## Rows are distances\n\nTake a row $v$ below the horizon. Its ray points $\\arctan\\frac{v - c_y}{f}$ below the camera's axis, and the axis points $p$ below horizontal, so the ray falls at\n\n$$\\theta = p + \\arctan\\frac{v - c_y}{f}$$\n\nbelow horizontal. It starts at height $h$ and meets the ground a distance $d$ ahead: a right-angled triangle with $\\tan\\theta = h / d$, so\n\n$$d = \\frac{h}{\\tan\\theta}$$\n\n![Left: side view of rays for five rows meeting the ground 2.06 to 11.45 m ahead. Right: distance ahead against row, rising steeply towards the horizon at row 75.5.](/learnfsd-course/figures/0-1-3/rows_to_distance.png)\n\n**Worked example.** How far ahead is the ground seen in row 150?\n\n- $(150 - 89.5) / 160 = 0.378$, and $\\arctan 0.378 = 20.71°$.\n- $\\theta = 5° + 20.71° = 25.71°$, and $\\tan 25.71° = 0.4815$.\n- $d = 1.4 / 0.4815 = 2.91$ m.\n\nThe column never appears in the formula: every pixel in row 150 sees ground 2.91 m ahead. A row is a distance.\n\n`Camera.pixel_to_ground(u, v)` does this for you: it takes a column $u$ and a row $v$ and returns the ground point `(forward, left)` in metres from the camera, left positive, or NaN (not a number) above the horizon. The lab checks the worked example against it; module 1.4 opens it up.\n\nThe distances are uneven: at the bottom one row is 4 cm of road, near row 100 it is 36 cm, and ten rows below the horizon you are past 50 m. Rows near the horizon are too coarse to trust, so the box measures in two bands: the **near band**, rows 125 to 179 (2.1 to 4.4 m ahead), and the **far band**, rows 95 to 115 (5.6 to 11.5 m).\n\n## Metres per pixel\n\nThe tempting shortcut: \"The lane is 3.6 m wide. Count the columns it spans, divide, and you know the metres per column; multiply any pixel's column by it.\" That fails, because **a pixel column is not a fixed number of metres**. Sideways distances shrink with distance, just as a far-off car looks smaller.\n\n![The straight road with lines 1 m apart on the ground, far apart at the bottom of the frame and crowding together near the horizon.](/learnfsd-course/figures/0-1-3/perspective_grid.png)\n\nA point $L$ metres to the left and about $d$ metres ahead appears roughly $f L / d$ columns from the centre, so one column covers about\n\n$$\\text{metres per column} \\approx \\frac{d}{f}$$\n\nMeasured with `pixel_to_ground`, one column covers 0.0189 m in row 150 (2.91 m ahead), 0.0574 m in row 100 (9.09 m ahead) and 0.312 m in row 80 (50.1 m ahead), each close to $d/f$; the 5° pitch accounts for the differences.\n\n**Worked example.** The 3.6 m lane spans $3.6 / 0.0189 = 191$ columns in row 150 but $3.6 / 0.0574 = 63$ in row 100. Slide the car 0.5 m left and the white line moves $0.5 / 0.0189 = 26.5$ columns in row 150, but only $0.5 / 0.0574 = 8.7$ in row 100; the lab measures both. To turn a pixel into metres you need its row as well as its column.\n\n## From masks to a lane estimate\n\nOffset and heading describe the **lane centre**, halfway between the yellow line and the white line, which are 3.6 m apart. The box finds two points on it and draws a straight line through them:\n\n1. **Masks:** `yellow, white = paint_masks(obs.frame)`.\n2. **Centroids:** in each band, each line's **centroid** is the mean column and mean row of its paint pixels there. The centroid of a thin line lies on the line, so it is a point on the paint; `pixel_to_ground` turns it into `(forward, left)`.\n3. **Lane centre:** in each band, the midpoint of the yellow and white ground points. That gives a near point $(f_1, c_1)$ and a far point $(f_2, c_2)$, forward first.\n4. **Line:** its **slope**, the metres it drifts left per metre ahead, is $(c_2 - c_1) / (f_2 - f_1)$.\n\nAt the car, forward $= 0$, the line is at left $= c_1 - \\text{slope} \\cdot f_1$; if the lane centre is 0.4 m to the car's right, the car is 0.4 m left of the lane centre. The line points $\\arctan(\\text{slope})$ left of the car; if the lane points left of the car, the car points right of the lane. So\n\n$$\\text{offset} = -(c_1 - \\text{slope} \\cdot f_1), \\qquad \\text{heading} = -\\arctan(\\text{slope})$$\n\nBoth minus signs switch from the lane seen by the car to the car seen by the lane.\n\n![Left: the worked-example frame with the two bands and each line's centroid marked. Right: the same paint from above, the two lane-centre points, and the line through them passing 0.39 m right of the car.](/learnfsd-course/figures/0-1-3/lane_estimate.png)\n\n**Worked example.** The car is on the straight road, truly 0.4 m left of centre and turned 0.05 rad left (the frame above).\n\n- Near band: the yellow line's 553 pixels have their centroid at column 83.02, row 159.85: ground point (2.55, 1.27). The white line's 543 pixels give (2.87, −2.33). Their midpoint, the near lane centre, is (2.71, −0.53).\n- Far band: yellow (99 pixels) at (7.05, 1.05), white (104 pixels) at (7.33, −2.57), lane centre (7.19, −0.76).\n- $\\text{slope} = (-0.76 + 0.53) / (7.19 - 2.71) = -0.0512$: the lane centre drifts right as it goes ahead.\n- $c_1 - \\text{slope} \\cdot f_1 = -0.53 + 0.0512 \\times 2.71 = -0.39$, so the offset is $+0.39$ m (truth 0.40), and the heading is $-\\arctan(-0.0512) = +0.051$ rad (truth 0.05). The arithmetic uses unrounded values.\n\n## What valid=False is for\n\nSometimes there is nothing to measure: turn the car 0.6 rad left on a straight road and the white line leaves the near band: 0 pixels, so no lane centre and no line. The box counts a line as seen in a band only with at least 3 pixels there.\n\nWhat should `estimate_lane` return then? Offset 0 and heading 0 is a lie: it tells the controller \"you are perfectly centred\" when you know nothing, and the controller will act on it. Return `LaneEstimate(math.nan, math.nan, False)`. `valid=False` says plainly there is no estimate, and the NaNs spoil any sum that forgets to check, so the mistake shows up.\n\nWhat to do then is the controller's decision: the provided controller checks `valid` first and, when it is `False`, holds the wheel straight. With the provided box on `gentle`, all 1,778 steps are valid.\n\n## Straight roads only\n\nYour box fits a *straight* line, which is exact on a straight road: on 40 centred, aligned frames along it, every estimate is within 0.01 m and 0.003 rad. On a bend the lane centre is a curve, and a straight line through two points on a curve, a **chord**, does not point along the curve at the car. The estimate is wrong even when the car is placed perfectly:\n\n![From above, a car exactly on lane centre on bends of radius 80 m and 20 m. The line through the two lane-centre points misses the car and leans right, much more on the tight bend.](/learnfsd-course/figures/0-1-3/chord_bias.png)\n\nYou can predict the error. On a bend of radius $R$ turning left, the lane centre $s$ metres ahead has drifted about $s^2 / (2R)$ to the left. With the near point $s_1$ metres ahead and the far point $s_2$, the line through them has\n\n$$\\text{slope} = \\frac{s_2^2 - s_1^2}{2R\\,(s_2 - s_1)} = \\frac{s_1 + s_2}{2R}, \\qquad \\text{left at the car} = -\\frac{s_1 s_2}{2R}$$\n\nso the box reports an offset of $s_1 s_2 / (2R)$ and a heading of $-\\arctan\\frac{s_1 + s_2}{2R}$ where both should be 0. With $s_1 \\approx 2.7$ m and $s_2 \\approx 7.2$ m, that predicts errors of 0.12 m and 0.062 rad on `gentle` ($R = 80$ m) and 0.49 m and 0.25 rad on `curvy` ($R = 20$ m). On 40 centred frames in each road's bends, the median errors are 0.13 m and 0.065 rad on `gentle`, as predicted, and 0.60 m and 0.30 rad on `curvy`: there, your lane's radius is only 18.2 m on right bends, and the far midpoint sits about 0.1 m inside the lane centre.\n\nThis is a **bias**, not noise: on a left bend the box always says \"left of centre, pointing right\", so the controller steers further left and the car cuts to the inside. That is why the grader tests your function on straight roads only: none of those bend frames falls within its tolerances of 0.25 m and 0.05 rad. Better lane models fit curves through many rows; that is module 1.5, \"Classical lane perception\". Unit 0.1.4 shows what this bias does to the car on `curvy`.\n\n## Swap your perception into the car\n\n`Car(perception=estimate_lane)` is the provided car with your perception inside: every 0.05 s it calls your function with an `Observation` holding the camera frame `obs.frame`, the speed `obs.speed` and the time `obs.t`.\n\nCheck `0.1.3.b` drives that car around `gentle`: it must complete the lap with a mean lateral error below 0.5 m (the provided box manages 0.38 m), and it refuses a car still running the provided perception.\n\nOne flipped sign turns a working box into a dangerous one. With the offset's sign wrong, the car believes it is left of centre when it is right, and steers *away* from the centre; each correction makes the error bigger, and the bigger error a bigger wrong correction. This is **positive feedback**. In the lab the error roughly doubles every half second until the car leaves the lane after 5 s, still on the first straight.\n\n## Go deeper\n\n- **Stanford CS231A Course Notes 1, \"Camera Models\"** (Hata and Savarese), §2 \"Pinhole cameras\": the similar triangles behind $f L / d$.\n- **Aly, \"Real time Detection of Lane Markers in Urban Streets\" (2008)**, §II.A \"Inverse Perspective Mapping (IPM)\" and Figures 2 and 3: the flat-road top view of a real street. The rest can wait for module 1.5.\n- **Szeliski, \"Computer Vision: Algorithms and Applications\" (2nd ed.)**, §2.1.4 \"3D to 2D projections\", subsections \"Perspective\" and \"Camera intrinsics\". A graduate textbook (free after a short form); keep it for module 1.4.\n",
+      "colab_url": "https://colab.research.google.com/github/vvknyn/self-driving-ai-course/blob/main/course/0.1.3-your-first-perception-box/lab.ipynb",
+      "quiz": [
+        {
+          "id": "q1",
+          "type": "numeric",
+          "prompt": "The camera has focal length $f = 160$ pixels, centre row $c_y = 89.5$, and is tipped down by $5°$. In which row is the horizon? (Give a decimal row.)",
+          "answer": 75.5,
+          "tolerance": 0.1,
+          "explain": "A ray parallel to the ground points $5°$ above the camera's axis, so it lands $f \\tan 5° = 160 \\times 0.0875 = 14.0$ rows above the centre: $89.5 - 14.0 = 75.5$. Every row above it sees sky.",
+          "section": "the-horizon"
+        },
+        {
+          "id": "q2",
+          "type": "numeric",
+          "prompt": "How far ahead, in metres, is the ground seen in row 170? The camera is $h = 1.4$ m up, pitch $5°$, $f = 160$, $c_y = 89.5$.",
+          "answer": 2.266,
+          "tolerance": 0.01,
+          "explain": "$(170 - 89.5) / 160 = 0.503$ and $\\arctan 0.503 = 26.71°$, so $\\theta = 5° + 26.71° = 31.71°$. Then $d = 1.4 / \\tan 31.71° = 1.4 / 0.618 = 2.27$ m. Rows lower in the image see ground closer to the car.",
+          "section": "rows-are-distances"
+        },
+        {
+          "id": "q3",
+          "type": "mcq",
+          "prompt": "In row 150 the 3.6 m lane spans 191 columns, so a teammate converts every column to $3.6 / 191 = 0.0189$ m, in every row. What happens to a sideways distance measured in row 100?",
+          "choices": [
+            "It comes out right: the lane is 3.6 m wide in every row.",
+            "It comes out about 3 times too small, because row 100 sees ground 9.09 m ahead, where one column covers about 0.057 m.",
+            "It comes out about 3 times too big, because far-away paint looks wider.",
+            "It comes out right for the white line but wrong for the yellow one."
+          ],
+          "answer": 1,
+          "explain": "One column covers about $d / f$ metres of ground, so it depends on the row: 0.0189 m at 2.91 m ahead, 0.0574 m at 9.09 m. A pixel column is not a fixed number of metres. Using the near value in row 100 shrinks every sideways distance there by a factor of about 3.",
+          "section": "metres-per-pixel"
+        },
+        {
+          "id": "q4",
+          "type": "mcq",
+          "prompt": "Your line through the two lane-centre points reaches the car (forward $= 0$) at left $= +0.3$ m. What should `offset_m` be?",
+          "choices": [
+            "$+0.3$ m: the lane centre is 0.3 m to the left.",
+            "$-0.3$ m: the lane centre is 0.3 m to the car's left, so the car is 0.3 m right of the lane centre.",
+            "$0.3 / 3.6$, a fraction of the lane width.",
+            "It cannot be known without the heading."
+          ],
+          "answer": 1,
+          "explain": "The line is the lane seen by the car; `offset_m` is the car seen by the lane, positive when the car is left of centre. If the lane centre is to your left, you are to its right: $\\text{offset} = -(c_1 - \\text{slope} \\cdot f_1)$.",
+          "section": "from-masks-to-a-lane-estimate"
+        },
+        {
+          "id": "q5",
+          "type": "numeric",
+          "prompt": "Your box finds the near lane-centre point at $(f_1, c_1) = (3.0, -0.2)$ and the far one at $(f_2, c_2) = (8.0, 0.05)$, in metres (forward, left). What is `offset_m`?",
+          "answer": 0.35,
+          "tolerance": 0.005,
+          "explain": "$\\text{slope} = (0.05 + 0.2) / (8.0 - 3.0) = 0.05$. At the car the line is at $c_1 - \\text{slope} \\cdot f_1 = -0.2 - 0.15 = -0.35$: the lane centre is 0.35 m to the car's right, so the offset is $+0.35$ m. The heading is $-\\arctan 0.05 = -0.050$ rad: the car points right of the lane.",
+          "section": "from-masks-to-a-lane-estimate"
+        },
+        {
+          "id": "q6",
+          "type": "mcq",
+          "prompt": "The car has turned so far that the white line has left the near band: 0 pixels there. What should `estimate_lane` return?",
+          "choices": [
+            "`LaneEstimate(0.0, 0.0, True)`: the safest guess is the lane centre.",
+            "The last good estimate, still marked `valid=True`.",
+            "`LaneEstimate(math.nan, math.nan, False)`.",
+            "Raise an exception, so the car stops."
+          ],
+          "answer": 2,
+          "explain": "There is nothing to measure, so say so. Zeros tell the controller \"you are centred and aligned\" when you know nothing, and it will act on that; an old estimate marked valid claims a measurement that was never made. `valid=False` hands the decision to the controller, and the NaNs spoil any sum that forgets to check.",
+          "section": "what-validfalse-is-for"
+        },
+        {
+          "id": "q7",
+          "type": "mcq",
+          "prompt": "Your box is almost exact on straight roads. The car sits exactly on lane centre, aligned with it, inside a left bend of `gentle`. What does the box report?",
+          "choices": [
+            "0 m and 0 rad, because the car is centred.",
+            "Left of centre and pointing right, about 0.13 m and 0.065 rad, and the same again on the next frame.",
+            "Errors that scatter around 0, because the bend makes the paint harder to find.",
+            "`valid=False`, because the lane curves out of the far band."
+          ],
+          "answer": 1,
+          "explain": "A straight line through two points on a curve, a chord, misses the car and leans towards the outside of the bend. The formula predicts an offset of $s_1 s_2 / (2R) = 0.12$ m and a heading of $-\\arctan\\frac{s_1 + s_2}{2R} = -0.062$ rad for $R = 80$ m. That is a bias, not noise: it is the same every frame, so averaging does not remove it.",
+          "section": "straight-roads-only"
+        },
+        {
+          "id": "q8",
+          "type": "mcq",
+          "prompt": "A teammate's box returns the offset with the wrong sign and is otherwise correct. What does the car do on `gentle`?",
+          "choices": [
+            "It completes the lap, a little further from centre.",
+            "It steers away from the centre; each correction makes the error bigger, which roughly doubles every half second until the car leaves the road about 5 s in.",
+            "It swings from side to side around the lane centre.",
+            "Nothing changes: the heading term keeps it in the lane."
+          ],
+          "answer": 1,
+          "explain": "A car right of centre is told it is left, so the controller steers right, away from the centre. The bigger error gives a bigger wrong correction: positive feedback. In the lab the error goes 0.043, 0.081, 0.155, 0.288, 0.544, 1.010 m at half-second intervals, and the car is off the road after 5 s, still on the first straight.",
+          "section": "swap-your-perception-into-the-car"
+        }
+      ],
+      "cards": [
+        {
+          "id": "c1",
+          "front": "Where is the horizon in the camera image, and why?",
+          "back": "Row $c_y - f \\tan p = 89.5 - 160 \\tan 5° = 75.5$. A ray parallel to the ground points $p$ above the camera's axis. Rows above it see sky; rows below see road."
+        },
+        {
+          "id": "c2",
+          "front": "How far ahead is the ground seen in image row $v$ on a flat road?",
+          "back": "The ray falls $\\theta = p + \\arctan\\frac{v - c_y}{f}$ below horizontal and starts $h$ up, so $d = h / \\tan\\theta$. Row 150 gives 2.91 m. The column does not matter: a row is a distance."
+        },
+        {
+          "id": "c3",
+          "front": "How many metres of ground does one pixel column cover?",
+          "back": "About $d / f$, where $d$ is how far ahead that row sees: 0.0189 m at 2.91 m, 0.0574 m at 9.09 m. There is no fixed metres-per-column; you need the row too."
+        },
+        {
+          "id": "c4",
+          "front": "Given the lane-centre line through $(f_1, c_1)$ and $(f_2, c_2)$, what are the offset and the heading?",
+          "back": "$\\text{slope} = (c_2 - c_1) / (f_2 - f_1)$, $\\text{offset} = -(c_1 - \\text{slope} \\cdot f_1)$, $\\text{heading} = -\\arctan(\\text{slope})$. The minus signs switch from the lane seen by the car to the car seen by the lane."
+        },
+        {
+          "id": "c5",
+          "front": "What does `estimate_lane` return when a band has fewer than 3 pixels of a line?",
+          "back": "`LaneEstimate(math.nan, math.nan, False)`. Never `0.0, 0.0`: that claims the car is centred and aligned. The controller decides what to do without an estimate."
+        },
+        {
+          "id": "c6",
+          "front": "Why is a two-point straight-line lane estimate wrong on a bend, even with the car perfectly placed?",
+          "back": "The line through two points on a curve (a chord) misses the car: offset $\\approx s_1 s_2 / (2R)$, heading $\\approx -\\arctan\\frac{s_1 + s_2}{2R}$. It is a bias, the same every frame, so it pushes the car to the inside of the bend. Curved lane models come in module 1.5."
+        }
+      ]
     }
   },
   "figures": [
@@ -639,6 +812,10 @@
     "0-1-2/colour_distance.png",
     "0-1-2/exact_vs_threshold.png",
     "0-1-2/frame_grid.png",
-    "0-1-2/noisy_patch.png"
+    "0-1-2/noisy_patch.png",
+    "0-1-3/chord_bias.png",
+    "0-1-3/lane_estimate.png",
+    "0-1-3/perspective_grid.png",
+    "0-1-3/rows_to_distance.png"
   ]
 }

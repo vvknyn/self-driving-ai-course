@@ -29,7 +29,7 @@ def paint_masks(frame: np.ndarray):
     return tuple(np.linalg.norm(rgb - PALETTE[c], axis=-1) < PAINT_DISTANCE for c in (YELLOW, WHITE))
 
 
-def _lane_point(masks, rows):
+def lane_point(masks, rows):
     """Ground point (forward, left) midway between the yellow and white paint seen in a row band."""
     uv = []
     for mask in masks:
@@ -44,7 +44,7 @@ def _lane_point(masks, rows):
 def estimate_lane(obs: Observation) -> LaneEstimate:
     """Offset and heading from two lane-centre points (a near and a far row band) and a straight line."""
     masks = paint_masks(obs.frame)
-    near, far = (_lane_point(masks, rows) for rows in (NEAR_ROWS, FAR_ROWS))
+    near, far = (lane_point(masks, rows) for rows in (NEAR_ROWS, FAR_ROWS))
     if near is None or far is None:
         return LaneEstimate(math.nan, math.nan, False)
     (f1, c1), (f2, c2) = near, far

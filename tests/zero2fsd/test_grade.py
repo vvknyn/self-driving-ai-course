@@ -279,3 +279,8 @@ def test_grading_is_repeatable():
 def test_practice_prints_whether_an_ungraded_answer_is_right_and_never_raises(got, verdict, capsys):
     assert grade_pkg.practice("mean |e|", got, 0.2) is None
     assert verdict in capsys.readouterr().out
+
+
+def test_practice_prints_a_tuple_of_numpy_scalars_as_plain_numbers(capsys):
+    grade_pkg.practice("point", (np.float64(2.5534472), np.float64(1.2742297)), (2.553, 1.274), tol=0.001)
+    assert "point: (2.55345, 1.27423)" in capsys.readouterr().out

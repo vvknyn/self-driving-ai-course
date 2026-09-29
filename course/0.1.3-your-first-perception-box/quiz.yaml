@@ -1,0 +1,76 @@
+- id: q1
+  type: numeric
+  prompt: "The camera has focal length $f = 160$ pixels, centre row $c_y = 89.5$, and is tipped down by $5°$. In which row is the horizon? (Give a decimal row.)"
+  answer: 75.5
+  tolerance: 0.1
+  explain: "A ray parallel to the ground points $5°$ above the camera's axis, so it lands $f \\tan 5° = 160 \\times 0.0875 = 14.0$ rows above the centre: $89.5 - 14.0 = 75.5$. Every row above it sees sky."
+  section: the-horizon
+- id: q2
+  type: numeric
+  prompt: "How far ahead, in metres, is the ground seen in row 170? The camera is $h = 1.4$ m up, pitch $5°$, $f = 160$, $c_y = 89.5$."
+  answer: 2.266
+  tolerance: 0.01
+  explain: "$(170 - 89.5) / 160 = 0.503$ and $\\arctan 0.503 = 26.71°$, so $\\theta = 5° + 26.71° = 31.71°$. Then $d = 1.4 / \\tan 31.71° = 1.4 / 0.618 = 2.27$ m. Rows lower in the image see ground closer to the car."
+  section: rows-are-distances
+- id: q3
+  type: mcq
+  prompt: "In row 150 the 3.6 m lane spans 191 columns, so a teammate converts every column to $3.6 / 191 = 0.0189$ m, in every row. What happens to a sideways distance measured in row 100?"
+  choices:
+    - "It comes out right: the lane is 3.6 m wide in every row."
+    - "It comes out about 3 times too small, because row 100 sees ground 9.09 m ahead, where one column covers about 0.057 m."
+    - "It comes out about 3 times too big, because far-away paint looks wider."
+    - "It comes out right for the white line but wrong for the yellow one."
+  answer: 1
+  explain: "One column covers about $d / f$ metres of ground, so it depends on the row: 0.0189 m at 2.91 m ahead, 0.0574 m at 9.09 m. A pixel column is not a fixed number of metres. Using the near value in row 100 shrinks every sideways distance there by a factor of about 3."
+  section: metres-per-pixel
+- id: q4
+  type: mcq
+  prompt: "Your line through the two lane-centre points reaches the car (forward $= 0$) at left $= +0.3$ m. What should `offset_m` be?"
+  choices:
+    - "$+0.3$ m: the lane centre is 0.3 m to the left."
+    - "$-0.3$ m: the lane centre is 0.3 m to the car's left, so the car is 0.3 m right of the lane centre."
+    - "$0.3 / 3.6$, a fraction of the lane width."
+    - "It cannot be known without the heading."
+  answer: 1
+  explain: "The line is the lane seen by the car; `offset_m` is the car seen by the lane, positive when the car is left of centre. If the lane centre is to your left, you are to its right: $\\text{offset} = -(c_1 - \\text{slope} \\cdot f_1)$."
+  section: from-masks-to-a-lane-estimate
+- id: q5
+  type: numeric
+  prompt: "Your box finds the near lane-centre point at $(f_1, c_1) = (3.0, -0.2)$ and the far one at $(f_2, c_2) = (8.0, 0.05)$, in metres (forward, left). What is `offset_m`?"
+  answer: 0.35
+  tolerance: 0.005
+  explain: "$\\text{slope} = (0.05 + 0.2) / (8.0 - 3.0) = 0.05$. At the car the line is at $c_1 - \\text{slope} \\cdot f_1 = -0.2 - 0.15 = -0.35$: the lane centre is 0.35 m to the car's right, so the offset is $+0.35$ m. The heading is $-\\arctan 0.05 = -0.050$ rad: the car points right of the lane."
+  section: from-masks-to-a-lane-estimate
+- id: q6
+  type: mcq
+  prompt: "The car has turned so far that the white line has left the near band: 0 pixels there. What should `estimate_lane` return?"
+  choices:
+    - "`LaneEstimate(0.0, 0.0, True)`: the safest guess is the lane centre."
+    - "The last good estimate, still marked `valid=True`."
+    - "`LaneEstimate(math.nan, math.nan, False)`."
+    - "Raise an exception, so the car stops."
+  answer: 2
+  explain: "There is nothing to measure, so say so. Zeros tell the controller \"you are centred and aligned\" when you know nothing, and it will act on that; an old estimate marked valid claims a measurement that was never made. `valid=False` hands the decision to the controller, and the NaNs spoil any sum that forgets to check."
+  section: what-validfalse-is-for
+- id: q7
+  type: mcq
+  prompt: "Your box is almost exact on straight roads. The car sits exactly on lane centre, aligned with it, inside a left bend of `gentle`. What does the box report?"
+  choices:
+    - "0 m and 0 rad, because the car is centred."
+    - "Left of centre and pointing right, about 0.13 m and 0.065 rad, and the same again on the next frame."
+    - "Errors that scatter around 0, because the bend makes the paint harder to find."
+    - "`valid=False`, because the lane curves out of the far band."
+  answer: 1
+  explain: "A straight line through two points on a curve, a chord, misses the car and leans towards the outside of the bend. The formula predicts an offset of $s_1 s_2 / (2R) = 0.12$ m and a heading of $-\\arctan\\frac{s_1 + s_2}{2R} = -0.062$ rad for $R = 80$ m. That is a bias, not noise: it is the same every frame, so averaging does not remove it."
+  section: straight-roads-only
+- id: q8
+  type: mcq
+  prompt: "A teammate's box returns the offset with the wrong sign and is otherwise correct. What does the car do on `gentle`?"
+  choices:
+    - "It completes the lap, a little further from centre."
+    - "It steers away from the centre; each correction makes the error bigger, which roughly doubles every half second until the car leaves the road about 5 s in."
+    - "It swings from side to side around the lane centre."
+    - "Nothing changes: the heading term keeps it in the lane."
+  answer: 1
+  explain: "A car right of centre is told it is left, so the controller steers right, away from the centre. The bigger error gives a bigger wrong correction: positive feedback. In the lab the error goes 0.043, 0.081, 0.155, 0.288, 0.544, 1.010 m at half-second intervals, and the car is off the road after 5 s, still on the first straight."
+  section: swap-your-perception-into-the-car
