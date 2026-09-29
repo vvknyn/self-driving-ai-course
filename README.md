@@ -5,6 +5,21 @@
 [![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![Interactive Visuals](https://img.shields.io/badge/Visual_Explainers-Interactive_HTML%2FSVG-green.svg)](visual_explainers/index.html)
 
+## v2 course (start here)
+
+Zero2FSD v2 is the current course. You drive a simulated car that ships with a working perception box and controller, then replace them with your own code, one lab at a time.
+
+- **Take the course:** [vivekn.xyz/learnfsd](https://vivekn.xyz/learnfsd)
+- **Course sources:** [`course/`](course/). The syllabus, [`course/syllabus.yaml`](course/syllabus.yaml), lists every loop, module and unit; a unit is marked `ready` when it ships.
+- **Code behind the labs:** [`zero2fsd/`](zero2fsd/) (simulator, car, grader). Run its tests with `pip install -e ".[dev]"` then `python -m pytest tests/zero2fsd`.
+
+## v1 reference library
+
+Everything below this section is the v1 course. It stays in place so existing Colab links keep working:
+[`notebooks/`](notebooks/) (Colab notebooks), [`modules/`](modules/) (standalone projects) and [`docs/`](docs/) (deep-dive articles) are the **v1 reference library**.
+
+---
+
 A hands-on, production-grade course and open-source codebase for mastering modern, **vision-centric autonomous driving** — modeled directly after **Tesla's Full Self-Driving (FSD) architecture** (multi-camera geometry, HydraNet multi-task perception, Lift-Splat-Shoot Bird's-Eye-View projection, 3D occupancy networks, vector space tracking, and learned trajectory planning).
 
 ---
