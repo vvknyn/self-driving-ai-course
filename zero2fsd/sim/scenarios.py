@@ -9,6 +9,8 @@ import numpy as np
 from .world import Road
 
 CENTERLINE_STEP = 0.1  # metres between centreline vertices
+TARGET_SPEED = 8.0  # m/s: the speed the provided car holds and every scenario starts at
+GENTLE_RADIUS = 80.0  # spec: >= 60 m; wide enough that a P controller with no feed-forward holds it comfortably
 RUN_OUT = 40.0  # open roads continue straight past the route end so paint stays visible until completion
 
 
@@ -17,7 +19,7 @@ class Scenario:
     name: str
     road: Road
     start_s: float = 0.0
-    target_speed: float = 8.0
+    target_speed: float = TARGET_SPEED
     run_out: float = 0.0  # road beyond the end of the route
 
     @property
@@ -59,7 +61,7 @@ def _straight() -> Scenario:
 
 
 def _gentle() -> Scenario:
-    r = 60.0
+    r = GENTLE_RADIUS
     return Scenario("gentle", _trace([(100.0, 0.0), (math.pi * r, 1 / r), (100.0, 0.0), (math.pi * r, 1 / r)], closed=True))
 
 

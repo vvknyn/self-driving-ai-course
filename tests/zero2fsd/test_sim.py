@@ -13,7 +13,7 @@ from zero2fsd.sim import (
     step,
 )
 from zero2fsd.sim.camera import PALETTE, ROAD, SKY, GRASS, WHITE, YELLOW
-from zero2fsd.sim.scenarios import CENTERLINE_STEP, RUN_OUT
+from zero2fsd.sim.scenarios import CENTERLINE_STEP, GENTLE_RADIUS, RUN_OUT
 from zero2fsd.sim.world import EGO_LANE_CENTER
 
 
@@ -186,7 +186,7 @@ def test_scenario_geometry():
     straight = make_scenario("straight")
     assert straight.route_length == pytest.approx(200.0) and straight.road.length == pytest.approx(200.0 + RUN_OUT)
     gentle = make_scenario("gentle")
-    assert gentle.road.closed and gentle.road.length == pytest.approx(200 + 2 * math.pi * 60, rel=1e-3)
+    assert gentle.road.closed and gentle.road.length == pytest.approx(200 + 2 * math.pi * GENTLE_RADIUS, rel=1e-3)
     assert gentle.route_length == pytest.approx(gentle.road.length) and gentle.run_out == 0.0
     curvy = make_scenario("curvy")
     arc = math.pi / 2 * 20.0
