@@ -1,0 +1,72 @@
+- id: q1
+  type: numeric
+  prompt: "A camera frame has shape `(180, 320, 3)`. How many numbers does it hold?"
+  answer: 172800
+  tolerance: 0
+  explain: "Multiply the sizes of the three axes: $180 \\times 320 \\times 3 = 172{,}800$. That is 57,600 pixels, each with a red, a green and a blue value."
+  section: a-frame-is-a-grid-of-numbers
+- id: q2
+  type: mcq
+  prompt: "`frame` has shape `(180, 320, 3)`. What is `frame[0, 319]`?"
+  choices:
+    - "The red, green and blue values of the top-left pixel"
+    - "The red, green and blue values of the top-right pixel"
+    - "The red, green and blue values of the bottom-right pixel"
+    - "An error: index 319 is out of range"
+  answer: 1
+  explain: "The first index is the row, and row 0 is the **top**. The second is the column, and column 319 is the last one, at the right edge. Leaving out the channel index returns all three colour values of that pixel. The bottom-right pixel would be `frame[179, 319]`."
+  section: a-frame-is-a-grid-of-numbers
+- id: q3
+  type: numeric
+  prompt: "How far is the colour $(100, 100, 100)$ from road grey $(90, 90, 95)$?"
+  answer: 15
+  tolerance: 0.01
+  explain: "Differences $(10, 10, 5)$; squares $(100, 100, 25)$, which add up to 225; and $\\sqrt{225} = 15$. Close to road grey, and very far from either paint colour."
+  section: colour-is-a-point-in-space
+- id: q4
+  type: mcq
+  prompt: "The simulator paints yellow as exactly $(230, 200, 40)$. Why does `np.all(frame == yellow, axis=-1)` find almost no yellow pixels in a frame with camera noise of $\\sigma = 6$?"
+  choices:
+    - "Noise changes the paint's colour to a different colour, such as orange."
+    - "A noisy pixel matches only if all three of its nudges round to 0, and with $\\sigma = 6$ that happens for about 3 pixels in 10,000."
+    - "`==` cannot compare arrays of different shapes."
+    - "Noise makes the yellow line thinner, so there are fewer pixels to find."
+  answer: 1
+  explain: "One nudge rounds to 0 with probability 0.066 when $\\sigma = 6$, so all three do with probability $0.066^3 = 0.0003$. The pixels still look yellow, and each is within about 30 of yellow; they are just never exactly on it. That is why you test for *close enough* with a distance and a threshold."
+  section: why-exact-equality-fails
+- id: q5
+  type: numeric
+  prompt: "The true mask has 20 paint pixels. Your mask marks 15 of them, plus 5 pixels that are not paint. What is the IoU?"
+  answer: 0.6
+  tolerance: 0.001
+  explain: "The intersection is the 15 pixels marked in both. The union is the 20 true pixels plus your 5 wrong ones, 25. IoU $= 15 / 25 = 0.6$. Missing 5 true pixels and adding 5 false ones both cost you."
+  section: scoring-a-mask-with-iou
+- id: q6
+  type: numeric
+  prompt: "Paint covers 1.2% of a frame. What is the IoU of a mask that marks no pixels at all?"
+  answer: 0
+  tolerance: 0
+  explain: "Nothing is marked, so the intersection is empty: the IoU is 0 divided by the number of true paint pixels, which is 0. The same mask is *right* about 98.8% of the pixels, which is why pixel accuracy is the wrong score when the thing you look for is rare."
+  section: scoring-a-mask-with-iou
+- id: q7
+  type: mcq
+  prompt: "In a noisy frame, no white paint pixel is more than 25 from white, and the nearest pixel that is not white paint is 92 from white. Which threshold $\\tau$ separates white paint from everything else?"
+  choices:
+    - "$\\tau = 5$"
+    - "$\\tau = 60$"
+    - "$\\tau = 120$"
+    - "$\\tau = 255$"
+  answer: 1
+  explain: "$\\tau$ must be bigger than the largest distance noise produces (25), and smaller than the distance to the nearest other colour (92). Only 60 sits in that gap. $\\tau = 5$ misses most of the paint; $\\tau = 120$ reaches into the sky and marks thousands of sky pixels as paint."
+  section: paint-is-a-colour-threshold
+- id: q8
+  type: mcq
+  prompt: "What does `np.array([90], dtype=np.uint8) - np.array([230], dtype=np.uint8)` give?"
+  choices:
+    - "`[-140]`"
+    - "`[116]`"
+    - "`[0]`"
+    - "An `OverflowError`"
+  answer: 1
+  explain: "A `uint8` cannot hold a negative number, so NumPy wraps the result around, silently, by adding 256: $-140 + 256 = 116$. No error, no warning. Convert with `.astype(float)` before you subtract image data."
+  section: the-uint8-wraparound-trap

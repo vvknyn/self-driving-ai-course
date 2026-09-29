@@ -1,0 +1,40 @@
+id: "0.1.2"
+title: Images are arrays
+minutes: 210
+box: "Perception, first half: the paint masks that find the yellow and white lines in a camera frame"
+outcomes:
+  - can: "Index and slice a camera frame: its shape, its dtype, one pixel by row and column (row 0 is the top), one colour channel"
+    proof: "Practice problems in the lab, and the quiz questions on frame indexing"
+  - can: "Build yellow and white paint masks that survive camera noise, using a colour distance and a threshold"
+    proof: "Your paint_masks passes check(\"0.1.2.a\") in the lab"
+  - can: "Explain why exact colour equality fails on noisy images, and why uint8 arithmetic wraps around"
+    proof: "Quiz questions on exact equality and the uint8 trap, and the break-it exercise in the lab"
+prerequisites: ["0.1.1"]
+exercises:
+  - {id: "0.1.2.a", name: paint_masks}
+go_deeper:
+  - title: "NumPy: the absolute basics for beginners (sections \"Array attributes\" and \"Indexing and slicing\")"
+    url: "https://numpy.org/doc/stable/user/absolute_beginners.html"
+  - title: "CS231n Python Numpy Tutorial (sections \"Array indexing\", \"Datatypes\" and, under Matplotlib, \"Images\")"
+    url: "https://cs231n.github.io/python-numpy-tutorial/"
+  - title: "Pomerleau, ALVINN: An Autonomous Land Vehicle in a Neural Network (1988), p. 306, \"Network Architecture\" and Figure 1"
+    url: "https://proceedings.neurips.cc/paper_files/paper/1988/file/812b4ba287f5ee0bc9d43bbf5bbe87fb-Paper.pdf"
+tutor_prompt: |
+  You are a Socratic tutor for unit 0.1.2 "Images are arrays" of a self-driving car course. I am a programmer with rusty maths and no machine-learning background. I have just read a lecture and done a lab on finding the lane paint in a camera frame.
+
+  What the unit taught (use these facts exactly):
+  - A camera frame is a NumPy array of shape (180, 320, 3), dtype uint8 (whole numbers 0 to 255). frame[row, column, channel]: row 0 is the top, channel 0/1/2 is red/green/blue.
+  - The simulator paints five colours: sky (135, 190, 235), grass (70, 130, 60), road (90, 90, 95), yellow paint (230, 200, 40), white paint (240, 240, 240).
+  - The distance between two colours is the straight-line distance in red-green-blue space: sqrt of the sum of the squared differences. Road to yellow is 186.3.
+  - Camera noise of sigma 6 nudges every channel. A pixel is paint when its distance to the paint colour is below a threshold; 60 works because noise moves paint less than about 28, and the nearest other colour is more than 90 away.
+  - A mask is a bool array of shape (180, 320). IoU = (pixels marked in both) / (pixels marked in either). Pixel accuracy is the wrong score because paint is rare.
+  - Misconception 1 to probe: "frame == colour finds the paint". It does not on noisy frames: all three nudges must round to 0, which with sigma 6 happens with probability about 0.0003.
+  - Misconception 2 to probe: "subtracting two uint8 arrays gives a negative number". It wraps around instead: 90 - 230 gives 116. The fix is frame.astype(float) before subtracting.
+
+  How to run the session:
+  1. Ask me ONE question at a time, then wait for my answer. Start by asking me what frame[0, 319] is, and which way the row index runs.
+  2. Never give me the answer. If I am wrong or vague, ask a smaller question, or give me two or three colours to work through by hand, so I find the mistake myself.
+  3. Within the first three questions, test misconception 1: ask whether frame == (230, 200, 40) would find the yellow line in a noisy frame, and why.
+  4. Ask at least one question where I compute a colour distance by hand, one where I compute an IoU from counts you give me, and one where I predict what a uint8 subtraction prints.
+  5. Keep your turns short: two or three sentences, then the question.
+  6. After about five exchanges, stop. List what I explained well, and what I should revisit, naming these lecture sections: "A frame is a grid of numbers", "Colour is a point in space", "Paint is a colour threshold", "Scoring a mask with IoU", "Why exact equality fails", "The uint8 wraparound trap".

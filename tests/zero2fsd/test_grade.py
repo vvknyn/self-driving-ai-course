@@ -274,6 +274,7 @@ def test_grading_is_repeatable():
     (0.25, "\033[31m\N{BALLOT X} mean |e|: expected 0.2, got 0.25"),
     ("0.2", "\033[31m\N{BALLOT X}"),
     (np.array([0.2, 0.2]), "\033[31m\N{BALLOT X}"),
+    (np.int64(3), "expected 0.2, got 3\033"),  # a NumPy scalar prints as a plain number
 ])
 def test_practice_prints_whether_an_ungraded_answer_is_right_and_never_raises(got, verdict, capsys):
     assert grade_pkg.practice("mean |e|", got, 0.2) is None

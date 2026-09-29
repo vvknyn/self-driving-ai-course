@@ -1,0 +1,18 @@
+- id: c1
+  front: "What do the three indices of `frame[row, column, channel]` mean, and where is row 0?"
+  back: "Row (0 is the **top**, 179 the bottom), column (0 is the left edge, 319 the right), channel (0 red, 1 green, 2 blue). A frame has shape `(180, 320, 3)`."
+- id: c2
+  front: "What is the dtype of a camera frame, and what values can it hold?"
+  back: "`uint8`: an unsigned 8-bit integer, whole numbers from 0 to 255 and nothing else."
+- id: c3
+  front: "How far apart are two colours $p$ and $c$?"
+  back: "The straight-line distance in colour space: $\\sqrt{(p_R - c_R)^2 + (p_G - c_G)^2 + (p_B - c_B)^2}$. In NumPy: `np.linalg.norm(frame.astype(float) - c, axis=-1)`."
+- id: c4
+  front: "Why do you never find paint with `frame == colour`?"
+  back: "Measured data never lands exactly on its ideal value. With noise, every channel is nudged, so almost no pixel equals the paint colour. Test whether the distance is below a threshold instead."
+- id: c5
+  front: "What is IoU, and why not score a mask by the fraction of pixels it gets right?"
+  back: "Intersection over union: pixels marked in both masks divided by pixels marked in either. Paint is rare, so a mask that marks nothing is 98.8% right but has IoU 0."
+- id: c6
+  front: "What is `90 - 230` in `uint8`, and how do you avoid it?"
+  back: "116: the result wraps around by adding 256, silently. Convert first: `frame.astype(float)` before any arithmetic on image data."

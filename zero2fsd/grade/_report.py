@@ -38,6 +38,8 @@ EXERCISES: dict[str, Callable[[Any, bool], Result]] = {}
 
 
 def fmt(value) -> str:
+    if isinstance(value, np.generic):  # a NumPy scalar such as np.int64(872): show the plain number
+        value = value.item()
     if isinstance(value, np.ndarray):
         return np.array2string(value, precision=4, threshold=8, edgeitems=3)
     if isinstance(value, float | np.floating):
