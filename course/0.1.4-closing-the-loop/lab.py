@@ -78,6 +78,8 @@ plt.show()
 # the road on the first straight, while the closed-loop car barely notices: 0.381 m instead of 0.376 m. Nothing in
 # the replay measures the error, so it adds up; the closed loop measures it every 0.05 s and steers against it.
 #
+# ![](figures/open_vs_closed.png)
+#
 # ## 2. Two errors, two gains
 #
 # The worked example of "Two errors, two gains": the car is 0.4 m left of centre and pointing 0.05 rad left.
@@ -155,6 +157,9 @@ offset_right = None  # your code
 practice("settled offset in a right bend of radius 18.2 m (m)", offset_right, -0.715, tol=0.001)
 
 # %% [markdown]
+# ![](figures/steady_state.png)
+
+# %% [markdown]
 # ## 3. Graded exercise 0.1.4.a `p_steer`
 #
 # Write the P law of "The P controller" and "Two errors, two gains" as a function of the estimate and the two gains.
@@ -198,6 +203,8 @@ except NotImplementedError:
 # %% [markdown]
 # More gain helps up to about 1.5, then hurts: 3.0 is worse, and at 6.0 the wheel, turning as fast as it can, is always
 # late, so each swing is wider than the last. "More gain, tighter tracking" is the misconception.
+#
+# ![](figures/gain_sweep.png)
 #
 # ## 5. Graded exercise 0.1.4.b `my_car`
 #
@@ -277,6 +284,8 @@ else:
 # From 30 m on, the box says the car points much further right than it does, and the P law multiplies that heading by
 # 2.7. On the true values the law would steer right, back to the centre; on the box's values it steers left, deeper
 # inside.
+#
+# ![](figures/curvy_box.png)
 #
 # Can gains save it? The next cell drives `curvy` with the provided box and your `p_steer` at four pairs of gains.
 

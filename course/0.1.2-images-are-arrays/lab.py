@@ -63,6 +63,10 @@ plt.show()
 # values are exactly 90 and 200; after noise they scatter a few steps either side, from 77 to 102 and from 194 to 206.
 # The noisy frame looks the same to your eye. It is not the same to `==`.
 #
+# ![](figures/frame_grid.png)
+#
+# ![](figures/noisy_patch.png)
+#
 # ## 2. Predict: how much noise does exact matching survive?
 #
 # At $\sigma = 6$, `np.all(frame == PALETTE[YELLOW], axis=-1)` found none of the 709 yellow pixels (lecture: "Why exact
@@ -86,10 +90,14 @@ for sigma in (0.0, 0.3, 1.0, 3.0, 6.0):
 # $0.38^3 = 0.056$, and $0.056 \times 709 \approx 40$. The frame found 36. Noise too small to see still hides 95% of
 # the paint from `==`. Measured data is never exactly on its ideal value.
 #
+# ![](figures/exact_vs_threshold.png)
+#
 # ## 3. Worked example: from a colour to a mask
 #
 # Here is the whole method from "Paint is a colour threshold", one step per line, for yellow on the noisy frame. Run it
 # and read the shapes: they are the point.
+#
+# ![](figures/colour_distance.png)
 
 # %%
 yellow = PALETTE[YELLOW].astype(float)  # (3,): the three numbers of yellow paint, as floats
