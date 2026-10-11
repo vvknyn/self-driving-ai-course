@@ -34,6 +34,17 @@ This flat-world teaching simulator paints the world in exactly five colours:
 
 In the frame above, rows 0 to 75 are all sky: the horizon of a flat world sits at row 75.5. The paint the car needs is a thin sliver. Of the frame's $180 \times 320 = 57{,}600$ pixels, 709 are yellow and 872 are white, 2.7% in all. The job of this unit is to find them.
 
+<details>
+<summary>How we got 2.7%</summary>
+
+The share of the frame that is paint is the number of paint pixels divided by the number of all pixels. The paint pixels are the yellow and the white ones together, $709 + 872 = 1581$. The frame has $180 \times 320 = 57{,}600$ pixels, so
+
+$$\frac{1581}{57{,}600} = 0.02745$$
+
+A fraction becomes a percentage when you multiply by 100: $0.02745 \times 100 = 2.745$ per cent, which rounds to 2.7%.
+
+</details>
+
 ## Colour is a point in space
 
 Three numbers can be read as a position in space. Treat red, green and blue as three axes, like the length, width and height of a room, and every colour becomes a point in a cube whose sides run from 0 to 255. Similar colours are points close together.
@@ -51,6 +62,25 @@ This is Pythagoras' theorem with one extra axis. The distance is 0 when the colo
 - Square root: $\sqrt{34{,}725} = 186.3$.
 
 Work out every pair of the five colours the same way and two facts stand out. The colour nearest to yellow is grass, 175.8 away. The colour nearest to white is sky, only 116.4 away. Keep those two numbers in mind.
+
+<details>
+<summary>How we got 175.8 and 116.4</summary>
+
+These come from the same distance formula as the worked example. Grass is $(70, 130, 60)$ and yellow paint is $(230, 200, 40)$:
+
+- Differences: $70 - 230 = -160$, $130 - 200 = -70$, $60 - 40 = 20$.
+- Squares: $25{,}600$, $4{,}900$ and $400$. They add up to $30{,}900$.
+- Square root: $\sqrt{30{,}900} = 175.8$.
+
+Sky is $(135, 190, 235)$ and white paint is $(240, 240, 240)$:
+
+- Differences: $135 - 240 = -105$, $190 - 240 = -50$, $235 - 240 = -5$.
+- Squares: $11{,}025$, $2{,}500$ and $25$. They add up to $13{,}550$.
+- Square root: $\sqrt{13{,}550} = 116.4$.
+
+Yellow's other distances are larger: road 186.3, white 204.2 and sky 217.1. White's other distances are larger too: yellow 204.2, road 257.0 and grass 270.9. So grass is the nearest colour to yellow, and sky is the nearest to white.
+
+</details>
 
 ## Paint is a colour threshold
 
@@ -95,6 +125,17 @@ IoU is 1 only when the two masks are identical, and it punishes both kinds of mi
 
 Why not simply count the fraction of pixels you got right? Because paint is so rare. A mask that marks nothing at all is right about 98.8% of the pixels for yellow, since only 1.2% of the frame is yellow paint. Its IoU is 0. The grader for this unit asks for IoU of at least 0.85 for both masks, on six noisy frames drawn from all three roads.
 
+<details>
+<summary>How we got 98.8%</summary>
+
+Yellow paint covers 709 of the 57,600 pixels, a share of $709 / 57{,}600 = 0.0123$, which is 1.2%. A mask that marks nothing is right about every pixel that is not yellow, which is the rest:
+
+$$1 - 0.0123 = 0.9877 \approx 98.8\%$$
+
+Its IoU is still 0. The intersection is 0 pixels, because the mask holds none, and the union is just the 709 true pixels, so $0 / 709 = 0$.
+
+</details>
+
 ## Why exact equality fails
 
 Here is the tempting shortcut: "The simulator paints yellow as exactly `(230, 200, 40)`. So find yellow with `frame == yellow`."
@@ -104,6 +145,21 @@ On a clean frame this works perfectly: IoU 1.0. On a noisy frame it finds nothin
 ![Rows 100 to 179 of the noisy frame; the mask from exact equality, which is empty (0 pixels, IoU 0.00); and the mask from a distance threshold of 60, which finds all 1,581 paint pixels (IoU 1.00).](figures/exact_vs_threshold.png)
 
 To equal yellow exactly, a noisy pixel needs all three of its nudges to round to 0. One nudge does that only when it lands between $-0.5$ and $+0.5$, which with $\sigma = 6$ happens with probability 0.066. All three at once: $0.066^3 = 0.0003$. Out of 709 yellow pixels you would expect to find about 0.2, and in this frame you find none.
+
+<details>
+<summary>How we got 0.066, 0.0003 and 0.2</summary>
+
+The nudge added to one channel is a random number with a bell-shaped spread whose width is $\sigma = 6$. The result is then rounded to a whole number, so a channel comes back as exactly the paint value only if its nudge lies between $-0.5$ and $+0.5$. That interval is 1 wide, narrow next to the bell, so its probability is about its width times the height of the bell at the middle. The height of a bell with standard deviation $\sigma$ at its middle is $\frac{1}{\sigma\sqrt{2\pi}}$:
+
+$$1 \times \frac{1}{6\sqrt{2\pi}} = \frac{1}{6 \times 2.5066} = 0.06649 \approx 0.066$$
+
+The three channels get independent nudges, and independent chances multiply:
+
+$$0.066 \times 0.066 \times 0.066 = 0.000287 \approx 0.0003$$
+
+Each of the 709 yellow pixels has that chance, so the number you expect to be exactly yellow is $709 \times 0.000287 = 0.20 \approx 0.2$.
+
+</details>
 
 The lesson reaches far beyond paint. Measured data never lands exactly on its ideal value, so never test it for equality: test whether it is close enough. (There is a second trap in `frame == yellow` too. It compares channel by channel, giving shape `(180, 320, 3)`, so you would need `np.all(..., axis=-1)` just to get one answer per pixel.)
 

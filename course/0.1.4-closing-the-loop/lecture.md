@@ -6,6 +6,15 @@ Your car now sees through your perception box. This unit opens the last box, the
 
 Record every steering angle the provided car used on its lap of `gentle`, then replay the recording without looking at the camera. Replayed exactly, it gives the same lap. Now set the wheel 0.002 rad (0.11 degrees) off. The replayed car leaves the road after 67.2 m, 8.4 s in, still on the first straight. The provided car, with the same 0.002 rad error, completes the lap with a mean |lateral error| of 0.381 m instead of 0.376 m.
 
+<details>
+<summary>How we got 0.11 degrees</summary>
+
+Angles in the simulator are in **radians**: a full turn is $2\pi$ radians, and also $360°$. So one radian is $360° / 2\pi = 180° / \pi = 57.30°$. Then
+
+$$0.002 \text{ rad} \times 57.30 \text{ degrees per radian} = 0.115° \approx 0.11°$$
+
+</details>
+
 ![Offset against time on gentle. The provided car and the provided car with the wheel 0.002 rad off overlap and complete; the replayed steering drifts steadily left and leaves the road at 8.4 s.](figures/open_vs_closed.png)
 
 The replay is **open loop**: its commands were fixed in advance, so nothing notices the error and it adds up. The provided car is **closed loop**: each command is computed from the latest measurement, so an error is corrected as soon as it shows. Åström and Murray define it:
@@ -41,6 +50,17 @@ $$\delta = -\left(k_{\text{off}}\, e_{\text{off}} + k_{\text{head}}\, \psi\right
 
 where $\psi$ is the heading in radians, left positive, and $k_{\text{head}}$ has no units. The provided car uses $k_{\text{off}} = 0.35$ and $k_{\text{head}} = 2.7$.
 
+<details>
+<summary>How we got 0.40 m sideways per second</summary>
+
+The car moves 8 m every second along the direction it points. If that direction is $\psi = 0.05$ rad away from the road's direction, only part of the 8 m is along the road. The rest is sideways, and trigonometry gives the sideways part of a distance as the distance times $\sin$ of the angle:
+
+$$8 \times \sin 0.05 = 8 \times 0.04998 = 0.3998 \approx 0.40 \text{ m}$$
+
+(The $\sin$ must be taken with the angle in radians, as here.)
+
+</details>
+
 **Worked example.** The car is 0.4 m left of centre and pointing 0.05 rad left:
 
 $$\delta = -(0.35 \times 0.4 + 2.7 \times 0.05) = -(0.14 + 0.135) = -0.275 \text{ rad}$$
@@ -63,6 +83,17 @@ Keep $k_{\text{head}} = 2.7$ and sweep $k_{\text{off}}$ on `gentle`:
 
 The tempting conclusion is **"more gain, tighter tracking"**. It holds from 0.05 to 1.5, then fails: 3.0 is worse than 1.5, and 6.0 crashes. The reason is the wheel, which turns at most 1 rad/s. With $k_{\text{off}} = 6$, a 5 cm offset asks for 0.3 rad of wheel, which takes 0.3 s to reach, 2.4 m of travel at 8 m/s. By then the car has crossed the centre and the controller wants the opposite. The right panel shows it: at $k_{\text{off}} = 6$ the wheel turns at full speed in 80% of steps, always late, each swing wider than the last. There is a best range of gains, and the car's limits set its top.
 
+<details>
+<summary>How we got 0.3 rad, 0.3 s and 2.4 m</summary>
+
+Three small steps, each feeding the next.
+
+1. **Wheel angle asked for.** With only the offset term, $\delta = k_{\text{off}} \times e_{\text{off}}$ in size. A 5 cm offset is $0.05$ m, so $\delta = 6 \times 0.05 = 0.3$ rad.
+2. **Time to turn the wheel there.** The wheel turns at most 1 radian per second, so 0.3 rad takes $0.3 / 1 = 0.3$ s. In the simulator's 0.05 s steps that is 6 steps.
+3. **Distance driven meanwhile.** At 8 m/s, $8 \times 0.3 = 2.4$ m.
+
+</details>
+
 ## Why curves need error
 
 To follow a circle of radius $R$, a car with wheelbase $L = 2.7$ m (front axle to rear axle) holds its wheel at about
@@ -70,6 +101,19 @@ To follow a circle of radius $R$, a car with wheelbase $L = 2.7$ m (front axle t
 $$\delta \approx \arctan\frac{L}{R}$$
 
 because the car turns about the point where lines drawn square to its front and rear wheels meet. On `gentle`'s bends your lane has radius 81.8 m (80 m plus 1.8 m: your lane is on the outside), so $\delta = \arctan(2.7 / 81.8) = 0.0330$ rad.
+
+<details>
+<summary>How we got $\delta = 0.0330$ rad</summary>
+
+First the lane's radius. The road's centre line (the yellow line) bends left with radius 80 m. Your lane's centre is 1.8 m to the right of it, which on a left bend is the outside, so its circle is bigger: $80 + 1.8 = 81.8$ m.
+
+Then the ratio of wheelbase to radius: $L / R = 2.7 / 81.8 = 0.03301$. The $\arctan$ turns this ratio into an angle in radians:
+
+$$\arctan(0.03301) = 0.03300 \approx 0.0330 \text{ rad}$$
+
+For a ratio this small the angle and the ratio are almost the same number.
+
+</details>
 
 A P law turns the wheel only when there is error. With both errors zero it says $\delta = 0$, and the car runs straight off the circle. So in a steady bend the car must carry errors that add up to the right $\delta$.
 
@@ -83,9 +127,21 @@ $$e_{\text{off}} = \frac{(k_{\text{head}} - 1)\,\delta}{k_{\text{off}}}$$
 
 On `curvy` the bends have radius 20 m, so your lane's radius is 21.8 m on left bends and 18.2 m on right bends: $\delta = 0.123$ and $0.147$ rad, predicting 0.599 m and −0.715 m. Each bend is only 31 m long, so the offset is still moving when the next one begins; with perfect lane values the car stays within 0.67 m and completes `curvy`.
 
+<details>
+<summary>How we got 0.123, 0.147, 0.599 and −0.715</summary>
+
+Do the `gentle` recipe twice, once for each side: first the lane's radius $R$, then the wheel angle $\delta = \arctan(L/R)$ with $L = 2.7$ m, then the offset $e_{\text{off}} = (k_{\text{head}} - 1)\,\delta / k_{\text{off}} = 1.7\,\delta / 0.35$.
+
+- **Left bends.** The lane is on the outside: $R = 20 + 1.8 = 21.8$ m. $\delta = \arctan(2.7 / 21.8) = \arctan(0.12385) = 0.12323 \approx 0.123$ rad. Offset $= 1.7 \times 0.12323 / 0.35 = +0.599$ m, positive because the car sits to the left, the inside.
+- **Right bends.** The lane is on the inside: $R = 20 - 1.8 = 18.2$ m. $\delta = \arctan(2.7 / 18.2) = \arctan(0.14835) = 0.14728 \approx 0.147$ rad. The bend is mirrored, so the offset is negative: $-1.7 \times 0.14728 / 0.35 = -0.715$ m.
+
+The offsets come from the unrounded $\delta$. Starting from the rounded 0.123 and 0.147 would give 0.597 and 0.714 instead.
+
+</details>
+
 Åström and Murray name this: "proportional control has the drawback that the process variable often deviates from its reference value" (§1.6). Here the deviation grows as the bend tightens, because $\delta \approx L/R$.
 
-Set $k_{\text{head}} = 1$ and the offset vanishes. Stanley's law, Eq. 7, is $\delta(t) = \psi(t) + \arctan\frac{k\,x(t)}{u(t)}$, where "The angle ψ in this diagram describes the orientation of the nearest path segment, measured relative to the vehicle's own orientation" (p. 684): minus your heading, with gain exactly 1. Module 1.3 derives it.
+Set $k_{\text{head}} = 1$ and the offset vanishes. Stanley's law, Eq. 7, is $\delta(t) = \psi(t) + \arctan\frac{k\,x(t)}{u(t)}$, where "The angle ψ […] describes the orientation of the nearest path segment, measured relative to the vehicle's own orientation" (p. 684): minus your heading, with gain exactly 1. Module 1.3 derives it.
 
 ## Why your car leaves curvy
 
@@ -93,14 +149,14 @@ With perfect lane values the P law gets round `curvy`. The provided car does not
 
 ![Left: on curvy, perfect lane values stay within 0.67 m; the two-point box drifts left before the first bend and leaves at 48.3 m. Right: the box's heading lies far right of the true heading.](figures/curvy_box.png)
 
-The cause is unit 0.1.3's chord bias: on a left bend the box says "left of centre, pointing right" even when the car is centred, and the controller multiplies the heading by 2.7. It starts early: the far band sees 5.6 to 11.5 m ahead, so at 30.3 m, where the bend begins, the car is already 0.56 m left.
+The cause is unit 0.1.3's chord bias: on a left bend the box says "left of centre, pointing right" even when the car is centred, and the controller multiplies the heading by 2.7. It starts early: the far band sees 5.6 to 11.5 m ahead, so at 30.3 m, just after the bend begins at 30 m, the car is already 0.56 m left.
 
-**Worked example.** At 44.3 m the car is truly 1.70 m left, heading −0.085 rad; the box reports 2.32 m and −0.342 rad.
+**Worked example.** At 44.3 m the car is truly 1.701 m left, heading −0.0848 rad; the box reports 2.321 m and −0.3416 rad.
 
-- On the true values: $-(0.35 \times 1.70 + 2.7 \times (-0.085)) = -0.366$ rad, hard right, back to the centre.
-- On the box's values: $-(0.35 \times 2.32 + 2.7 \times (-0.342)) = +0.110$ rad, left, deeper inside.
+- On the true values: $-(0.35 \times 1.701 + 2.7 \times (-0.0848)) = -(0.595 - 0.229) = -0.366$ rad, hard right, back to the centre.
+- On the box's values: $-(0.35 \times 2.321 + 2.7 \times (-0.3416)) = -(0.812 - 0.922) = +0.110$ rad, left, deeper inside.
 
-A heading error of 0.257 rad times 2.7 is 0.69 rad of phantom left steering, outweighing everything else.
+A heading error of $0.3416 - 0.0848 = 0.257$ rad times 2.7 is 0.69 rad of phantom left steering, outweighing everything else.
 
 Retuning can hide this: $k_{\text{off}} = 1.5$, or $k_{\text{head}} = 1$, gets round `curvy` (mean errors 0.085 and 0.131 m), but the bias remains. The real fixes are perception that fits the curve (module 1.5) and a controller that looks ahead along the road (module 1.3).
 
@@ -119,6 +175,15 @@ Your car has hand-written perception and control. In 1988, Dean Pomerleau replac
 - **Training:** 1200 simulated road snapshots.
 - **Result:** it drove the NAVLAB van "at a speed of 1/2 meter per second along a 400 meter path through a wooded area" (pp. 308–309). CMU's traditional system, on the faster Warp computer, managed 1 m/s.
 - **Limit:** at a fork it could output two directions, and "The result is often an oscillation" (p. 312).
+
+<details>
+<summary>How we got 1217 inputs</summary>
+
+Each retina is a grid of units, one per picture cell, so its size is rows times columns: the video retina has $30 \times 32 = 960$ units and the range-finder retina has $8 \times 32 = 256$. Add the one feedback unit:
+
+$$960 + 256 + 1 = 1217$$
+
+</details>
 
 It is this module's paper.
 

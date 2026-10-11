@@ -4,6 +4,17 @@
 
 Picture a two-lane road on a clear day. A dashed yellow line runs down the middle and a solid white line marks the right edge. You are in the right-hand lane, rolling at a steady 8 m/s (about 29 km/h), and you are not steering. The car is.
 
+<details>
+<summary>How we got 29 km/h</summary>
+
+A speed in metres per second says how many metres you cover in one second. To say it in kilometres per hour, count kilometres instead of metres (1 km is 1000 m, so divide by 1000) and count in hours instead of seconds (1 h is 3600 s, so multiply by 3600):
+
+$$8\ \text{m/s} = 8 \times \frac{3600}{1000}\ \text{km/h} = 8 \times 3.6\ \text{km/h} = 28.8\ \text{km/h}$$
+
+That is about 29 km/h.
+
+</details>
+
 Every 0.05 seconds, the same four things happen:
 
 1. The **camera** takes a picture of the road ahead.
@@ -17,11 +28,30 @@ This course's car lives in a flat-world teaching simulator: the road is paint on
 
 The right panel shows `gentle`, one of the three test roads: a stadium-shaped loop with two 100 m straights and two bends of radius 80 m, 702.7 m in all. The other two are `straight` (200 m of straight road) and `curvy`, which is 30 m of straight followed by six quarter-circle bends of radius 20 m that alternate left and right.
 
+![The three test roads from above, drawn at the same scale, each with its length, its start (red dot) and its direction of travel (arrow). `straight` is a dead-straight 200 m line, `gentle` is a 702.7 m stadium loop of two long straights and two wide bends, and `curvy` is 218.5 m of tight bends that alternate left and right.](figures/test_roads.png)
+
+<details>
+<summary>How we got 702.7 m and 218.5 m</summary>
+
+Each length is the distance along the road's centre line, from the start to the end of the route, added up piece by piece. A circle of radius $r$ has circumference $2\pi r$, so a half circle is $\pi r$ long and a quarter circle is $\frac{\pi}{2} r$.
+
+`gentle` is two straights of 100 m and two half-circle bends of radius $r = 80$ m, which is how the loop turns all the way round:
+
+$$2 \times 100 + 2 \times \pi \times 80 = 200 + 502.65 = 702.65 \approx 702.7 \text{ m}$$
+
+`curvy` is a 30 m straight and six quarter-circle bends of radius 20 m:
+
+$$30 + 6 \times \frac{\pi}{2} \times 20 = 30 + 188.50 = 218.50 \approx 218.5 \text{ m}$$
+
+The paint of an open road runs 40 m further, so the camera still has lines to look at as the car reaches the end of the route. Those 40 m are not part of the route, which is why the figure marks where the route ends with a square.
+
+</details>
+
 ## Lateral error
 
 How would you say, in one number, how well a car is keeping its lane? Teams building real robot cars had to answer this too. Stanford's Stanley, which won the 2005 DARPA Grand Challenge desert race, built its steering on exactly one number:
 
-> "The key error metric is the cross-track error, x(t), as shown in Figure 24, which measures the lateral distance of the center of the vehicle's front wheels from the nearest point on the trajectory." (Thrun et al., 2006, p. 684)
+> "The key error metric is the cross-track error, x(t), […] which measures the lateral distance of the center of the vehicle's front wheels from the nearest point on the trajectory." (Thrun et al., 2006, p. 684)
 
 This course calls that number the **lateral error**, written $e$. It is the sideways distance, in metres, from the centre of your lane to the centre of the car's front axle (the point between the front wheels, where the simulator mounts the camera).
 
@@ -38,6 +68,19 @@ Left is positive everywhere in this course, for offsets, headings and steering a
 The lane is 3.6 m wide, so the yellow line is 1.8 m to your left and the white line 1.8 m to your right. When $|e|$ reaches 1.8 m the front axle is on a line, and the simulator ends the run.
 
 A drive is not one number but a **time series**: one value of $e$ at every step. Call them $e_1, e_2, \ldots, e_N$, where $N$ is the number of steps. With a step every 0.05 s you get 20 values per second, so one lap of `gentle`, which takes the provided car 88.85 s, is $N = 1778$ values. In the lab they arrive as a NumPy array called `tel.lat`.
+
+<details>
+<summary>How we got $N = 1778$</summary>
+
+The simulator records one value at the start of every step, beginning with step $k = 0$ at time $t = 0$. Step $k$ is recorded at time $t = 0.05\,k$ seconds, and the lap ends at the step where the car has driven the whole route, at $t = 88.85$ s. That last step is
+
+$$k_{\text{last}} = \frac{88.85}{0.05} = 1777$$
+
+Counting the steps $k = 0, 1, 2, \ldots, 1777$ gives $1777 + 1 = 1778$ values. There is one more value than there are 0.05 s gaps between them, just as a fence with 1777 gaps has 1778 posts. So $N = 1778$.
+
+You may notice that $88.85 \times 8 = 710.8$ m is more than the 702.7 m of the road. That is right: the car drives in the right-hand lane, which is the outside lane of `gentle`'s left-hand bends, so its own path is longer than the road's centre line.
+
+</details>
 
 ## Summarising lane error
 

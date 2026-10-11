@@ -1,6 +1,7 @@
 """Figures for lecture 0.1.1 Meet your car.  `python scripts/make_figures.py course/0.1.1-meet-your-car`."""
 import numpy as np
 from matplotlib.figure import Figure
+from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 
 from zero2fsd.car import Car, provided, run
@@ -11,6 +12,9 @@ from zero2fsd.sim.world import LANE_WIDTH
 
 VIEW_S = 80.0  # m along `gentle`: 20 m before the first bend, so the bend is in view
 STIFF_GAINS = (0.7, 2.7)  # a car whose offset gain is twice the provided one (gains are unit 0.1.4)
+ROAD_ROWS = (("straight",), ("gentle", "curvy"))  # test_roads layout, top row first
+FIG_W, MARGIN_L, MARGIN_R, MARGIN_B, MARGIN_T, GAP_X, GAP_Y = 11.0, 0.75, 0.2, 0.65, 0.45, 0.85, 1.0  # inches
+ROAD_PAD, ARROW_LEN = 10.0, 20.0  # metres
 
 
 def _car_and_view(path):
@@ -28,6 +32,52 @@ def _car_and_view(path):
     top.legend(loc="center")
     top.set_title("Where the car drove (top-down)")
     fig.tight_layout()
+    fig.savefig(path, dpi=100)
+
+
+def _paint_box(road):
+    """Corners ((x0, y0), (x1, y1)) of a box around the road's paint, with room for the markers."""
+    s = np.linspace(0.0, road.length, max(2, int(road.length)))
+    paint = np.vstack([road.offset(s, -LANE_WIDTH), road.offset(s, LANE_WIDTH)])
+    return paint.min(axis=0) - ROAD_PAD, paint.max(axis=0) + ROAD_PAD
+
+
+def _mark_route(ax, scenario):
+    """Start dot and direction-of-travel arrow in the ego lane; an open road also gets an end-of-route square."""
+    road = scenario.road
+    x, y, yaw = road.ego_pose(scenario.start_s)
+    ax.plot(x, y, "o", color="C3", zorder=3)
+    ax.annotate("", xy=(x + ARROW_LEN * np.cos(yaw), y + ARROW_LEN * np.sin(yaw)), xytext=(x, y),
+                arrowprops={"arrowstyle": "-|>", "color": "C3", "lw": 2})
+    if not road.closed:
+        ax.plot(*road.ego_pose(scenario.start_s + scenario.route_length)[:2], "s", color="0.2", zorder=3)
+
+
+def _test_roads(path):
+    scenarios = {name: make_scenario(name) for row in ROAD_ROWS for name in row}
+    boxes = {name: _paint_box(sc.road) for name, sc in scenarios.items()}
+    size = {name: hi - lo for name, (lo, hi) in boxes.items()}  # metres, (x, y)
+    # One scale for every panel: the tightest row sets how many metres fit in an inch.
+    m_per_in = max(sum(size[n][0] for n in row) / (FIG_W - MARGIN_L - MARGIN_R - GAP_X * (len(row) - 1)) for row in ROAD_ROWS)
+    row_h = [max(size[n][1] for n in row) / m_per_in for row in ROAD_ROWS]
+    height = MARGIN_B + sum(row_h) + GAP_Y * (len(ROAD_ROWS) - 1) + MARGIN_T
+    fig = Figure(figsize=(FIG_W, height))
+    y_in = MARGIN_B
+    for row, h in zip(reversed(ROAD_ROWS), reversed(row_h)):
+        x_in = MARGIN_L
+        for name in row:
+            (x0, y0), (x1, y1) = boxes[name]
+            ax = fig.add_axes([x_in / FIG_W, y_in / height, (x1 - x0) / m_per_in / FIG_W, (y1 - y0) / m_per_in / height],
+                              xlim=(x0, x1), ylim=(y0, y1))
+            render_topdown(scenarios[name].road, ax=ax)
+            _mark_route(ax, scenarios[name])
+            ax.set_title(f"'{name}': {scenarios[name].route_length:.1f} m")
+            x_in += (x1 - x0) / m_per_in + GAP_X
+        y_in += h + GAP_Y
+    key = [Line2D([], [], marker="o", color="C3", linestyle="", label="start (arrow: direction of travel)"),
+           Line2D([], [], marker="s", color="0.2", linestyle="",
+                  label="end of route (a loop ends at its start;\nthe paint of an open road runs on past it)")]
+    fig.legend(handles=key, loc="upper right", bbox_to_anchor=(0.98, 1 - MARGIN_T / height), fontsize=9)
     fig.savefig(path, dpi=100)
 
 
@@ -77,5 +127,6 @@ def _signed_mean_trap(path):
 
 def make(out_dir):
     _car_and_view(out_dir / "car_and_view.png")
+    _test_roads(out_dir / "test_roads.png")
     _sign_convention(out_dir / "sign_convention.png")
     _signed_mean_trap(out_dir / "signed_mean_trap.png")
