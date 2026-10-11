@@ -15,6 +15,7 @@ BROWSER_ABSENT = ("matplotlib", "yaml")
 BROWSER_MODULES = (
     "zero2fsd", "zero2fsd.sim", "zero2fsd.car", "zero2fsd.grade", "zero2fsd.score", "zero2fsd.dashboard",
     "zero2fsd.export",
+    "zero2fsd.palette",
 )
 SCRIPT = """
 import importlib, sys
