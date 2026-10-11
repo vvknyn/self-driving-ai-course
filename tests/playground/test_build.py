@@ -223,6 +223,17 @@ def test_a_bad_link_stops_the_build_before_the_previous_one_is_touched(mini_repo
     assert (out / "keep.txt").read_text() == "previous build"
 
 
+def test_a_failure_while_building_leaves_the_previous_build_and_no_half_built_sibling(mini_repo, tmp_path):
+    out = tmp_path / "playground"
+    out.mkdir()
+    (out / "keep.txt").write_text("previous build")
+    assert not (mini_repo / "playground").exists()  # the fixture repo has no page files: the build fails after validation, while copying
+    with pytest.raises(FileNotFoundError):
+        bp.write_playground(mini_repo, out)
+    assert (out / "keep.txt").read_text() == "previous build"
+    assert not (tmp_path / "playground.building").exists()
+
+
 # --- write_playground ----------------------------------------------------------------------------------------
 
 
@@ -284,6 +295,16 @@ def test_the_zip_bytes_depend_on_content_only(tmp_path):
     assert bp.bundle_zip(copy) == bp.bundle_zip(REPO / "zero2fsd")
 
 
+@pytest.mark.parametrize("contents", [{}, {"README.md": "# not code\n", "data.json": "{}\n"}], ids=["empty", "no-py-files"])
+def test_a_package_with_no_python_files_does_not_pack(tmp_path, contents):
+    package = tmp_path / "zero2fsd"
+    package.mkdir()
+    for name, text in contents.items():
+        (package / name).write_text(text)
+    with pytest.raises(ValueError, match="has no Python files to pack"):
+        bp.bundle_zip(package)
+
+
 def test_manifest_lists_every_other_file_with_its_size_and_hash(dist):
     manifest = json.loads((dist / "manifest.json").read_text())
     paths = [f["path"] for f in manifest["files"]]
@@ -291,16 +312,7 @@ def test_manifest_lists_every_other_file_with_its_size_and_hash(dist):
     for entry in manifest["files"]:
         data = (dist / entry["path"]).read_bytes()
         assert (entry["bytes"], entry["sha256"]) == (len(data), hashlib.sha256(data).hexdigest())
-    assert manifest["generated_from"] == bp.git_revision(REPO)
-
-
-def test_git_revision_is_the_short_hash_in_a_checkout_and_unknown_outside_one(tmp_path):
-    assert bp.git_revision(tmp_path) == "unknown"
-    git = ["git", "-C", str(tmp_path), "-c", "user.name=t", "-c", "user.email=t@example.org"]
-    subprocess.run([*git, "init", "-q"], check=True)
-    subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "x"], check=True)
-    head = subprocess.run([*git, "rev-parse", "--short", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
-    assert bp.git_revision(tmp_path) == head and re.fullmatch(r"[0-9a-f]{7,}", head)
+    assert list(manifest) == ["files"]
 
 
 def test_write_replaces_the_directory_and_creates_missing_parents(tmp_path):

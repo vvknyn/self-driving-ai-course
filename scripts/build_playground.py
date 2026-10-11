@@ -10,10 +10,10 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import re
 import shutil
 import string
-import subprocess
 import zipfile
 from pathlib import Path
 
@@ -72,19 +72,16 @@ def validate_lecture_links(repo_root: Path, records: list[dict]) -> None:
 
 def bundle_zip(package: Path) -> bytes:
     """Every .py file of `package`, sorted, under its own name; stored with a fixed date so the bytes depend on content only."""
+    sources = sorted(package.rglob("*.py"))
+    if not sources:
+        raise ValueError(f"{package} has no Python files to pack")
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_STORED) as archive:
-        for path in sorted(package.rglob("*.py")):
+        for path in sources:
             info = zipfile.ZipInfo(f"{package.name}/{path.relative_to(package).as_posix()}", ZIP_EPOCH)
             info.external_attr = 0o644 << 16
             archive.writestr(info, path.read_bytes())
     return buffer.getvalue()
-
-
-def git_revision(repo_root: Path) -> str:
-    """The short commit hash of `repo_root`, or "unknown" when it is not a git checkout."""
-    done = subprocess.run(["git", "-C", str(repo_root), "rev-parse", "--short", "HEAD"], capture_output=True, text=True)
-    return done.stdout.strip() if done.returncode == 0 else "unknown"
 
 
 def _json(data) -> str:
@@ -92,17 +89,25 @@ def _json(data) -> str:
 
 
 def write_playground(repo_root: Path, out_dir: Path) -> None:
-    """Replace `out_dir` with the build: the playground/ files, bundle.zip, three data files and manifest.json."""
+    """Replace `out_dir` with the build: the playground/ files, bundle.zip, three data files and manifest.json.
+    The build lands in a sibling first and replaces `out_dir` only once it is complete, so a failed build leaves the previous one."""
     records = exercise_records(repo_root)
     validate_lecture_links(repo_root, records)
-    shutil.rmtree(out_dir, ignore_errors=True)  # a source renamed since the last build must not leave its old copy
-    out_dir.mkdir(parents=True)
-    for source in sorted((repo_root / "playground").iterdir()):
-        if source.is_file() and not source.name.startswith("."):
-            shutil.copyfile(source, out_dir / source.name)
-    (out_dir / "bundle.zip").write_bytes(bundle_zip(repo_root / "zero2fsd"))
-    for name, data in (("exercises.json", records), ("roads.json", roads_dict()), ("palette.json", palette_dict())):
-        (out_dir / name).write_text(_json(data), encoding="utf-8")
-    files = [{"path": p.name, "bytes": p.stat().st_size, "sha256": hashlib.sha256(p.read_bytes()).hexdigest()}
-             for p in sorted(out_dir.iterdir())]  # manifest.json does not exist yet, so it is not listed in itself
-    (out_dir / "manifest.json").write_text(_json({"generated_from": git_revision(repo_root), "files": files}), encoding="utf-8")
+    building = out_dir.with_name(out_dir.name + ".building")
+    shutil.rmtree(building, ignore_errors=True)  # only present after an interrupted build
+    building.mkdir(parents=True)
+    try:
+        for source in sorted((repo_root / "playground").iterdir()):
+            if source.is_file() and not source.name.startswith("."):
+                shutil.copyfile(source, building / source.name)
+        (building / "bundle.zip").write_bytes(bundle_zip(repo_root / "zero2fsd"))
+        for name, data in (("exercises.json", records), ("roads.json", roads_dict()), ("palette.json", palette_dict())):
+            (building / name).write_text(_json(data), encoding="utf-8")
+        files = [{"path": p.name, "bytes": p.stat().st_size, "sha256": hashlib.sha256(p.read_bytes()).hexdigest()}
+                 for p in sorted(building.iterdir())]  # manifest.json does not exist yet, so it is not listed in itself
+        (building / "manifest.json").write_text(_json({"files": files}), encoding="utf-8")
+        if out_dir.exists():
+            shutil.rmtree(out_dir)  # a source renamed since the last build must not leave its old copy
+        os.replace(building, out_dir)
+    finally:
+        shutil.rmtree(building, ignore_errors=True)  # still there only when the build above failed
