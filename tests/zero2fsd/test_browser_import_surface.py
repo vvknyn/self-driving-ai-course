@@ -14,6 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 BROWSER_ABSENT = ("matplotlib", "yaml")
 BROWSER_MODULES = (
     "zero2fsd", "zero2fsd.sim", "zero2fsd.car", "zero2fsd.grade", "zero2fsd.score", "zero2fsd.dashboard",
+    "zero2fsd.export",
 )
 SCRIPT = """
 import importlib, sys
