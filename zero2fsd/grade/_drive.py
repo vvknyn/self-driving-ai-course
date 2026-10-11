@@ -6,7 +6,7 @@ import io
 from ..car import Car, Telemetry, run
 from ..dashboard import dashboard
 from ..score import driving_score, metrics, metrics_table
-from ._report import Failure, learner_code
+from ._report import Failure, learner_code, vs_limit
 
 GATE_SCENARIO, GATE_MEAN_LAT = "gentle", 0.5  # the car must complete the scenario with mean |lat| below this (m)
 
@@ -58,8 +58,9 @@ def gate(car: Car, show: bool) -> str:
     """Fail unless the car completes the gate scenario with mean |lat| under the limit; else say how it did."""
     tel = drive(car, GATE_SCENARIO, f"your car on {GATE_SCENARIO}", show)
     mean_lat = metrics(tel)["mean_abs_lat"]
+    seen = f"mean |lat| {mean_lat:.3f} m {vs_limit(mean_lat, GATE_MEAN_LAT, 'm')}"
     if not tel.completed or mean_lat >= GATE_MEAN_LAT:
         raise Failure(f"your car did not pass the {GATE_SCENARIO} gate",
                       expected=f"completes {GATE_SCENARIO} with mean |lat| < {GATE_MEAN_LAT} m",
-                      got=f"{outcome(tel)}, mean |lat| {mean_lat:.2f} m", given=f"your car driving {GATE_SCENARIO!r}")
-    return f"{outcome(tel)}, mean |lat| {mean_lat:.2f} m (< {GATE_MEAN_LAT} m), score {driving_score(tel)}"
+                      got=f"{outcome(tel)}, {seen}", given=f"your car driving {GATE_SCENARIO!r}")
+    return f"{outcome(tel)}, score {driving_score(tel)}, {seen}"

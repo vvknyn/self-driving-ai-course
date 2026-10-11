@@ -55,6 +55,29 @@ def is_real(value) -> bool:
     return isinstance(value, Real) and not isinstance(value, bool) and math.isfinite(value)
 
 
+BORDERLINE_FRACTION = 0.02  # a verdict within this fraction of its limit can flip between computers
+BORDERLINE_NOTE = "Borderline: tiny differences between computers can flip this. Aim for a clearer margin."
+
+
+def margin(value: float, limit: float) -> float:
+    """How far `value` is from `limit`, as a fraction of the limit."""
+    return abs(value - limit) / abs(limit)
+
+
+def borderline(value: float, threshold: float) -> str | None:
+    """The borderline sentence when `value` is within BORDERLINE_FRACTION of `threshold`, else None."""
+    return BORDERLINE_NOTE if margin(value, threshold) <= BORDERLINE_FRACTION else None
+
+
+def vs_limit(value: float, limit: float, unit: str = "") -> str:
+    """`(limit 0.5 m, margin 25 %)`, then the borderline sentence when the margin is that thin."""
+    percent = 100 * margin(value, limit)
+    shown = f"{percent:.1f}" if percent < 10 else f"{percent:.0f}"
+    text = f"(limit {limit:g}{' ' + unit if unit else ''}, margin {shown} %)"
+    note = borderline(value, limit)
+    return f"{text}. {note}" if note else text
+
+
 @contextmanager
 def learner_code(given: str):
     """Run learner code: NotImplementedError and any other exception become a `Failure` naming the input."""

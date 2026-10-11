@@ -7,7 +7,7 @@ import numpy as np
 
 from ...car import LaneEstimate
 from ...sim.dynamics import MAX_STEER
-from .._drive import drive, gate, outcome, require_car, require_own
+from .._drive import GATE_MEAN_LAT, GATE_SCENARIO, drive, gate, outcome, require_car, require_own
 from .._report import Failure, call, exercise, fmt, is_real
 
 TOL = 1e-9
@@ -52,7 +52,7 @@ def _p_steer(fn, show):
 
 @exercise(
     "0.1.4.b",
-    checked="my_car (your perception and your controller) on `gentle`: it must complete with mean |lat| < 0.5 m; then `curvy` is shown, not graded",
+    checked=f"my_car (your perception and your controller) on `{GATE_SCENARIO}`: it must complete with mean |lat| < {GATE_MEAN_LAT} m; then `curvy` is shown, not graded",
     hint='lecture 0.1.4, section "Closing the loop"',
 )
 def _my_car(car, show):
