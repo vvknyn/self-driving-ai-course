@@ -49,7 +49,7 @@ export class Player {
     this.#rows = [];
     this.#k = 0;
     this.#clock = 0;
-    this.#playing = false;
+    this.#setPlaying(false);
     this.#finished = false;
     this.fit();
   }
@@ -85,15 +85,13 @@ export class Player {
 
   play() {
     if (this.#finished && this.#k >= this.#rows.length - 1) this.seek(0); // finished lap: play it again
-    this.#playing = true;
+    this.#setPlaying(true);
     this.#last = null;
-    this.#dirty = true; // listeners learn that playback started
     this.#kick();
   }
 
   pause() {
-    this.#playing = false;
-    this.#dirty = true;
+    this.#setPlaying(false);
     this.#kick();
   }
 
@@ -107,6 +105,13 @@ export class Player {
   }
 
   setSpeed(multiplier) { this.#speed = multiplier; }
+
+  /** The one place `playing` changes: a change is a frame to draw, so every listener hears it in a tick. */
+  #setPlaying(value) {
+    if (this.#playing === value) return;
+    this.#playing = value;
+    this.#dirty = true;
+  }
 
   #kick() {
     if (!this.#frame) this.#frame = requestAnimationFrame(this.#step);
@@ -122,7 +127,7 @@ export class Player {
       const k = rowIndexAt(this.#rows, this.#k, this.#clock);
       this.#dirty ||= k !== this.#k;
       this.#k = k;
-      if (this.#finished && k >= this.#rows.length - 1) this.#playing = false; // reached the end
+      if (this.#finished && k >= this.#rows.length - 1) this.#setPlaying(false); // reached the end
     }
     if (this.#dirty) this.#render();
     if (this.#playing) this.#kick();
