@@ -342,6 +342,17 @@ def test_check_code_gives_the_verdict_and_streams_rows_only_for_drive_checks(shi
     assert refused["passed"] is False and "still uses the provided" in refused["details"][0] and refused_rows == []
 
 
+@pytest.mark.parametrize("code, name, exercise_id, passed", [
+    (MY_CAR, "my_car", "0.1.4.b", True),
+    ("def p_steer(est, k_off, k_head):\n    return 0.0\n", "p_steer", "0.1.4.a", False),
+], ids=["passing", "failing"])
+def test_check_code_prints_nothing(shim, capsys, code, name, exercise_id, passed):
+    """Colab shows the grader's printed report; in the browser the same lines travel as the verdict's details."""
+    verdict = shim.check_code(shim.learner_object(code, name), exercise_id)
+    assert verdict["passed"] is passed and verdict["details"]
+    assert capsys.readouterr().out == ""
+
+
 def test_check_code_draws_no_figure(shim, monkeypatch):
     drawn = []
     monkeypatch.setattr(grade_drive, "show_figure", drawn.append)  # what a check does with `show=True`: matplotlib has no window here

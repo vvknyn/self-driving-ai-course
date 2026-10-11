@@ -8,7 +8,9 @@
 const PYODIDE_VERSION = "314.0.7";
 const PYODIDE_BASE = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
 const PACKAGES = ["numpy", "pillow"];
+const DASHBOARD_PACKAGES = ["matplotlib"]; // loaded by the first Dashboard request, not at start-up
 const QUIET = { messageCallback: () => {} }; // package progress goes out as `progress` messages; it is not the learner's output
+const TO_JS = { dict_converter: Object.fromEntries };
 
 let pyodide;
 let shim;
@@ -25,13 +27,28 @@ async function loading(url, work) {
   }
 }
 
-/** `loadPackage` reports a failed download through its error callback and still resolves, so read what loaded: a package
- *  the lockfile lists that did not load is a failure that names its wheel. `loadedPackages` is keyed by the lockfile's
- *  display name ("Pillow"), the lockfile by the package key ("pillow"). */
+/** The lockfile keys of `keys` and of everything they depend on whose wheel is not loaded. `loadedPackages` is keyed by the
+ *  lockfile's display name ("Pillow"), the lockfile by the package key ("pillow"). */
+function notLoaded(keys) {
+  const { packages } = pyodide.lockfile;
+  const seen = new Set();
+  const pending = [...keys];
+  while (pending.length) {
+    const key = pending.pop();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    pending.push(...packages[key].depends);
+  }
+  return [...seen].filter((key) => !pyodide.loadedPackages[packages[key].name]);
+}
+
+/** `loadPackage` reports a failed download through its error callback and still resolves, and it skips the dependencies of
+ *  a package that is already loaded. So load exactly what is missing from the whole dependency closure, then read what
+ *  loaded: anything still missing is a failure that names its wheels, and the next call retries only those. */
 async function loadPackages(keys) {
-  await pyodide.loadPackage(keys, QUIET);
-  const failed = keys.map((key) => pyodide.lockfile.packages[key]).filter(({ name }) => !pyodide.loadedPackages[name]);
-  if (failed.length) throw new Error(`the download failed for ${failed.map(({ file_name }) => file_name).join(", ")}`);
+  await pyodide.loadPackage(notLoaded(keys), QUIET);
+  const missing = notLoaded(keys);
+  if (missing.length) throw new Error(`the download failed for ${missing.map((key) => pyodide.lockfile.packages[key].file_name).join(", ")}`);
 }
 
 async function fetchBytes(url) {
@@ -43,7 +60,7 @@ async function fetchBytes(url) {
 /** Python value to plain JS; the proxy is released. */
 function plain(proxy) {
   try {
-    return proxy.toJs({ dict_converter: Object.fromEntries });
+    return proxy.toJs(TO_JS);
   } finally {
     proxy.destroy();
   }
@@ -61,7 +78,7 @@ function bytesOf(proxy) {
 /** `on_row` for Python: each step goes to the page the moment it exists, tagged with `road`. A step the shim already
  *  tagged keeps its own tag. A run passes the road it was asked for. A check passes the exercise's own road: only a
  *  gate drive streams, and every drive exercise's record road is that gate road (GATE_SCENARIO, grade/_drive.py:12). */
-const onRow = (road) => (rowProxy) => post("row", { row: { road, ...rowProxy.toJs({ dict_converter: Object.fromEntries }) } });
+const onRow = (road) => (rowProxy) => post("row", { row: { road, ...rowProxy.toJs(TO_JS) } }); // Pyodide owns a call argument's proxy, so not `plain`
 
 async function init() {
   post("progress", { stage: "pyodide", detail: `Pyodide ${PYODIDE_VERSION}` });
@@ -87,7 +104,7 @@ async function withLearner({ code, exercise }, use) {
   try {
     return await use(learner);
   } finally {
-    learner.destroy?.(); // a function or Car is a proxy; anything else was already converted to a JS value
+    learner?.destroy?.(); // a function or Car is a proxy; None arrives as undefined, numbers and strings have no destroy
   }
 }
 
@@ -119,9 +136,9 @@ const HANDLERS = {
   }),
 
   dashboard: async () => {
-    if (!pyodide.loadedPackages.matplotlib) {
-      post("progress", { stage: "packages", detail: "matplotlib" });
-      await loading(`${PYODIDE_BASE} (matplotlib)`, loadPackages(["matplotlib"]));
+    if (notLoaded(DASHBOARD_PACKAGES).length) {
+      post("progress", { stage: "packages", detail: DASHBOARD_PACKAGES.join(", ") });
+      await loading(`${PYODIDE_BASE} (${DASHBOARD_PACKAGES.join(", ")})`, loadPackages(DASHBOARD_PACKAGES));
     }
     const png = bytesOf(shim.dashboard_png());
     post("dashboard", { png }, [png]);
@@ -130,14 +147,22 @@ const HANDLERS = {
 
 /** The page's one error shape. A Python exception is formatted by the shim, which finds the learner's line. */
 function errorFields(error) {
-  if (shim && error instanceof pyodide.ffi.PythonError) return plain(shim.format_error(pyodide.pyimport("sys").last_exc));
-  return { message: error.message, line: null, traceback: error.stack ?? "" };
+  if (!(shim && error instanceof pyodide.ffi.PythonError)) return { message: error.message, line: null, traceback: error.stack ?? "" };
+  const sys = pyodide.pyimport("sys");
+  const exception = sys.last_exc;
+  try {
+    return plain(shim.format_error(exception));
+  } finally {
+    exception.destroy();
+    sys.destroy();
+  }
 }
 
 onmessage = async ({ data }) => {
   try {
-    const handler = HANDLERS[data.type];
+    const handler = Object.hasOwn(HANDLERS, data.type) ? HANDLERS[data.type] : null;
     if (!handler) throw new Error(`The worker has no handler for message type "${data.type}".`);
+    if (!shim && data.type !== "init") throw new Error('Send "init" and wait for "ready" first.');
     await handler(data);
   } catch (error) {
     post("error", { ...errorFields(error), request: data.type });

@@ -7,7 +7,7 @@ from collections.abc import Callable
 from ..car import Car, Telemetry, run
 from ..dashboard import dashboard
 from ..score import driving_score, metrics, metrics_table
-from ._report import Failure, learner_code, vs_limit
+from ._report import REPORT, Failure, learner_code, vs_limit
 
 GATE_SCENARIO, GATE_MEAN_LAT = "gentle", 0.5  # the car must complete the scenario with mean |lat| below this (m)
 
@@ -36,7 +36,8 @@ def drive(car: Car, scenario: str, label: str, show: bool, on_step: Callable[[tu
     `on_step` receives each telemetry row as the car drives (see `run`)."""
     with learner_code(f"your car driving {scenario!r}"):
         tel = run(car, scenario, on_step=on_step)
-    print(metrics_table(tel, labels=[label]))
+    if REPORT.get():
+        print(metrics_table(tel, labels=[label]))
     if show:
         show_figure(dashboard(tel, labels=[label]))
     return tel

@@ -94,6 +94,15 @@ def test_a_correct_answer_passes_and_prints_a_green_summary(exercise_id, capsys)
     assert capsys.readouterr().out.startswith(f"\033[32m\N{CHECK MARK} {exercise_id}:")
 
 
+def test_check_report_false_prints_nothing_and_the_default_prints(capsys):
+    for exercise_id, target in (("0.1.4.a", GOOD["0.1.4.a"]), ("0.1.3.b", own_perception)):  # a check that only calls, and one that drives
+        quiet = check(exercise_id, target, show=False, report=False)
+        assert capsys.readouterr().out == "", exercise_id
+        loud = check(exercise_id, target, show=False)
+        assert quiet.details == loud.details
+        assert f"\N{CHECK MARK} {exercise_id}:" in capsys.readouterr().out
+
+
 # --- wrong answers: each failure says what was checked, the input, expected, got, and a hint --------------------
 
 def signed_max_stats(lat):

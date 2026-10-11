@@ -181,9 +181,10 @@ def preview_image(obj: Any, exercise_id: str, seed: int = 0) -> dict[str, Any]:
 
 
 def check_code(obj: Any, exercise_id: str, on_row: Callable[[dict], None] | None = None) -> dict[str, Any]:
-    """The verdict Colab gives, plus the rows of any run the check makes when `on_row` is given."""
+    """The verdict Colab gives, plus the rows of any run the check makes when `on_row` is given. Colab prints the
+    report; here the same lines are the verdict's `details`, so the check prints nothing."""
     on_step, after = _host_hook(on_row)
-    result = check(exercise_id, obj, show=False, on_step=on_step)
+    result = check(exercise_id, obj, show=False, on_step=on_step, report=False)
     after()
     return {"passed": bool(result.passed), "details": list(result.details)}
 

@@ -10,12 +10,14 @@ import functools
 import math
 import traceback
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from numbers import Real
 from typing import Any, Callable
 
 import numpy as np
 
+REPORT: ContextVar[bool] = ContextVar("REPORT", default=True)  # False while `check(..., report=False)` runs: nothing the grader would print
 NOT_IMPLEMENTED = "not implemented yet \N{EM DASH} write your code in the cell above"
 
 
