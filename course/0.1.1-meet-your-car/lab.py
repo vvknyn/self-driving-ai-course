@@ -30,6 +30,8 @@ from zero2fsd.score import metrics_table
 # - `gentle`: a 702.7 m loop with two bends of radius 80 m.
 # - `curvy`: 30 m of straight, then six quarter-circle bends of radius 20 m, alternating left and right.
 #
+# ![](figures/car_and_view.png)
+#
 # **Before you run it**, double-click the cell below and write your prediction.
 
 # %% [markdown]
@@ -55,6 +57,8 @@ dashboard(tel_curvy)
 #
 # Everything on the dashboard comes from arrays with one value per step. The lateral error is `tel.lat`
 # (lecture: "Lateral error").
+#
+# ![](figures/sign_convention.png)
 
 # %%
 lat = tel_gentle.lat
@@ -144,6 +148,9 @@ mean_abs_stiff = None  # your code
 
 practice("signed mean, stiffer car on curvy (m)", signed_stiff, 0.0234, tol=0.0005)
 practice("mean |e|, stiffer car on curvy (m)", mean_abs_stiff, 0.5021, tol=0.0005)
+
+# %% [markdown]
+# ![](figures/signed_mean_trap.png)
 
 # %% [markdown]
 # ## 4. Graded exercises

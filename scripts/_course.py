@@ -10,7 +10,9 @@ from typing import NamedTuple
 import yaml
 
 REPO = Path(__file__).resolve().parents[1]
+REPO_SLUG = "vvknyn/self-driving-ai-course"
 CELL_HEADER = re.compile(r"^# %%(?P<rest>.*)$")
+FENCE = re.compile(r"^```.*?^```", re.S | re.M)
 
 
 def load_yaml(path: Path):

@@ -39,6 +39,8 @@ from zero2fsd.car.provided import paint_masks
 # The next cell puts the car on the `straight` road, 20 m along, 0.4 m left of lane centre and turned 0.05 rad left:
 # the worked example of "From masks to a lane estimate". Then it does the worked example of "Rows are distances": how
 # far ahead is the ground seen in row 150? Once by the formula, once with `Camera.pixel_to_ground`.
+#
+# ![](figures/rows_to_distance.png)
 
 # %%
 road = make_scenario("straight").road
@@ -93,6 +95,8 @@ print(f"moved {columns[0.5][0] - columns[0.0][0]:.1f} columns in row 150, {colum
 # 26.5 and 8.7. If you guessed the same number for both rows, you assumed a fixed metres-per-column: the misconception of
 # "Metres per pixel". A column only becomes metres once you know its row.
 #
+# ![](figures/perspective_grid.png)
+#
 # ## 3. Practice (not graded)
 #
 # Each problem gives you less than the one before. Replace each `None` with your code and rerun the cell.
@@ -143,6 +147,8 @@ practice("near-band yellow centroid on the ground (forward, left)", yellow_point
 # Check `0.1.3.a` renders 40 frames on straight stretches, with the car up to 1 m off centre and up to 0.15 rad
 # turned, and needs 90% of your estimates within 0.25 m and 0.05 rad. Check `0.1.3.b` puts your function in the car
 # and drives `gentle` (lecture: "Swap your perception into the car").
+#
+# ![](figures/lane_estimate.png)
 
 # %% tags=["exercise:0.1.3.a", "exercise:0.1.3.b"]
 def estimate_lane(obs):
@@ -233,6 +239,8 @@ except NotImplementedError:
 # `gentle` about 0.13 m and 0.065 rad, as the lecture's formula predicts, and on `curvy` about 0.6 m and 0.3 rad. A
 # straight line cannot follow a curve. That is a limit of the model, not a bug in your code, and it is why the grader
 # only samples straight stretches. Unit 0.1.4 shows what this bias does to the car.
+#
+# ![](figures/chord_bias.png)
 #
 # ## 7. Break it, fix it
 #
