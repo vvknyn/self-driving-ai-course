@@ -1,12 +1,16 @@
 """One figure that shows how a run (or several) went."""
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
-from matplotlib.figure import Figure
 
 from .car.runner import Telemetry
 from .score import OFF_LANE_LAT, metrics_table, run_labels
 from .sim import make_scenario, render_topdown
+
+if TYPE_CHECKING:  # `dashboard` imports it when called: the browser build loads matplotlib only on demand
+    from matplotlib.figure import Figure
 
 
 def dashboard(*tels: Telemetry, labels=None) -> Figure:
@@ -18,6 +22,8 @@ def dashboard(*tels: Telemetry, labels=None) -> Figure:
     if len(scenarios) != 1:
         raise ValueError(f"a dashboard compares runs on one scenario, got {sorted(scenarios) or 'no runs'}")
     names = run_labels(tels, labels)
+    from matplotlib.figure import Figure
+
     fig = Figure(figsize=(12, 8))
     top, lat, est, table = fig.subplots(2, 2).ravel()
 

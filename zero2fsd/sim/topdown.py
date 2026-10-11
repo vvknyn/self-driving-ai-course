@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import numpy as np
-from matplotlib.figure import Figure
 
 from .world import LANE_WIDTH, Road
 
@@ -11,7 +10,11 @@ EDGE_COLOR, DASH_COLOR = "#666666", "#c9a800"
 
 def render_topdown(road: Road, trajectories=(), labels=(), ax=None):
     """Draw `road` and each (N, 2) trajectory on `ax` (a new figure's axes if None); returns the Axes."""
-    ax = ax if ax is not None else Figure(figsize=(6, 6)).subplots()
+    if ax is None:
+        # imported here, not at module level: the browser build loads matplotlib only when a figure is drawn
+        from matplotlib.figure import Figure
+
+        ax = Figure(figsize=(6, 6)).subplots()
     s = np.linspace(0.0, road.length, max(2, int(road.length)))
     for lateral, style in ((-LANE_WIDTH, "-"), (LANE_WIDTH, "-"), (0.0, (0, (5, 3)))):
         x, y = road.offset(s, lateral).T
