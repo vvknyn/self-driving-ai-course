@@ -10,8 +10,6 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-11-playground-design.md` (branch `feat/playground-design`). The companion site plan is `docs/superpowers/plans/2026-10-11-playground-site-seams.md` in the `vvknyn/vivekn` repo; it runs after Part B of this plan is built and pushed.
 
-**Citations:** a `> NOTE` that cites `00-interfaces.md:N` or a `NN-part-*.md` file cites a drafting-time file that is not in this repo (the interface sketch the parts were written against). Where a NOTE or the deviation table below differs from the sketch, the NOTE or the table wins.
-
 ## Global Constraints
 
 Copied from the spec. Every task's requirements include this section.
@@ -41,9 +39,9 @@ The spec's error table (§6) names the behaviours. These five are the ones most 
 
 1. **Learner code raises mid-run.** Expect: the console shows the traceback with the learner's line number, the run ends at that step, the car stays where it stopped, the verdict panel says nothing, and the next *Run* works without a reload. Tests: Task 7 `test_format_error_reports_the_learner_line_and_nothing_else` and `test_a_learner_that_raises_mid_run_stops_the_run_and_the_next_run_works`; Task 12 `test_raise_at_step_50`.
 2. **Infinite loop in learner code.** Expect: *Stop* halts the page within about 3 s, status reads "Stopped.", the runtime reloads and a new run starts within 3 s. Test: Task 12 `test_stop_halts_while_true_and_page_stays_responsive` (S-4).
-3. **Wrong return type from learner code** (a `steer` that returns a tuple, a stats function that returns a string). Expect: a plain-language error naming the exercise's expected type, never a numpy traceback from deep in the simulator. Tests: Task 7 `test_a_wrong_return_type_is_a_plain_error_naming_the_exercise` (drive) and `test_a_stats_function_returning_the_wrong_type_is_a_plain_error` (stats); Task 12 `test_wrong_return_type`.
+3. **Wrong return type from learner code** (a `steer` that returns a tuple, a stats function that returns a string). Expect: a plain-language error naming the exercise and its expected type, never a numpy traceback from deep in the simulator. Tests: Task 7 `test_a_wrong_return_type_is_a_plain_error_naming_the_exercise` (drive) and `test_a_stats_function_returning_the_wrong_type_is_a_plain_error` (stats); Task 12 `test_wrong_return_type[drive-tuple]` (the drive case: `#stdout` has "must return one number" and the exercise id) and `test_wrong_return_type[stats-text]` (the stats case: `#stdout` has "expected a number or a dict of numbers" and the exercise id).
 4. **`localStorage` absent or corrupt** (private mode, storage blocked, a hand-edited value). Expect: `progress.js` never throws, the verdict still shows, and the site's `parseProgress` tolerates a unit with or without `exercises`. Tests: Task 11 `check_progress.mjs` (progress.js round trip under a throwing storage stub); Task 12 `test_storage_blocked`; site plan Task 3.
-5. **Slow or blocked CDN.** Expect: the loading bar names the stage that is running, a blocked editor import falls back to the textarea, a failed Pyodide load turns into an error naming the file plus a *Retry* button; never a silent blank page. Tests: Task 12 `test_editor_import_blocked_falls_back_to_textarea`, `test_route_abort_pyodide_js` and `test_route_abort_names_the_failed_file`.
+5. **Slow or blocked CDN.** Expect: the loading bar names the stage that is running, a blocked editor import falls back to the textarea, a failed Pyodide load turns into an error naming the file plus a *Retry* button, and a *Dashboard* press whose matplotlib download fails shows an error naming the wheel and leaves the page usable; never a silent blank page. Tests: Task 12 `test_editor_import_blocked_falls_back_to_textarea`, `test_route_abort_pyodide_js`, `test_route_abort_names_the_failed_file` and `test_route_abort_names_the_matplotlib_wheel`.
 
 ## Spec deviations (decided while writing this plan; each is reversible)
 
@@ -63,6 +61,8 @@ The spec's error table (§6) names the behaviours. These five are the ones most 
 | P12 | Map lights "that box" (§4.6) | Each unit.yaml gains a short `car_box:` key (instruments, perception, steer); the build emits it per exercise record and fails naming a unit that lacks it | `course.json`'s `box` is a prose sentence; matching prose to a box name would be a guess |
 | P13 | Grader constant names | Keep the existing `GATE_SCENARIO, GATE_MEAN_LAT` in `grade/_drive.py:11`; export rounds to `COORD_DECIMALS = 3` | Smallest diff; rounding makes the committed `roads.json` stable across machines (382 KB → 206 KB measured by the Tasks 1–3 leg) |
 | P14 | S10: "Week 1 kinds are `drive` and `stats`; `image` has no Week 1 exercise" | Week 1 has one image exercise (0.1.2.a, paint masks, found when the registry test forced every exercise to carry a kind). v1 adds a minimal image preview: one camera frame beside the learner's mask overlay, no player | The alternative is a "Colab only" label on 0.1.2.a, which contradicts S-2 ("every Week 1 exercise"). **Vivek's call**: keep the minimal preview or strike it and label the exercise Colab-only |
+| P15 | §2: each lab exercise cell links to its playground page | Deferred to the Week 1 content plan | The link must be absolute and the course's home URL is not fixed yet (vivekn.xyz/learnfsd now, zero2fsd.github.io after the open-source move); the content plan edits every lab cell anyway, and one `PLAYGROUND_BASE_URL` constant in the lab builder will carry it. Vivek's call to pull it forward |
+| P16 | §7: a lap of `gentle` at ≥ 2× real time with the CPU throttled 4×; heap ≤ 120 MB | Both are read off by hand in step C9, not asserted by a test | Playwright's CDP session cannot read a dedicated worker's heap without flattened child sessions, which the Python API does not expose; the Mac ≥ 5× budget is asserted by Task 12 |
 
 ## Sequencing
 
@@ -74,7 +74,7 @@ Part A (Tasks 1–6b) is pure Python with tests and no site change. Part B (Task
 
 Baseline: `226 passed in 76.98s (0:01:16)` from `/Users/vivek/Antigravity/self-driving-ai-course/.venv/bin/python -m pytest tests -q` (Python 3.13.5, pytest 9.1.1, tree == origin/main c3de7d4, `git status` clean).
 
-> NOTE (suite command): bare `python -m pytest -q` at the repo root does NOT run: it collects the legacy `modules/*/tests` and stops with "Interrupted: 11 errors during collection" (`No module named 'torch'`, `'cv2'`, `'scipy'`). Every "whole suite" step below therefore uses `python -m pytest tests -q`. Use the repo venv (`source .venv/bin/activate`); the miniconda `python` on PATH has no pytest.
+> NOTE (suite command): running pytest at the repo root without the `tests` path does NOT run: it collects the legacy `modules/*/tests` and stops with "Interrupted: 11 errors during collection" (`No module named 'torch'`, `'cv2'`, `'scipy'`). Every "whole suite" step below therefore uses `python -m pytest tests -q`. Use the repo venv (`source .venv/bin/activate`); the miniconda `python` on PATH has no pytest.
 
 > NOTE (worktree imports): in a git worktree, or any copy of the course next to the primary checkout, `python -m pytest tests` can import `zero2fsd` from the primary checkout. The editable install's finder maps `zero2fsd` to the primary path, and `tests/zero2fsd/__init__.py` makes the tests package register as `zero2fsd`, so a new submodule such as `zero2fsd.palette` is looked up through that mapping and not through `PYTHONPATH`. The symptom is `ModuleNotFoundError: No module named 'zero2fsd.palette'` after you created the file (the message is the same as the expected Step 2 failure, so the problem shows only at Step 4). Working in the primary checkout is not affected. In a worktree, point the finder at the worktree once per shell (verified; `pip install -e` would change the shared venv, so do not use it):
 >
@@ -310,15 +310,19 @@ Expected: `[matplotlib]` FAILED with `ModuleNotFoundError: No module named 'matp
 
 - [ ] **Step 3: Write the minimal implementation**
 
-`zero2fsd/sim/topdown.py`, delete line 5 and import where the figure is made (lines 4-7 and 12-15 today):
+`zero2fsd/sim/topdown.py`, delete line 5 and import where the figure is made (hunks at lines 2-8 and 11-17 today):
 
 ```diff
+@@ -2,7 +2,6 @@
+ from __future__ import annotations
+ 
  import numpy as np
 -from matplotlib.figure import Figure
  
  from .world import LANE_WIDTH, Road
  
- ...
+@@ -11,7 +10,11 @@ EDGE_COLOR, DASH_COLOR = "#666666", "#c9a800"
+ 
  def render_topdown(road: Road, trajectories=(), labels=(), ax=None):
      """Draw `road` and each (N, 2) trajectory on `ax` (a new figure's axes if None); returns the Axes."""
 -    ax = ax if ax is not None else Figure(figsize=(6, 6)).subplots()
@@ -328,6 +332,8 @@ Expected: `[matplotlib]` FAILED with `ModuleNotFoundError: No module named 'matp
 +
 +        ax = Figure(figsize=(6, 6)).subplots()
      s = np.linspace(0.0, road.length, max(2, int(road.length)))
+     for lateral, style in ((-LANE_WIDTH, "-"), (LANE_WIDTH, "-"), (0.0, (0, (5, 3)))):
+         x, y = road.offset(s, lateral).T
 ```
 
 `zero2fsd/dashboard.py`, three hunks. Lines 1-12 (`Figure` stays importable for the return annotation, which `from __future__ import annotations` keeps unevaluated):
@@ -388,9 +394,9 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ### Task 3: Road sampling and export
 
-> NOTE: the spec (4.1 c) names the method `Road.centerline_points(spacing_m)`. The plan uses `Road.sample_points(spacing_m, lateral=0.0)` (the name in `00-interfaces.md`) so one method serves all five exported lines (`lateral=0.0` is the centre line). The spec's "length within 0.1 %" test is kept and runs for every scenario.
+> NOTE: the spec (4.1 c) names the method `Road.centerline_points(spacing_m)`. The plan uses `Road.sample_points(spacing_m, lateral=0.0)` so one method serves all five exported lines (`lateral=0.0` is the centre line). The spec's "length within 0.1 %" test is kept and runs for every scenario.
 
-> NOTE: `road_dict` rounds coordinates to `COORD_DECIMALS = 3` (millimetres), which `00-interfaces.md` does not state. Reason: unrounded the three roads' five lines are 382 KB of JSON, rounded 206 KB (measured), and the committed `roads.json` no longer changes with the libm of whoever rebuilds it. Shape and keys are unchanged.
+> NOTE: `road_dict` rounds coordinates to `COORD_DECIMALS = 3` (millimetres). Reason: unrounded the three roads' five lines are 382 KB of JSON, rounded 206 KB (measured), and the committed `roads.json` no longer changes with the libm of whoever rebuilds it. Shape and keys are unchanged.
 
 **Files:**
 - Modify: `zero2fsd/sim/world.py:57-60` (add a method after `offset`)
@@ -662,7 +668,7 @@ Line numbers: the grade files and `tests/zero2fsd/test_grade.py` are untouched b
 
 ### Task 4: Palette
 
-> NOTE: `00-interfaces.md:69` lists `CHROME = {"background": "#0d1117", "panel": "#090d16", ...}`, with background and panel swapped against the spec (`docs/superpowers/specs/2026-10-11-playground-design.md:96`: page `#090d16`, surfaces `#0d1117`) and against the site task (`bg-[#090d16]`, `30b.md:438`). The plan uses the spec values, and the test pins "the page is darker than its panels" so a swap cannot come back unnoticed.
+> NOTE: an early draft had `CHROME = {"background": "#0d1117", "panel": "#090d16", ...}`, with background and panel swapped against the spec (`docs/superpowers/specs/2026-10-11-playground-design.md:96`: page `#090d16`, surfaces `#0d1117`) and against the site task (`bg-[#090d16]`). The plan uses the spec values, and the test pins "the page is darker than its panels" so a swap cannot come back unnoticed.
 
 **Files:**
 - Create: `zero2fsd/palette.py`
@@ -670,7 +676,7 @@ Line numbers: the grade files and `tests/zero2fsd/test_grade.py` are untouched b
 - Test: `tests/zero2fsd/test_palette.py`
 
 **Interfaces:**
-- Consumes: `SKY, GRASS, ROAD, YELLOW, WHITE = range(5)` at `zero2fsd/sim/camera.py:16` and `PALETTE` (one RGB row per index) at `:17`. `BROWSER_MODULES`, the tuple Task 2 defines in `tests/zero2fsd/test_browser_import_surface.py:15` (plan part `10-part-a-tasks-1-3.md`, Task 2 Step 1); Task 3 appended `"zero2fsd.export"` as line 17. (Task 3's Files line cites `:17-19`; the tuple is lines 15-17 before Task 3 and 15-18 after it.)
+- Consumes: `SKY, GRASS, ROAD, YELLOW, WHITE = range(5)` at `zero2fsd/sim/camera.py:16` and `PALETTE` (one RGB row per index) at `:17`. `BROWSER_MODULES`, the tuple Task 2 defines in `tests/zero2fsd/test_browser_import_surface.py:15` (Task 2 Step 1); Task 3 appended `"zero2fsd.export"` as line 17. (Task 3's Files line cites `:17-19`; the tuple is lines 15-17 before Task 3 and 15-18 after it.)
 - Produces: `QUANTITY`, `SCENE`, `CHROME` (each `dict[str, str]` of `#RRGGBB`) and `palette_dict() -> {"quantity": QUANTITY, "scene": SCENE, "chrome": CHROME}` in `zero2fsd/palette.py`. Task 8 writes `palette.json` from `palette_dict()`. Task 10's `view.js` reads `scene.*` for the road paint and `quantity.*` for the traces and gauges. `SCENE` is derived from the camera's own `PALETTE`, so the top-down view paints the road in the colours the camera sees.
 
 - [ ] **Step 1: Write the failing test**
@@ -796,7 +802,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ### Task 5: Preview registry
 
-> NOTE (stats signature): the spec says a stats preview is `build(fn) -> str`. `00-interfaces.md` says `build(fn, tel) -> dict[str, float]`. The plan follows the interface: the page prints the labelled numbers, and a registry that returns numbers can be tested without parsing text.
+> NOTE (stats signature): the spec says a stats preview is `build(fn) -> str`. The plan uses `build(fn, tel) -> dict[str, float]` instead: the page prints the labelled numbers, and a registry that returns numbers can be tested without parsing text.
 
 > NOTE (stats road): stats previews carry `road="curvy"` (`STATS_ROAD`). The 0.1.1 lab computes its stats on `curvy` (`course/0.1.1-meet-your-car/lab.py:44`, `:132`), and `curvy` is the only road where the provided car leaves the lane, so a count of off-lane steps is not 0 there. Measured Oct 11 2026 with the provided `Car()`: straight 502 steps, 0 off lane; gentle 1778 steps, 0 off lane, mean |lat| 0.376 m; curvy 123 steps, 40 off lane, mean |lat| 0.549 m, not completed. Task 7's `preview_stats` and `canned_telemetry` must run `get(exercise_id).road`, not a hard-coded `gentle`.
 
@@ -1244,11 +1250,11 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ### Task 6: Verdict margins and the borderline note
 
-> NOTE (signature): `00-interfaces.md` gives `borderline(value, threshold, unit)`. The plan drops `unit`: the spec fixes the sentence verbatim (`docs/superpowers/specs/2026-10-11-playground-design.md:70`), so the note never mentions a number or a unit. The metric, the limit and the margin are printed by a second helper, `vs_limit(value, limit, unit="")`, which appends the sentence only when the margin is within `BORDERLINE_FRACTION`. `margin(value, limit)` and `BORDERLINE_NOTE` are exported for the test.
+> NOTE (signature): `borderline(value, threshold)` takes no `unit`: the spec fixes the sentence verbatim (`docs/superpowers/specs/2026-10-11-playground-design.md:70`), so the note never mentions a number or a unit. The metric, the limit and the margin are printed by a second helper, `vs_limit(value, limit, unit="")`, which appends the sentence only when the margin is within `BORDERLINE_FRACTION`. `margin(value, limit)` and `BORDERLINE_NOTE` are exported for the test.
 
 > NOTE (the "lift the literals" step): the gate scenario and limit were already constants (`_drive.py:11`), and the pose sampler, tolerances and hit rate already sit in `u0_1_3.py:13` and `u0_1_2.py:11`. What remained were the same numbers re-typed inside the `checked=` strings (`u0_1_3.py:46`, `u0_1_4.py:55`). Those now interpolate the constants, so the printed limit, the checked limit and the test limit are one value.
 
-> NOTE (three checks, one more than the interface): `00-interfaces.md` names the drive gate and the hit rate; spec 4.1 (e) adds the paint IoU (`u0_1_2.py`, `IOU_MIN = 0.85`). The test covers all three. To reach the numbers the graders compute without a second copy, each grader's loop moves into a generator the test also calls: `pose_trials(fn)` in `u0_1_3.py` and `paint_trials(fn)` in `u0_1_2.py`. The graders now consume those generators.
+> NOTE (three checks): the drive gate, the hit rate and, from spec 4.1 (e), the paint IoU (`u0_1_2.py`, `IOU_MIN = 0.85`). The test covers all three. To reach the numbers the graders compute without a second copy, each grader's loop moves into a generator the test also calls: `pose_trials(fn)` in `u0_1_3.py` and `paint_trials(fn)` in `u0_1_2.py`. The graders now consume those generators.
 
 > NOTE (reference solutions): the margin test measures the reference solutions through `load_solution(REPO, unit)` (`scripts/_course.py:39`, the same helper `tests/zero2fsd/test_solutions.py:43` uses). The graders never read them. Measured Oct 11 2026: gate mean |lat| 0.3757 m (24.9 % under 0.5), hit rate 40 of 40 (11 % over 90), lowest IoU 1.000 (18 % over 0.85). All clear `MARGIN = 0.05`.
 
@@ -2107,11 +2113,11 @@ Precondition for Tasks 7 and 8: the venv's editable install must point at the ch
   - `preview_run(obj, exercise_id, road, on_row) -> summary`; `preview_stats(obj, exercise_id) -> dict[str, float]`; `preview_image(obj, exercise_id, seed=0) -> {"width": 320, "height": 180, "frame": bytes, "overlay": bytes}` (two RGB buffers of `width * height * 3` bytes; the overlay is black except where a mask is set, painted in the `SCENE` yellow or white); `canned_telemetry(road: str) -> Telemetry` (cached, one drive of the provided `Car()` per road); `check_code(obj, exercise_id, on_row=None) -> {"passed": bool, "details": list[str]}`; `frame_rgb(road, k, x, y, yaw, speed, seed, noise_sigma=0.0) -> bytes` (320 x 180 x 3); `dashboard_png() -> bytes`; `probe_steps_per_s(n: int = 100) -> float`; module globals `LAST_RUN: Telemetry | None` and `IMAGE_ROAD = "straight"`.
   - Errors the worker relays through `format_error`: `ValueError("<id> is a <kind> exercise; this call is for <kind> exercises")` when a call does not match the exercise kind; `ValueError("unknown exercise '<id>'; known: ...")` (the registry's message, translated from its `KeyError`) for an id the registry lacks; `TypeError("<exercise id>: <what is wrong>")` for a wrong return type, for example `0.1.4.a: the controller box must return one number (a steering angle in radians) or an Action, got tuple`, `0.1.3.a: the perception box must return a LaneEstimate, got tuple`, `0.1.1.a: expected a number or a dict of numbers, got str`, `0.1.2.a: returned str, expected (yellow, white)`; the learner's own exceptions untouched; `RuntimeError("run the car first: ...")` from `dashboard_png` before any run.
 
-> NOTE: `check_code` takes an optional `on_row` (00-interfaces.md lists `check_code(obj, exercise_id)`). The worker passes it so a drive check streams its gate run to the canvas; with `on_row=None` the signature is the interface's.
-> NOTE: `PRELUDE` binds 35 names, more than the interface's list. It is derived from the four lab setup cells and a test fails when a lab binds a name the prelude lacks, so no list drifts by hand. `plt, dashboard, check, practice, ends` stay out (the page has buttons for them).
+> NOTE: `check_code` takes an optional `on_row` (default `None`). The worker passes it so a drive check streams its gate run to the canvas; with `on_row=None` the call is the plain `check_code(obj, exercise_id)`.
+> NOTE: `PRELUDE` binds 35 names. It is derived from the four lab setup cells and a test fails when a lab binds a name the prelude lacks, so no list drifts by hand. `plt, dashboard, check, practice, ends` stay out (the page has buttons for them).
 > NOTE: `check()` prints its verdict with ANSI colour codes (`grade/__init__.py:24`). Task 9's `setStdout` forwards them untouched; Task 11's `stdout` handler strips `\x1b[...m` (`ANSI_COLOUR`) before writing to `#stdout`.
 > NOTE (Task 6b): `check_code` calls `check(exercise_id, obj, show=False, on_step=...)` with the signature Task 6b gives it, and `on_step` is `None` when `on_row` is `None`. Only the gate drives stream, so a stats or image check never calls `on_row`. Task 7 needs nothing else of 6b.
-> NOTE (stats road): `00-interfaces.md:130-131` has `preview_stats` summarise `run(Car(), "gentle")` once. Task 5 stores `STATS_ROAD = "curvy"` on the stats previews (a `gentle` drive never leaves the lane), so `canned_telemetry` takes the road and the shim runs `get(exercise_id).road`. Two stats exercises on one road share one drive.
+> NOTE (stats road): `preview_stats` does not summarise `run(Car(), "gentle")`: a `gentle` drive never leaves the lane, so a count of off-lane steps would read 0. Task 5 stores `STATS_ROAD = "curvy"` on the stats previews, so `canned_telemetry` takes the road and the shim runs `get(exercise_id).road`. Two stats exercises on one road share one drive.
 > NOTE (image road): Task 5 gives image previews `road == ""` (the caller picks the frame), so the frame's road is the shim's own constant `IMAGE_ROAD = "straight"`, the road the 0.1.2 lab photographs. Records built in Task 8 carry `road == ""` for the image exercise; Task 10 and Task 11 must not read it.
 > NOTE (wrong return type text): `car.py:40` said "an Action or a steering angle (float)". Task 12 asserts "must return one number". Rather than add a second return-type check in the shim (a copy of `car.py:38`'s rule), Task 7 rewords the message where it is raised, which also helps a Colab learner, and `_at_boundary` prefixes the exercise id. What the learner sees is the wrapper's message, with the exercise id, and not `Car.step`'s bare error: the wrapper is the one place that adds the exercise.
 > NOTE (stats numbers): Task 5's `_as_stats` turns whatever the learner returns into floats with `float()`, so `"3"` would become `3.0` and `True` would become `1.0`. `_numbers` in the shim checks the type first. If `_as_stats` is changed to raise `Failure` for a non-number, delete `_numbers` and keep the tests.
@@ -2796,15 +2802,16 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
   - `scripts/build_playground.py`: `exercise_records(repo_root) -> list[dict]`, `validate_lecture_links(repo_root, records) -> None` (raises `ValueError` listing every bad link), `bundle_zip(package: Path) -> bytes`, `git_revision(repo_root) -> str`, `write_playground(repo_root, out_dir) -> None` (replaces `out_dir`), constants `PLAYGROUND_LINK`, `WRONG_FORM_LINK`, `ZIP_EPOCH`.
   - Record keys in `exercises.json` (list, syllabus order, only ready units): `id, unit_id, unit_key, week, unit_title, label, name, task, car_box, kind, road, presets, colab_url`. `road` is the preview's road, `""` for the image exercise 0.1.2.a (Task 5). `unit_key` is the slug (`"0-1-4"`), `task` is `""` unless `unit.yaml` gives one, `car_box` is a non-empty string from `unit.yaml`, `presets` is `{"starter": <tagged cells joined by a blank line>}`.
   - `course/dist/playground/`: every non-hidden file of `playground/`, `bundle.zip` (every `zero2fsd/**/*.py`, under `zero2fsd/`, stored, fixed date, sorted; no solutions, no tests, no caches), `exercises.json`, `roads.json` (`roads_dict()` unchanged), `palette.json`, and `manifest.json` (`{"generated_from": "<short hash or unknown>", "files": [{"path", "bytes", "sha256"}, ...]}`, sorted, not listing itself). JSON files use `sort_keys=True` and a trailing newline.
+  - `exercises.json` carries `colab_url` on every record: the link from the playground to the lab (the page's "Open in Colab" button). The reverse link, from each lab exercise cell to its playground page, is deviation P15 and is not built here.
   - Lecture links the build accepts: `playground/index.html?exercise=<id>[&preset=<key>]`, relative with no leading slash.
   - `tests/zero2fsd/conftest.py::built_repo` now also holds the real `playground/` and `zero2fsd/`.
 
 > NOTE: `unit_key` is the unit slug in the dash form, `"0-1-4"`, not the dotted id. `scripts/_course.py:22-24` (`unit_slug`) is the one place that derives it; `build_playground.py` imports it, so `course.json` (`build_course_bundle.py:110,136` keys `units` by that slug) and `exercises.json` cannot disagree. The site reads progress by the same string (`learnfsd-progress.ts:32-35,38,42-45`).
-> NOTE: the interface offers `week_number(unit_id)` in `_course.py`, "used in both outputs". `course.json` carries no week, so that helper would have one consumer. The week is the 1-based position among ALL listed units, ready or not (`enumerate(syllabus_units(root), start=1)` in `exercise_records`); `test_the_week_counts_every_listed_unit_not_only_the_ready_ones` pins it. The site validator (site plan, Task 2) needs no shared helper either.
-> NOTE: the interface says `colab_url` is "the value `build_course_bundle.colab_url` produces", but no such function exists (it is an inline f-string at `build_course_bundle.py:119`). Task 8 extracts it to `_course.colab_url` and calls it from both places; `course.json` stays byte-identical (checked in Step 4).
-> NOTE: the interface regex `playground/\?exercise=` is replaced by `playground/index.html?exercise=` (the site serves `public/` by exact path; the bare directory URL redirects and then 404s). A lecture link in the old form would match nothing and pass silently, so `WRONG_FORM_LINK` makes any other `playground/...exercise=` URL a build error too (one regex, three lines, one parametrised test).
+> NOTE: there is no shared `week_number(unit_id)` helper in `_course.py`. `course.json` carries no week, so it would have one consumer. The week is the 1-based position among ALL listed units, ready or not (`enumerate(syllabus_units(root), start=1)` in `exercise_records`); `test_the_week_counts_every_listed_unit_not_only_the_ready_ones` pins it. The site validator (site plan, Task 2) needs no shared helper either.
+> NOTE: `colab_url` must equal the URL `build_course_bundle` already produces, but that is an inline f-string at `build_course_bundle.py:119`, not a function. Task 8 extracts it to `_course.colab_url` and calls it from both places; `course.json` stays byte-identical (checked in Step 4).
+> NOTE: the lecture-link form is `playground/index.html?exercise=`, not `playground/?exercise=` (the site serves `public/` by exact path; the bare directory URL redirects and then 404s). A lecture link in the old form would match nothing and pass silently, so `WRONG_FORM_LINK` makes any other `playground/...exercise=` URL a build error too (one regex, three lines, one parametrised test).
 > NOTE (two link validators): the site plan's Task 6b validator is the stricter of the two lecture-link checks, and the two regexes are deliberately not unified. Its pattern makes the `?exercise=` group optional, so a malformed `playground/index.html?...` link is reported instead of skipped, accepts `&amp;` before `preset=` (rendered HTML escapes the ampersand), and stops at `'`, `<`, `>` and `#` so a raw `<a href='...'>` is read correctly. Both accept the canonical `playground/index.html?exercise=<id>[&preset=<name>]`.
-> NOTE: two record fields are new relative to 00-interfaces.md: `task` (optional `exercises[].task` in `unit.yaml`, default `""`) and `car_box` (required `unit.yaml` key, no default; a unit with exercises and no `car_box` fails the build naming the unit). The site plan's Task 2 validator requires `car_box` (non-empty string) and does not check `task` (a string, possibly empty).
+> NOTE: two record fields need explicit rules: `task` (optional `exercises[].task` in `unit.yaml`, default `""`) and `car_box` (required `unit.yaml` key, no default; a unit with exercises and no `car_box` fails the build naming the unit). The site plan's Task 2 validator requires `car_box` (non-empty string) and does not check `task` (a string, possibly empty).
 > NOTE: spec section 6 (`docs/superpowers/specs/2026-10-11-playground-design.md:140`, branch `feat/playground-design`) says an unknown exercise id opens the first Week 1 exercise and says why. Task 11 follows the spec (first exercise, state `ready`, `#status` "Unknown exercise <id>; showing <label>") and Task 12 pins it. Task 8 only guarantees `records[0]` is the first exercise of the first ready unit (`test_one_record_per_graded_exercise_in_syllabus_order`).
 > NOTE: Task 8 does not commit `course/dist/playground/` (it would hold no page files yet). The task that adds the last page file rebuilds with `python scripts/build_course_bundle.py` and commits the directory; Step 4 below deletes the smoke-run output.
 > NOTE: `build_course_bundle.main` now exits 1 on a `ValueError` from the playground build as well as on a `BundleError`. The only `ValueError`s on that path are the build's own messages (missing `car_box`, untagged exercise, unknown preview id, bad lecture link).
@@ -3419,16 +3426,16 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 **Interfaces:**
 - Consumes:
-  - The Task 7 shim in `playground/shim.py` (`00-interfaces.md:112-140`): `learner_object(code, name)`, `preview_run(obj, exercise_id, road, on_row)` (`:127`), `preview_stats(obj, exercise_id)` (`:130`), `check_code(obj, exercise_id, on_row=None)` (`:132`, third parameter added, see the NOTE), `preview_image(obj, exercise_id, seed=0)` (not in the file, see the NOTE), `frame_rgb(road, k, x, y, yaw, speed, seed, noise_sigma=0.0)` (`:134`), `dashboard_png()` (`:136`), `format_error(exc)` (`:137`), `probe_steps_per_s(n=100)` (`:166`).
-  - The Task 8 output folder `course/dist/playground/` (`00-interfaces.md:142-161`): `bundle.zip`, `shim.py`, `exercises.json`, `roads.json`, `palette.json`, and whichever `playground/` source files exist.
+  - The Task 7 shim in `playground/shim.py`: `learner_object(code, name)`, `preview_run(obj, exercise_id, road, on_row)`, `preview_stats(obj, exercise_id)`, `check_code(obj, exercise_id, on_row=None)` (third parameter added, see the NOTE), `preview_image(obj, exercise_id, seed=0)` (see the NOTE), `frame_rgb(road, k, x, y, yaw, speed, seed, noise_sigma=0.0)`, `dashboard_png()`, `format_error(exc)`, `probe_steps_per_s(n=100)`.
+  - The Task 8 output folder `course/dist/playground/`: `bundle.zip`, `shim.py`, `exercises.json`, `roads.json`, `palette.json`, and whichever `playground/` source files exist.
   - `zero2fsd/sim/camera.py:53-54`, `Camera(width=320, height=180, ...)`. The worker reads the frame size from this class, so `320` and `180` are typed nowhere in JS.
-  - Pyodide 314.0.7 at `https://cdn.jsdelivr.net/pyodide/v314.0.7/full/` (`00-interfaces.md:164-165`).
+  - Pyodide 314.0.7 at `https://cdn.jsdelivr.net/pyodide/v314.0.7/full/`.
 - Produces (Tasks 11 and 12 rely on these; `exercise` is always the full record from `exercises.json`):
   - Page to worker (`e.data.type`): `init {}`; `run {code, exercise, road}`; `check {code, exercise}`; `stats {code, exercise}`; `image {code, exercise}`; `frame {road, k, x, y, yaw, speed, seed}`; `dashboard {}`.
   - Worker to page: `progress {stage: "pyodide" | "packages" | "bundle" | "probe", detail}`; `ready {versions: {pyodide, python, numpy, pillow}, steps_per_s_probe}`; `row {row}` (the 14 `COLUMNS` of Task 1 plus `road`); `stdout {text}`; `done {metrics}`; `verdict {passed, details}`; `stats {values}`; `image {width, height, frame, overlay}` (two RGB `ArrayBuffer`s); `frame {k, width, height, rgb}`; `dashboard {png}`; `error {message, line, traceback, request}`.
   - What B6 asserts for this task (`check_worker.py`, and cases 2, 5, 6, 12 of `check_page.py` in Task 11): the four load stages in order and then `ready` with `314.0.7`; no `stdout` from package loading; a run streams one `row` per step, all tagged with the requested road; a check of a driving exercise streams exactly one drive (the gate drive), tagged with the exercise's road, and a check of a function or image exercise streams nothing; a stats run returns floats; an image run returns two 320 x 180 RGB buffers that differ; a `1 / 0` body reports `line == 2` and `request == "run"`; a missing function name and an unknown message type are each reported by name; the dashboard PNG starts with the PNG magic bytes.
 
-> NOTE: `00-interfaces.md:163-172` has no `image` message. Week 1 has an image exercise (0.1.2.a), so the worker adds `image {code, exercise}` and replies `image {width, height, frame, overlay}`. Task 7 must provide `preview_image(obj, exercise_id, seed=0) -> {"width": int, "height": int, "frame": bytes, "overlay": bytes}`. The overlay is the learner's masks on black, in the scene's yellow and white. The page and the worker never look at its colours.
+> NOTE: Week 1 has an image exercise (0.1.2.a), which needs a message of its own, so the worker adds `image {code, exercise}` and replies `image {width, height, frame, overlay}`. Task 7 must provide `preview_image(obj, exercise_id, seed=0) -> {"width": int, "height": int, "frame": bytes, "overlay": bytes}`. The overlay is the learner's masks on black, in the scene's yellow and white. The page and the worker never look at its colours.
 
 > NOTE: `check_code` gains a third parameter, `on_row` (default `None`), and Task 7 already adds it. It streams only the gate drive (`zero2fsd/grade/_drive.py:32-39` and `:11`, `GATE_SCENARIO = "gentle"`), and its rows are the 14 `COLUMNS` with no road. The worker therefore tags a check's rows with `exercise.road`, which is the gate road for every drive exercise (Task 5 registers each with `road=GATE_SCENARIO`). A row the shim tags itself keeps its own tag, so a future exercise that is graded on another road only needs the shim to say so. A row with no known road stops the page with a named error at the first step. That is deliberate: a guessed road would draw the car on the wrong map.
 
@@ -3439,6 +3446,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 > NOTE: Tasks 9 to 11 land one at a time. Task 8's `write_playground` copies every file in `playground/`, so each build holds whatever sources exist so far, and the Step 2 failures below depend on that.
 
 > NOTE: `check_worker.py` was run in headless Chromium against a scratch shim that follows the interfaces above. The first run against the real Task 7 shim is Step 4 here, so a mismatch shows up as a named assertion.
+
+> NOTE (a blocked package): spec section 6 row 5 wants a failed download to be an error that names the file. Checked on 2026-10-11 in headless Chromium (Pyodide 314.0.7, a scratch page that loads `pyodide.mjs` and aborts the request for the matplotlib wheel): `loadPackage` resolved without throwing; its error callback received "Failed to load matplotlib" and "Failed to fetch"; `loadedPackages` had no `matplotlib`; and the next `import` raised "'matplotlib' is included in the Pyodide distribution, but it is not installed" with micropip advice the learner cannot use. So `loadPackages` reads `loadedPackages` and names the wheel from `pyodide.lockfile.packages[key].file_name` (read back in the same probe: `matplotlib-3.10.8-cp314-cp314-pyemscripten_2026_0_wasm32.whl`). It serves both `loadPackage` calls, the start-up one (numpy, pillow) and the Dashboard one, so a blocked numpy wheel is the same kind of error. The probe ran `loadPackage` in a scratch page, not this worker: the first run of `loadPackages` is Task 12 `test_route_abort_names_the_matplotlib_wheel`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -3677,6 +3686,15 @@ async function loading(url, work) {
   }
 }
 
+/** `loadPackage` reports a failed download through its error callback and still resolves, so read what loaded: a package
+ *  the lockfile lists that did not load is a failure that names its wheel. `loadedPackages` is keyed by the lockfile's
+ *  display name ("Pillow"), the lockfile by the package key ("pillow"). */
+async function loadPackages(keys) {
+  await pyodide.loadPackage(keys, QUIET);
+  const failed = keys.map((key) => pyodide.lockfile.packages[key]).filter(({ name }) => !pyodide.loadedPackages[name]);
+  if (failed.length) throw new Error(`the download failed for ${failed.map(({ file_name }) => file_name).join(", ")}`);
+}
+
 async function fetchBytes(url) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -3712,7 +3730,7 @@ async function init() {
   pyodide = await loading(PYODIDE_BASE, loadPyodide({ indexURL: PYODIDE_BASE }));
   pyodide.setStdout({ batched: (text) => post("stdout", { text }) });
   post("progress", { stage: "packages", detail: PACKAGES.join(", ") });
-  await loading(`${PYODIDE_BASE} (${PACKAGES.join(", ")})`, pyodide.loadPackage(PACKAGES, QUIET));
+  await loading(`${PYODIDE_BASE} (${PACKAGES.join(", ")})`, loadPackages(PACKAGES));
   post("progress", { stage: "bundle", detail: "bundle.zip" });
   pyodide.unpackArchive(await loading("bundle.zip", fetchBytes("bundle.zip")), "zip");
   pyodide.FS.writeFile("shim.py", new Uint8Array(await loading("shim.py", fetchBytes("shim.py"))));
@@ -3764,7 +3782,7 @@ const HANDLERS = {
   dashboard: async () => {
     if (!pyodide.loadedPackages.matplotlib) {
       post("progress", { stage: "packages", detail: "matplotlib" });
-      await pyodide.loadPackage("matplotlib", QUIET);
+      await loading(`${PYODIDE_BASE} (matplotlib)`, loadPackages(["matplotlib"]));
     }
     const png = bytesOf(shim.dashboard_png());
     post("dashboard", { png }, [png]);
@@ -3834,18 +3852,18 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 **Interfaces:**
 - Consumes:
-  - The Task 3 road dict (`00-interfaces.md:33-61`): `closed`, `dash_period`, `dash_fraction`, and `lines.{tarmac_left, tarmac_right, yellow, white, ego_center}`, each a list of `[x, y]` world points.
-  - The Task 4 palette (`00-interfaces.md:63-72`): `quantity.{e_off, psi, delta, perception}`, `scene.{road, yellow, white}`, `chrome.{background, panel, border, text}`.
-  - The Task 1 step row (`00-interfaces.md:17-27`): `t, x, y, yaw, speed, steer, accel, lat, head_err, est_offset, est_heading, est_valid, progress_m, off_road`. `lat` and `head_err` are positive to the left.
+  - The Task 3 road dict: `closed`, `dash_period`, `dash_fraction`, and `lines.{tarmac_left, tarmac_right, yellow, white, ego_center}`, each a list of `[x, y]` world points.
+  - The Task 4 palette: `quantity.{e_off, psi, delta, perception}`, `scene.{road, yellow, white}`, `chrome.{background, panel, border, text}`.
+  - The Task 1 step row: `t, x, y, yaw, speed, steer, accel, lat, head_err, est_offset, est_heading, est_valid, progress_m, off_road`. `lat` and `head_err` are positive to the left.
   - `DT = 0.05` at `zero2fsd/sim/dynamics.py:8`: rows arrive 20 per simulated second.
 - Produces (Task 11 relies on these):
   - `view.js`: `fitCanvas(canvas) -> {ctx, width, height}`; `fitTransform(road, width, height, padding = 24) -> {scale, ox, oy, width, height}`; `worldToCanvas(t, x, y) -> [px, py]`; `draw(ctx, road, rows, k, palette, t)`; `drawStrips(ctx, rows, k, palette, windowS = 10)`; `readoutText(row) -> {t, lat, speed, steer, progress}`; `describeRun(metrics, road, seconds) -> string`. None keeps state, so the lecture sliders can reuse them.
   - `player.js`: `rowIndexAt(rows, k, clock) -> number`, and `class Player` with `constructor(canvas, road, palette)`, `reset(road)`, `setRows(rows)`, `append(row)`, `finish()`, `fit()`, `play()`, `pause()`, `toggle()`, `seek(k)`, `setSpeed(multiplier)`, getters `k`, `length`, `rows`, `playing`, and `onTick(cb)` where `cb({k, row, playing})` runs on every drawn frame.
   - What B6 asserts for this task (cases 2 and 14 of `check_page.py`): the canvas holds more than one colour after a run; the strips canvas is drawn; dragging `#scrub` to step 100 shows `5.0 s`; Play and Pause flip the button label; `#to-end` moves the car to the last step.
 
-> NOTE: `00-interfaces.md:69` lists `CHROME` with `background` and `panel` swapped. Task 4 fixed it (`11-part-a-tasks-4-6.md:134`: `background #090d16`, `panel #0d1117`), and `view.js` reads only `palette.chrome`, so it follows Task 4.
+> NOTE: `view.js` reads only `palette.chrome`, so it follows Task 4, which sets `CHROME` to `background #090d16`, `panel #0d1117` (the spec's values).
 
-> NOTE: the interface lists `Player` without `reset`, `finish`, `fit`, `rows` and `playing`, and gives the tick payload as `{k, row}`. Task 11 needs all of them: `reset` for a new drive, `finish` when a run ends, `fit` on resize, `rows` for the strips, and `playing` for the button label. Names that were listed are unchanged.
+> NOTE: `Player` carries more than a bare tick loop, and Task 11 needs all of it: `reset` for a new drive, `finish` when a run ends, `fit` on resize, `rows` for the strips, and `playing` for the button label. The tick payload is `{k, row}`.
 
 > NOTE: `draw` also paints the `e_off` brace (a line from the car to the nearest lane-centre point). The car is drawn at 4.5 x 1.8 m but never below 12 px long, because a 700 m loop on a phone would otherwise draw a car under one pixel.
 
@@ -4286,21 +4304,23 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Create: `playground/app.css`
 - Create: `playground/app.js`
 - Create (generated, committed): `course/dist/playground/` (rebuilt here; Tasks 9 and 10 leave it untracked)
-- Test: `/tmp/playground-checks/check_page.py` (19 cases, uses `solutions.py` from Task 9) and `/tmp/playground-checks/check_progress.mjs`
+- Test: `/tmp/playground-checks/check_page.py` (19 numbered cases, 20 runs because case 13 runs once per missing feature; uses `solutions.py` from Task 9) and `/tmp/playground-checks/check_progress.mjs`
 
 **Interfaces:**
 - Consumes:
   - Task 9 worker messages (the tables under Task 9) and Task 10 exports (`Player`, `describeRun`, `drawStrips`, `fitCanvas`, `readoutText`).
-  - `exercises.json` records (`00-interfaces.md:148-161`): `id`, `unit_key` (the slug, `"0-1-4"`), `label`, `name`, `kind`, `road`, `presets`, `colab_url`; an optional one-sentence `task`; `car_box` is ignored by this page. `roads.json` is keyed by road name; `palette.json` is Task 4's `palette_dict()`.
+  - `exercises.json` records: `id`, `unit_key` (the slug, `"0-1-4"`), `label`, `name`, `kind`, `road`, `presets`, `colab_url`; an optional one-sentence `task`; `car_box` is ignored by this page. `roads.json` is keyed by road name; `palette.json` is Task 4's `palette_dict()`.
   - The site's progress store, `src/lib/learnfsd-progress.ts` in the vivekn repo: `STORAGE_KEY` at `:7`, `parseProgress` at `:22`, `logs: PilotLog[]` at `:13`.
 - Produces (Task 12 and the site plan rely on these):
   - The page URL `playground/index.html?exercise=<id>[&preset=<name>]`. Self-links use `index.html`; module imports are relative.
   - DOM ids: `#exercise-label`, `#exercise-task`, `#unit-link` (`/learnfsd/unit/<unit_key>/`), `#open-colab`, `#editor` (`#editor-fallback` is the textarea when CodeMirror does not load), `#run`, `#check`, `#stop`, `#road-label`, `#road`, `#status` (`data-state` is `loading | ready | running | done | error`), `#retry`, `#colab-fallback`, `#traceback`, `#verdict` (`data-passed`), `#stdout`, `#stats` (a `<dl>`), `#drive-view`, `#player-view`, `#canvas`, `#play`, `#to-end`, `#scrub`, `#speed`, `#r-t`, `#r-lat`, `#r-speed`, `#r-steer`, `#r-progress`, `#strips`, `#frame` (320 x 180), `#mask` (320 x 180), `#dashboard-view`, `#dashboard`, `#dashboard-img`, `#engine`.
   - `window.__setCode(text)`: replaces the code, whether CodeMirror or the textarea is active.
   - `progress.js`: `STORAGE_KEY = "learnfsd.v2.progress"`, `readProgress() -> object | null` (never throws), `markPassed(unitKey, exerciseId, now = new Date()) -> boolean` (true when written, false when storage is unavailable; the first pass keeps its timestamp; other units and unknown keys are kept).
-  - What B6 asserts for this task: all 19 cases of `check_page.py`. Task 12's pytest cases drive the same page through `window.__setCode`.
+  - What B6 asserts for this task: all 19 numbered cases (20 runs) of `check_page.py`. Task 12's pytest cases drive the same page through `window.__setCode`.
 
-> NOTE: `00-interfaces.md:204` says an unknown `?exercise=` shows an error with links. This page opens the FIRST exercise in state `ready` and writes "Unknown exercise <id>; showing <label>." in `#status`, as Task 12 pins. An unknown `preset=` falls back to `starter` with "Unknown preset <name>; showing the starter."
+> NOTE: an unknown `?exercise=` does not show an error page. This page opens the FIRST exercise in state `ready` and writes "Unknown exercise <id>; showing <label>." in `#status`, as Task 12 pins. An unknown `preset=` falls back to `starter` with "Unknown preset <name>; showing the starter."
+> 
+> This block was rewritten at assembly and has not yet run in a browser; the executor's Task 12 run is its first test.
 
 > NOTE: the `app.js` below defines `window.__setCode` (`window.__setCode = editor.set` in `setUp`) and writes a run error's learner-facing line to `#stdout` as well as `#status` (the `error` entry of `FROM_WORKER`). Task 12's browser tests rely on both and make no `app.js` edit.
 
@@ -4318,7 +4338,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 > NOTE: `progress.js` writes `logs: []` for a new unit, because the site's `addPilotLog` needs it, and keeps the first `passedAt`. Task 3 of the site plan adds `reload()` and `watchStorage` on the site side.
 
-> NOTE: `00-interfaces.md:199` asks for pinned `@codemirror` imports. The editor needs sixteen packages: six that `app.js` imports and ten that they import in turn. CodeMirror 6 breaks if two copies of `@codemirror/state` load, and jsDelivr's `+esm` bundles each pin a different sibling version (they fail with "multiple instances of @codemirror/state"). The page therefore maps every package to its raw `dist` file with an import map. If the import fails for any reason, the page falls back to a textarea and logs a `console.warn`, with no error state.
+> NOTE: the editor needs sixteen packages: six that `app.js` imports and ten that they import in turn. CodeMirror 6 breaks if two copies of `@codemirror/state` load, and jsDelivr's `+esm` bundles each pin a different sibling version (they fail with "multiple instances of @codemirror/state"). The page therefore maps every package to its raw `dist` file with an import map. If the import fails for any reason, the page falls back to a textarea and logs a `console.warn`, with no error state.
 
 > NOTE: 0.1.4.b answers with a `Car` (`my_car`), not a function, and its Check drives the gate road. Case 18 covers that path, and the worker check covers a function check that streams nothing.
 
@@ -4628,14 +4648,16 @@ def _(page, ctx):
     assert page.locator("#retry").is_hidden()
 
 
-@case("13 no WebAssembly: one sentence naming it, Colab link, no Retry")
-def _(page, ctx):
-    ctx.add_init_script("delete window.WebAssembly")
-    page.goto(f"{URL}index.html?exercise=0.1.4.a")
-    state(page, "error", 30_000)
-    assert "WebAssembly" in page.inner_text("#status")
-    assert page.locator("#colab-fallback").is_visible() and "colab" in page.get_attribute("#colab-fallback", "href")
-    assert page.locator("#retry").is_hidden()
+for missing, label in (("WebAssembly", "WebAssembly"), ("Worker", "Web Workers")):  # label: the name missingFeatures() in app.js gives the page
+
+    @case(f"13 no {missing}: one sentence naming it, Colab link, no Retry")
+    def _(page, ctx, missing=missing, label=label):
+        ctx.add_init_script(f"delete window.{missing}")
+        page.goto(f"{URL}index.html?exercise=0.1.4.a")
+        state(page, "error", 30_000)
+        assert f"This browser has no {label}" in page.inner_text("#status"), page.inner_text("#status")
+        assert page.locator("#colab-fallback").is_visible() and "colab" in page.get_attribute("#colab-fallback", "href")
+        assert page.locator("#retry").is_hidden()
 
 
 @case("14 scrub, play/pause and to-end move the car")
@@ -4898,7 +4920,7 @@ Create `playground/index.html`. The import map is the sixteen pins above. The wo
 </html>
 ```
 
-Create `playground/app.css`. The hex values are first-paint fallbacks only: `app.js` overwrites them from `palette.json` as soon as it loads, and they are copied from Task 4's `CHROME` (`11-part-a-tasks-4-6.md:134`).
+Create `playground/app.css`. The hex values are first-paint fallbacks only: `app.js` overwrites them from `palette.json` as soon as it loads, and they are copied from Task 4's `CHROME`.
 
 ```css
 /* Dark only. app.js sets --background, --panel, --border, --text and --link from palette.json's "chrome" once it has
@@ -5433,7 +5455,7 @@ until curl -s -o /dev/null http://localhost:8765/; do :; done
 (cd /tmp/playground-checks && python -u check_page.py http://localhost:8765/)
 ```
 
-Expected: `check_progress.mjs: all assertions passed`, then 19 lines `PASS 1 ...` to `PASS 19 ...`, then `ALL PASS`, after about two to three minutes.
+Expected: `check_progress.mjs: all assertions passed`, then 20 lines `PASS 1 ...` to `PASS 19 ...` (case 13 appears twice: no WebAssembly, no Worker), then `ALL PASS`, after about two to three minutes.
 
 Manual smoke. Keep the server running and open these in Chrome:
 
@@ -5462,32 +5484,33 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 **Files:**
 - Create: `scripts/playground_browser.py` (helpers shared by the tests, `scripts/measure_phone.py` and the manual steps)
 - Create: `tests/playground/test_browser.py`
-- Modify: `pytest.ini:2-4` (deselect `browser` by default, register the marker)
+- Modify: `pytest.ini:2` (deselect `browser` by default) and add line 5 (register the marker)
 - Modify: `pyproject.toml:12-13` (add the `test` extra after the `dev` line)
 - Test: `tests/playground/test_browser.py`
 
 **Interfaces:**
 - Consumes:
-  - `scripts/build_playground.py`: `exercise_records(repo_root: Path) -> list[dict]` and `write_playground(repo_root: Path, out_dir: Path) -> None` (Task 8, `00-interfaces.md:142-157`). Records carry `id, unit_id, unit_key, label, name, kind, road, colab_url`.
+  - `scripts/build_playground.py`: `exercise_records(repo_root: Path) -> list[dict]` and `write_playground(repo_root: Path, out_dir: Path) -> None` (Task 8). Records carry `id, unit_id, unit_key, label, name, kind, road, colab_url`.
   - `scripts/_course.py:12` `REPO`, `scripts/_course.py:39` `load_solution(root, unit_id)` (loads `solutions/course/<unit_id>/solution.py` by path).
   - `zero2fsd/grade/__init__.py:18` `check(exercise_id, fn_or_box, show=True) -> Result`; `zero2fsd/grade/_report.py:23` `Result(passed: bool, details: list[str])`, `details[0]` is the one-line summary.
   - `zero2fsd/preview` `get(exercise_id) -> Preview(kind, build, road="")` (Task 5). Stats: `build(fn, tel) -> dict[str, float]`, run on `run(Car(), preview.road)`. Image: `build(fn, frame) -> uint8[H, W, 3]` with `road == ""`. Task 7's `preview_image` paints the learner's masks in the `SCENE` yellow and white, which the page serves as `palette.json` `scene.yellow` and `scene.white`. Week 1 holds seven exercises: stats 0.1.1.a and 0.1.1.b, image 0.1.2.a, drive 0.1.3.a, 0.1.3.b, 0.1.4.a and 0.1.4.b.
   - `zero2fsd/car/__init__.py:7` `Car`, `run`, `provided`; `zero2fsd/car/provided.py:60` `steer_p`; `zero2fsd/sim/dynamics.py:8` `DT = 0.05`.
-  - Task 11 DOM ids (`00-interfaces.md:204`): `#exercise-label #unit-link #open-colab #editor #editor-fallback #run #check #stop #canvas #play #scrub #status[data-state] #verdict[data-passed] #stdout #r-progress #frame #dashboard #dashboard-img`, plus the ids this task adds to the contract: `#stats` (dl), `#retry`, `#strips`, `#to-end`, `#exercise-task`, `#mask` (canvas, image exercises only).
+  - Task 11 DOM ids: `#exercise-label #unit-link #open-colab #editor #editor-fallback #run #check #stop #canvas #play #scrub #status[data-state] #verdict[data-passed] #stdout #r-progress #frame #dashboard #dashboard-img`, plus the ids this task adds to the contract: `#stats` (dl), `#retry`, `#strips`, `#to-end`, `#exercise-task`, `#mask` (canvas, image exercises only).
   - Task 9 worker: `row` messages stream during Check for the checks that drive the car (spec 5.3).
   - Task 11 `window.__setCode(text)`: replaces the code, whether CodeMirror or the textarea is active. Task 11's `error` handler writes the learner-facing line to both `#status` and `#stdout`.
 - Produces (Task 13 and the manual acceptance steps rely on these):
   - `scripts/playground_browser.py`: `P_STEER`, `EDITOR_READY`, `pasteable(unit_id) -> str`, `paint_colours(base_url) -> list[list[int]]`, `serve(directory)` (context manager yielding a base URL with a trailing slash), `exercise_url(base_url, exercise_id, query="") -> str`, `wait_state(page, state, timeout_ms=60_000)`, `open_ready(page, base_url, exercise_id, query="")`, `set_code(page, code)`.
   - pytest marker `browser`, deselected by default; `PLAYGROUND_TIMING=1` turns on the S-1 timing test and tightens the Stop budget to the S-4 figure.
 
-> NOTE (unknown id, overrides `00-interfaces.md:204` and `:210` case 8): an unknown `?exercise=` opens the FIRST exercise in state `ready`, and `#status` contains "Unknown exercise <id>". Source: spec section 6 table. The Task 11 draft (`app.js:79-89`) already does this.
+> NOTE (unknown id): an unknown `?exercise=` opens the FIRST exercise in state `ready`, and `#status` contains "Unknown exercise <id>". Source: spec section 6 table. Task 11's `app.js` already does this.
 > NOTE (page URL): the canonical page URL is `<base>/index.html?exercise=<id>[&preset=<name>]`. Next serves `public/` by exact path, so the directory URL does not work on the site. Every navigation in this task uses `index.html`. The site plan's playground panel (Task 4) builds the iframe `src` and the "Open full screen" link as `/learnfsd/playground/index.html?exercise=...`, and Task 8's `validate_lecture_links` already accepts only that form.
 > NOTE (page hooks): this task makes no `app.js` edit. Task 11's `app.js` already defines `window.__setCode` and writes the learner-facing error line to both `#status` and `#stdout`, which the pinned cases read.
-> NOTE (wrong return type text): the pinned case expects "must return one number" in `#stdout`. Task 7 rewords `zero2fsd/car/car.py:40` to "the controller box must return one number (a steering angle in radians) or an Action, got <type>" and its `_at_boundary` wrapper prefixes the exercise id, so the page shows `0.1.4.a: the controller box must return one number ...` verbatim.
+> NOTE (wrong return type text): the pinned case expects "must return one number" in `#stdout`. Task 7 rewords `zero2fsd/car/car.py:40` to "the controller box must return one number (a steering angle in radians) or an Action, got <type>" and its `_at_boundary` wrapper prefixes the exercise id, so the page shows `0.1.4.a: the controller box must return one number ...` verbatim. The stats case reads the same way: Task 7's `_numbers` raises "expected a number or a dict of numbers, got <type>" and `_at_boundary` prefixes the exercise id.
 > NOTE (`#stats`): one `<dt>` (the label) and one `<dd>` (the number at 4 significant digits) per value. The Task 11 draft's `showStats` (`app.js:243-250`) does this. `#retry` (hidden until a load failure, click boots again with a new Worker) is also part of the contract.
 > NOTE (`unit_key`): `unit_key` in `exercises.json` is the unit slug in dash form (`0-1-4`). The progress test pins the literal slug, so a wrong key form fails it.
 > NOTE (image exercise; spec S10 is out of date): Week 1's paint-mask exercise 0.1.2.a has kind `image` (Task 5 table), so the tests cover three Run kinds. Spec S10 ("`drive` and `stats`", "`image` has no Week 1 exercise") predates it. What Task 11 does for an image exercise: Run shows one camera frame in `#frame` and the worker's `overlay` bytes alone in the canvas `#mask` (black except where a mask is set), the yellow mask in `palette.json` `scene.yellow` and the white mask in `scene.white`; both lines of paint are in that frame; the player controls `#play #scrub #to-end` carry the `hidden` attribute. For drive and stats exercises `#mask` is hidden and the controls are visible.
-> NOTE (stats road): `00-interfaces.md:130-131` has `shim.preview_stats` run `run(Car(), "gentle")`. Task 5 fixes the stats road as `STATS_ROAD = "curvy"` (a `gentle` drive never leaves the lane, so a count of off-lane steps would read 0) and stores it on each stats preview. Task 7's `preview_stats` must run `run(Car(), get(exercise_id).road)`. The stats test below takes the road from the preview, so a hard-coded `gentle` fails it with both numbers printed.
+> NOTE (`paint_colours`): the mask tests read the two paints from the served `palette.json` (`scene.yellow`, then `scene.white`) through `paint_colours(base_url)` in `scripts/playground_browser.py`, so a palette change cannot leave them passing on stale colours. This block was rewritten at assembly and has not yet run in a browser; the executor's Task 12 run is its first test.
+> NOTE (stats road): `shim.preview_stats` must not run `run(Car(), "gentle")`. Task 5 fixes the stats road as `STATS_ROAD = "curvy"` (a `gentle` drive never leaves the lane, so a count of off-lane steps would read 0) and stores it on each stats preview. Task 7's `preview_stats` must run `run(Car(), get(exercise_id).road)`. The stats test below takes the road from the preview, so a hard-coded `gentle` fails it with both numbers printed.
 
 Prerequisite before Step 2 (so the red run is a real failure and not a skip). Run from the course repo root with the repo `.venv` active. This installs a browser, about 300 MB, and changes nothing in the repo:
 
@@ -5534,7 +5557,8 @@ pytestmark = pytest.mark.browser
 
 TIMING = bool(os.environ.get("PLAYGROUND_TIMING"))
 LOAD_BUDGET_S = 3.0  # spec S-1
-STOP_BUDGET_S = 3.0 if TIMING else 5.0  # spec S-4 is 3 s; the interface ceiling of 5 s keeps a busy machine from failing the default run
+REALTIME_FACTOR = 5  # spec §7: a lap of gentle with camera runs at >= 5x real time on a Mac (measured 10.3x)
+STOP_BUDGET_S = 3.0 if TIMING else 5.0  # spec S-4 is 3 s; the 5 s default ceiling keeps a busy machine from failing the default run
 STEER_ID = "0.1.4.a"
 # A literal on purpose: this key is the contract with the site (src/lib/learnfsd-progress.ts:7), not something to read back from progress.js.
 PROGRESS_KEY = "learnfsd.v2.progress"
@@ -5565,6 +5589,12 @@ def first_of_kind(kind):
 
 
 ONE_PER_KIND = [first_of_kind(kind) for kind in RUN_KINDS]
+# Per kind: the exercise whose answer is a number, and the plain-language text the page must show when it is not (Task 7's
+# `_at_boundary` and `_numbers`). The other drive exercises answer with a LaneEstimate or a Car: Task 7 tests those messages.
+WRONG_RETURN = {
+    "drive": (BY_ID[STEER_ID], "must return one number"),
+    "stats": (first_of_kind("stats"), "expected a number or a dict of numbers"),
+}
 
 RETURN_ZERO = "def p_steer(est, k_off, k_head):\n    return 0.0\n"
 FOREVER = "def p_steer(est, k_off, k_head):\n    while True:\n        pass\n"
@@ -5770,7 +5800,8 @@ def test_run_provided_steer_completes_and_draws(page, base_url):
         assert page.evaluate(DRAWN_PIXELS_JS, canvas) > 0, f"{canvas} has only background pixels"
     steps = int(page.get_attribute("#scrub", "max")) + 1
     assert abs(steps - len(run(Car(), record["road"]).t)) <= 2  # the page drove the same lap the Mac drives
-    assert elapsed < steps * DT, "the lap was paced to real time (spec S2)"
+    print(f"real_time_x={steps * DT / elapsed:.1f}")  # recorded in the acceptance PR (step C9)
+    assert elapsed * REALTIME_FACTOR < steps * DT, f"the lap ran at {steps * DT / elapsed:.1f}x real time; spec section 7 wants {REALTIME_FACTOR}x"
     page.click("#to-end")
     expect(page.locator("#scrub")).to_have_value(str(steps - 1))
 
@@ -5986,15 +6017,19 @@ def test_raise_at_step_50(page, base_url):
 
 
 @pytest.mark.parametrize(
-    "returned, type_name", [("(0.1, 0.2)", "tuple"), ("None", "NoneType"), ('"left"', "str")], ids=["tuple", "none", "text"]
+    "kind, returned, type_name",
+    [("drive", "(0.1, 0.2)", "tuple"), ("drive", "None", "NoneType"), ("drive", '"left"', "str"), ("stats", '"big"', "str")],
+    ids=["drive-tuple", "drive-none", "drive-text", "stats-text"],
 )
-def test_wrong_return_type(page, base_url, returned, type_name):
-    open_ready(page, base_url, STEER_ID)
-    set_code(page, f"def p_steer(est, k_off, k_head):\n    return {returned}\n")
+def test_wrong_return_type(page, base_url, kind, returned, type_name):
+    record, message = WRONG_RETURN[kind]
+    open_ready(page, base_url, record["id"])
+    set_code(page, f"def {record['name']}(*args, **kwargs):\n    return {returned}\n")  # one signature fits every kind
     page.click("#run")
     wait_state(page, "error")
     shown = page.inner_text("#stdout")
-    assert "must return one number" in shown
+    assert message in shown
+    assert record["id"] in shown  # the shim's `_at_boundary` prefixes the exercise id
     assert type_name in shown
     assert "numpy" not in shown.lower()
 
@@ -6045,6 +6080,32 @@ def test_route_abort_pyodide_js(page, base_url):
 @pytest.mark.parametrize("filename", ["bundle.zip", "exercises.json"])
 def test_route_abort_names_the_failed_file(page, base_url, filename):
     abort_then_retry(page, base_url, re.compile(rf"/{re.escape(filename)}$"), re.escape(filename))
+
+
+# The wheel a Dashboard press downloads (worker.js, the `dashboard` handler), confirmed in headless Chromium on 2026-10-11:
+#   https://cdn.jsdelivr.net/pyodide/v314.0.7/full/matplotlib-3.10.8-cp314-cp314-pyemscripten_2026_0_wasm32.whl
+# The pattern takes any version and any wheel tag.
+MATPLOTLIB_WHEEL = re.compile(r"/pyodide/v[^/]+/full/matplotlib-[^/]+\.whl$")
+
+
+def test_route_abort_names_the_matplotlib_wheel(page, base_url):
+    """Spec section 6: a charting library that fails to load is reported, and the rest of the page keeps working."""
+    open_ready(page, base_url, STEER_ID)
+    set_code(page, P_STEER)
+    page.click("#run")
+    wait_state(page, "done")
+    page.route(MATPLOTLIB_WHEEL, lambda route: route.abort())
+    page.click("#dashboard")
+    wait_state(page, "error")
+    for surface in ("#status", "#stdout"):  # the two places Task 11's `error` handler writes the learner-facing line
+        shown = page.inner_text(surface)
+        assert "matplotlib" in shown and re.search(r"matplotlib-\S+\.whl", shown), f"{surface}: {shown!r}"
+    expect(page.locator("#dashboard-img")).to_be_hidden()
+    page.unroute(MATPLOTLIB_WHEEL)
+    page.click("#run")  # the page is not left busy: a new run completes
+    wait_state(page, "done")
+    page.click("#dashboard")  # and the failed download left nothing half-loaded: this press fetches the wheel again
+    expect(page.locator("#dashboard-img")).to_be_visible(timeout=120_000)
 
 
 # ---- phone width --------------------------------------------------------------------------------------------
@@ -6164,7 +6225,7 @@ def set_code(page, code):
         page.evaluate("text => window.__setCode(text)", code)
 ```
 
-`pytest.ini` (the whole file after the edit; lines 2-4 change, line 5 is new). `-m "not browser"` in `addopts` deselects the browser tests by default, so `python -m pytest tests -q` stays the whole-suite command. Chosen over relying on `importorskip` alone because playwright is installed in some environments, and there `importorskip` would let the network-dependent module run by default. A command-line `-m browser` replaces the `addopts` expression, so every command in this task carries `-m browser`.
+`pytest.ini` (the whole file after the edit; line 2 changes, line 5 is new). `-m "not browser"` in `addopts` deselects the browser tests by default, so `python -m pytest tests -q` stays the whole-suite command. Chosen over relying on `importorskip` alone because playwright is installed in some environments, and there `importorskip` would let the network-dependent module run by default. A command-line `-m browser` replaces the `addopts` expression, so every command in this task carries `-m browser`.
 
 ```ini
 [pytest]
@@ -6186,15 +6247,15 @@ test = ["playwright>=1.40"]
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-The totals below are for today's registry. Confirm it first: `python -c "import sys; sys.path.insert(0, 'scripts'); from collections import Counter; from _course import REPO; from build_playground import exercise_records; print(Counter(r['kind'] for r in exercise_records(REPO)))"` prints `Counter({'drive': 4, 'stats': 2, 'image': 1})`. Seven exercises, so S-2 and the opening test run 7 cases each; the stats test runs 2 and the image tests 1 each.
+The totals below are for today's registry. Confirm it first: `python -c "import sys; sys.path.insert(0, 'scripts'); from collections import Counter; from _course import REPO; from build_playground import exercise_records; print(Counter(r['kind'] for r in exercise_records(REPO)))"` prints `Counter({'drive': 4, 'stats': 2, 'image': 1})`. Seven exercises, so S-2 and the opening test run 7 cases each; the stats test runs 2, the image tests 1 each and the wrong-return test 4 (three drive answers, one stats answer).
 
 Run: `PLAYGROUND_TIMING=1 python -m pytest tests/playground/test_browser.py -m browser -v -s`
-Expected: PASS (50 tests plus the timing test, so `51 passed`); the output prints `load_s=` (budget 3.0) and `restart_s=` (budget 3.0). Without `PLAYGROUND_TIMING=1` the result is `50 passed, 1 skipped`. To run one case: `python -m pytest tests/playground/test_browser.py -m browser -k test_raise_at_step_50 -v`.
+Expected: PASS (52 tests plus the timing test, so `53 passed`); the output prints `load_s=` (budget 3.0) and `restart_s=` (budget 3.0). Without `PLAYGROUND_TIMING=1` the result is `52 passed, 1 skipped`. To run one case: `python -m pytest tests/playground/test_browser.py -m browser -k test_raise_at_step_50 -v`.
 
 - [ ] **Step 5: Run the whole suite**
 
 Run: `python -m pytest tests -q`
-Expected: all green; 412 passed, the same as after Task 11 (this task adds none, because `-m "not browser"` deselects its tests), plus `51 deselected`. In an environment without playwright the module is skipped at collection instead: `1 skipped`.
+Expected: all green; 412 passed, the same as after Task 11 (this task adds none, because `-m "not browser"` deselects its tests), plus `53 deselected`. In an environment without playwright the module is skipped at collection instead: `1 skipped`.
 
 - [ ] **Step 6: Commit**
 
@@ -6214,14 +6275,15 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 **Files:**
 - Create: `scripts/measure_phone.py`
 - Create: `tests/playground/test_measure_phone.py`
+- Modify: `docs/superpowers/specs/2026-10-11-playground-design.md:185` (the S10 row, step C0b)
 - Test: `tests/playground/test_measure_phone.py`
 
 **Interfaces:**
 - Consumes:
   - `scripts/playground_browser.py` (Task 12): `P_STEER`, `open_ready`, `serve`, `set_code`, `wait_state`.
-  - `scripts/build_playground.py` `write_playground(repo_root, out_dir)` (Task 8, `00-interfaces.md:145`).
+  - `scripts/build_playground.py` `write_playground(repo_root, out_dir)` (Task 8).
   - `zero2fsd/sim/dynamics.py:8` `DT = 0.05`; `scripts/_course.py:12` `REPO`.
-  - Status text from Task 11: "Completed gentle in 88.9 s, mean |lat| 0.38 m" (`00-interfaces.md:206`); `#scrub` `max` is the last step index.
+  - Status text from Task 11: "Completed gentle in 88.9 s, mean |lat| 0.38 m"; `#scrub` `max` is the last step index.
 - Produces:
   - `scripts/measure_phone.py`: `lap_report(status_text: str, scrub_max: int, wall_s: float) -> dict` (keys `road, steps, wall_s, steps_per_s, real_time_x`); `main() -> int`; run as `python scripts/measure_phone.py`.
   - The acceptance checklist below, executed once before the PR leaves draft. Its numbers go in the PR description.
@@ -6410,7 +6472,7 @@ Spec section 11 (lines 174-185):
 | S10 | Week 1 kinds | `drive` and `stats` | All three now: `image` has no Week 1 exercise |
 
 **S1. Verified by** `tests/playground/test_build.py` (Task 8: the dist folder, the manifest and its sha256) and, on the site, step C7 (`index.html` answers 200 after `sync:course`).
-**S2. Verified by** `test_run_provided_steer_completes_and_draws`: the lap's wall time is below its driving time, and the step count equals the Mac's. On the phone, `measure_phone.py` prints the real-time factor.
+**S2. Verified by** `test_run_provided_steer_completes_and_draws`: the lap runs at least `REALTIME_FACTOR` (5) times faster than real time, which is the spec section 7 budget and implies the producer is not paced, and the step count equals the Mac's. On the phone, `measure_phone.py` prints the real-time factor.
 **S3. Verified by** the Task 6 margin and borderline tests (`tests/zero2fsd/test_margins.py`) and the S-2 browser test.
 **S4. Verified by** `test_run_provided_steer_completes_and_draws` (asserts the CodeMirror content element exists, so a broken CDN pin cannot hide behind the fallback) and `test_editor_import_blocked_falls_back_to_textarea`.
 **S5. Verified by** the two Stop tests listed under S-4.
@@ -6420,7 +6482,7 @@ Spec section 11 (lines 174-185):
 **S9. Verified by** `test_no_horizontal_scroll_at_375` (all three kinds: drive, stats, image), `test_no_horizontal_scroll_with_a_failing_verdict`, `scripts/measure_phone.py`, and step C4 on the real phone.
 **S10. Verified by** `test_stats_exercise_shows_native_values` (stats kind), `test_run_provided_steer_completes_and_draws` (drive kind), `test_image_exercise_paints_the_masks_and_hides_the_player` with its control `test_image_exercise_with_empty_masks_paints_no_overlay` (image kind), and the module-level guard `first_of_kind`, which fails collection if a kind loses its exercise.
 
-> NOTE (S10 is out of date): the row above is copied verbatim and says Week 1 has `drive` and `stats` only. The registry (Task 5) gives 0.1.2.a kind `image`, so the checks above cover three kinds. Correct the spec's S10 row in the same PR.
+> NOTE (S10 is out of date): the row above is copied verbatim and says Week 1 has `drive` and `stats` only. The registry (Task 5) gives 0.1.2.a kind `image`, so the checks above cover three kinds. Step C0b below corrects the spec's S10 row in the same PR.
 
 Performance budgets (spec section 7, lines 146-153), the numbers C1, C4 and C5 compare against:
 
@@ -6435,7 +6497,7 @@ Performance budgets (spec section 7, lines 146-153), the numbers C1, C4 and C5 c
 
 #### Acceptance run
 
-Run once, on a wired Mac, after Tasks 1 to 13 are merged on the feature branch and the site plan (`2026-10-11-playground-site-seams.md`) is built. Record every number in the PR description (block C8).
+Run once, on a wired Mac, after Tasks 1 to 13 are merged on the feature branch and the site plan (`2026-10-11-playground-site-seams.md`) is built. Record every number in the PR description (blocks C8 and C9).
 
 **C0. Automated, default suite and build.** From the course repo root:
 
@@ -6445,6 +6507,29 @@ python -m pytest tests -q
 ```
 
 Read: all green, the browser module reported as deselected.
+
+**C0b. Spec edit: S10 reflects the Week 1 image exercise (deviation P14).** The spec's S10 row still says `image` has no Week 1 exercise. In `docs/superpowers/specs/2026-10-11-playground-design.md` line 185, replace this row:
+
+```text
+| S10 | Week 1 kinds | `drive` and `stats` | All three now: `image` has no Week 1 exercise |
+```
+
+with this row:
+
+```text
+| S10 | Week 1 kinds | Week 1 kinds are `drive`, `stats` and one `image` exercise (0.1.2.a); the image preview is one frame beside the mask overlay, no player | Label 0.1.2.a "Colab only": contradicts S-2, which covers every Week 1 exercise |
+```
+
+Then commit it on its own:
+
+```bash
+git add docs/superpowers/specs/2026-10-11-playground-design.md
+git commit -m "docs(spec): S10 reflects the Week 1 image exercise
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+```
+
+Read: `git show --stat HEAD` lists one file with 1 insertion and 1 deletion. If Vivek strikes the image preview (P14), this row changes to say 0.1.2.a is Colab only.
 
 **C1. Automated, browser and margin tests.**
 
@@ -6516,4 +6601,17 @@ S-5  phone <model, browser>: lap <W> s = <steps/s> steps/s, Check <passed/failed
 S-6  margin tests: <N passed>
 10 Mbit/s 40 ms cold load: <t1>, <t2>, <t3> s (budget 12); transferred <MB> MB (budget 11)
 Machine: <Mac model, macOS, Chrome version>
+```
+
+**C9. Budget read-offs (spec §7, manual, Chrome DevTools).** Two budgets no test asserts (deviation P16). Serve the dist as in C5 step 1 (`python -m http.server 8000 --directory course/dist/playground`) and use Chrome in a fresh profile or an incognito window.
+
+1. **CPU 4x slowdown, budget at least 2x real time.** Open `http://localhost:8000/index.html?exercise=0.1.4.a`. In DevTools (Cmd+Option+I) open the Performance tab, click the gear icon (Capture settings), set the CPU dropdown to "4x slowdown", and wait for the status to read "Ready.". Replace the editor text with `p_steer = steer_p`. Start a stopwatch as you press Run and stop it when `#status` reads "Completed gentle in ...": that is the wall time `W`. In the Console run `Number(document.querySelector('#scrub').max) + 1` for the step count `N` (1778 for `gentle`). Record `N * 0.05 / W`. Bound: at least 2. Compare it with the unthrottled `real_time_x=` line from C1: a factor at or above that line means the throttle did not reach the worker, so record "not throttled", not a pass.
+2. **Heap, budget at most 120 MB.** Set the CPU dropdown back to "No throttling" and press Run once more on the same page. Open the Memory tab, choose the dedicated worker (`worker.js`) in the target dropdown at the top of the panel (not the page), select "Heap snapshot" and press "Take snapshot". Read the total shown beside the snapshot in the left panel. Bound: at most 120 MB.
+3. **Record** both numbers, with the `real_time_x=` line the Task 12 lap test printed in C1, in the PR description:
+
+```text
+Budgets (spec §7)
+Lap of gentle with camera, Mac, no throttle: <real_time_x> x real time (budget at least 5; asserted by test_run_provided_steer_completes_and_draws)
+CPU 4x slowdown: <N> steps in <W> s = <factor> x real time (budget at least 2)
+Heap, worker after one lap: <MB> MB (budget at most 120)
 ```
