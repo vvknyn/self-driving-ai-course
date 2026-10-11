@@ -102,6 +102,35 @@ def row_dict(row: tuple) -> dict[str, Any]:
     return {name: value.item() if isinstance(value, np.generic) else value for name, value in zip(COLUMNS, row, strict=True)}
 
 
+class HostCallbackError(RuntimeError):
+    """The playground's own per-row callback failed. Not the learner's code; the page is broken."""
+
+
+def _host_hook(on_row):
+    """The step hook for a host callback, and a check to run after the drive.
+
+    The drive runs under the grader's learner_code / _at_boundary, which label every exception the learner's.
+    A failing host callback is recorded once, the hook stays quiet for the rest of the run, and `after()`
+    raises HostCallbackError outside those labels, so a broken page never reads as a learner mistake."""
+    if on_row is None:
+        return None, lambda: None
+    failed: list[BaseException] = []
+
+    def on_step(row):
+        if failed:
+            return
+        try:
+            on_row(row_dict(row))
+        except Exception as exc:  # recorded here, raised by after(); never swallowed
+            failed.append(exc)
+
+    def after():
+        if failed:
+            raise HostCallbackError(f"the playground's row callback failed: {failed[0]!r}") from failed[0]
+
+    return on_step, after
+
+
 def summary(tel: Telemetry) -> dict[str, Any]:
     m = metrics(tel)
     return {"completed": tel.completed, "steps": len(tel.t), "mean_abs_lat": m["mean_abs_lat"],
@@ -113,8 +142,10 @@ def preview_run(obj: Any, exercise_id: str, road: str, on_row: Callable[[dict], 
     global LAST_RUN
     preview = _preview(exercise_id, "drive")
     LAST_RUN = None  # a run that raises must not leave the previous run behind for the dashboard
+    on_step, after = _host_hook(on_row)
     with _at_boundary(exercise_id):
-        tel = run(preview.build(obj), road, on_step=lambda row: on_row(row_dict(row)))
+        tel = run(preview.build(obj), road, on_step=on_step)
+    after()  # outside _at_boundary: a failing host callback is not a wrong answer type
     LAST_RUN = tel
     return summary(tel)
 
@@ -151,8 +182,9 @@ def preview_image(obj: Any, exercise_id: str, seed: int = 0) -> dict[str, Any]:
 
 def check_code(obj: Any, exercise_id: str, on_row: Callable[[dict], None] | None = None) -> dict[str, Any]:
     """The verdict Colab gives, plus the rows of any run the check makes when `on_row` is given."""
-    on_step = None if on_row is None else lambda row: on_row(row_dict(row))
+    on_step, after = _host_hook(on_row)
     result = check(exercise_id, obj, show=False, on_step=on_step)
+    after()
     return {"passed": bool(result.passed), "details": list(result.details)}
 
 

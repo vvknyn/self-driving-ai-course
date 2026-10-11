@@ -177,6 +177,29 @@ def test_the_learners_own_type_error_keeps_its_own_message_and_line(shim):
     assert "0.1.4.a" not in str(caught.value) and shim.format_error(caught.value)["line"] == 2
 
 
+def test_a_host_callback_failure_on_preview_run_is_the_hosts_error_not_the_learners(shim):
+    def on_row(row):
+        raise RuntimeError("host callback failed")
+
+    with pytest.raises(shim.HostCallbackError, match="host callback failed") as caught:
+        shim.preview_run(shim.learner_object(P_STEER, "p_steer"), "0.1.4.a", "straight", on_row)
+    assert isinstance(caught.value.__cause__, RuntimeError)
+
+
+def test_a_host_callback_failure_on_check_code_is_raised_once_after_the_run_and_never_blamed_on_the_learner(shim):
+    seen = []
+
+    def on_row(row):
+        seen.append(row)
+        raise TypeError("host callback failed")  # a TypeError is what _at_boundary would otherwise relabel
+
+    with pytest.raises(shim.HostCallbackError) as caught:
+        shim.check_code(shim.learner_object(MY_CAR, "my_car"), "0.1.4.b", on_row=on_row)
+    assert len(seen) == 1, "the hook goes quiet after the first failure"
+    assert isinstance(caught.value.__cause__, TypeError)
+    assert "your code" not in str(caught.value)
+
+
 CALLS = {  # the kind of exercise a call is for -> a call of it that never gets as far as the learner's code
     "drive": lambda shim, exercise: shim.preview_run(lambda: None, exercise, "straight", lambda row: None),
     "stats": lambda shim, exercise: shim.preview_stats(lambda lat: 0, exercise),
