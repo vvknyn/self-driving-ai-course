@@ -3,7 +3,8 @@
     python scripts/build_course_bundle.py [--root DIR]
 
 Fails loudly (BundleError, exit 1) when a ready unit is missing a file, a field, a figure the lecture
-references, or a quiz `section` that is not a heading of the lecture.
+references, or a quiz `section` that is not a heading of the lecture.  It then writes course/dist/playground/
+(scripts/build_playground.py), which fails the same way on a lecture link to an exercise that does not exist.
 """
 from __future__ import annotations
 
@@ -15,7 +16,8 @@ import sys
 from numbers import Real
 from pathlib import Path
 
-from _course import FENCE, REPO, REPO_SLUG, heading_slug, load_yaml, syllabus_units, unit_slug
+from _course import FENCE, REPO, REPO_SLUG, colab_url, heading_slug, load_yaml, syllabus_units, unit_slug
+from build_playground import write_playground
 
 VERSION = 1
 REQUIRED_FILES = ("unit.yaml", "lecture.md", "lab.ipynb", "quiz.yaml", "cards.yaml")
@@ -116,7 +118,7 @@ def build_unit(root: Path, entry: dict, known_ids: set[str]) -> tuple[dict, list
         "outcomes": meta["outcomes"], "prerequisites": [unit_slug(p) for p in meta["prerequisites"]],
         "go_deeper": meta["go_deeper"], "paper": paper, "tutor_prompt": meta["tutor_prompt"],
         "lecture_md": rewrite_figures(unit_id, slug, folder, lecture),
-        "colab_url": f"https://colab.research.google.com/github/{REPO_SLUG}/blob/main/course/{entry['folder']}/lab.ipynb",
+        "colab_url": colab_url(entry["folder"]),
         "quiz": build_quiz(unit_id, load_yaml(folder / "quiz.yaml"), sections),
         "cards": build_cards(unit_id, load_yaml(folder / "cards.yaml")),
     }
@@ -169,13 +171,16 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", type=Path, default=REPO)
     root = parser.parse_args(argv).root
+    playground = root / "course" / "dist" / "playground"
     try:
         out = write_bundle(root)
-    except BundleError as err:
+        write_playground(root, playground)
+    except (BundleError, ValueError) as err:
         print(f"error: {err}", file=sys.stderr)
         return 1
     bundle = json.loads(out.read_text(encoding="utf-8"))
     print(f"wrote {out} ({len(bundle['units'])} ready units, {len(bundle['figures'])} figures)")
+    print(f"wrote {playground}")
     return 0
 
 

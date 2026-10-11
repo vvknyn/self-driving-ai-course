@@ -5,6 +5,7 @@ outcomes:
   - {can: Summarise a lateral-error trace, proof: lane_error_stats passes its tests}
 prerequisites: []
 box: none
+car_box: instruments
 go_deeper:
   - {title: An example source, url: "https://example.org/source"}
 tutor_prompt: Explain lane error to me.

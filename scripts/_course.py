@@ -24,6 +24,11 @@ def unit_slug(unit_id: str) -> str:
     return unit_id.replace(".", "-")
 
 
+def colab_url(folder: str) -> str:
+    """The Colab link of a unit's lab notebook; `folder` is its directory under course/."""
+    return f"https://colab.research.google.com/github/{REPO_SLUG}/blob/main/course/{folder}/lab.ipynb"
+
+
 def heading_slug(text: str) -> str:
     """GitHub-style heading anchor: lowercase, spaces to hyphens, everything but [a-z0-9-] dropped."""
     return re.sub(r"[^a-z0-9-]", "", text.strip().lower().replace(" ", "-"))

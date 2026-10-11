@@ -79,9 +79,25 @@ def test_write_bundle_is_deterministic_and_replaces_stale_figures(built_repo):
 
 def test_main_exit_codes(built_repo, capsys):
     assert bundler.main(["--root", str(built_repo)]) == 0 and "1 ready units" in capsys.readouterr().out
+    assert (built_repo / "course" / "dist" / "playground" / "manifest.json").is_file()
     (built_repo / UNIT / "quiz.yaml").unlink()
     assert bundler.main(["--root", str(built_repo)]) == 1
     assert "quiz.yaml" in capsys.readouterr().err
+
+
+def test_main_fails_with_one_line_when_an_exercise_has_no_preview(built_repo, capsys):
+    edit(built_repo, f"{UNIT}/unit.yaml", '{id: "0.1.1.b", name: steps_off_lane}', '{id: "9.9.9.z", name: steps_off_lane}')
+    edit(built_repo, f"{UNIT}/lab.py", "exercise:0.1.1.b", "exercise:9.9.9.z")
+    assert bundler.main(["--root", str(built_repo)]) == 1
+    err = capsys.readouterr().err
+    assert "error: unknown exercise '9.9.9.z'" in err and "Traceback" not in err
+    assert not (built_repo / "course" / "dist" / "playground").exists()
+
+
+def test_main_fails_on_a_lecture_link_to_an_exercise_that_does_not_exist(built_repo, capsys):
+    edit(built_repo, f"{UNIT}/lecture.md", "# Mini unit\n", "# Mini unit\n\n[Try it](playground/index.html?exercise=9.9.9.z)\n")
+    assert bundler.main(["--root", str(built_repo)]) == 1
+    assert "9.9.9.z" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("name", bundler.REQUIRED_FILES)

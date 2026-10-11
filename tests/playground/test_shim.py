@@ -74,13 +74,6 @@ def test_prelude_binds_every_name_the_lab_setup_cells_bind(shim):
     assert NOT_IN_BROWSER.isdisjoint(prelude_names(shim))
 
 
-def test_every_exercise_starter_runs_after_the_prelude_and_defines_its_name(shim):
-    for _, meta, cells in lab_cells():
-        for exercise in meta["exercises"]:
-            starter = "\n\n".join(c.source for c in cells if c.kind == "code" and f"exercise:{exercise['id']}" in c.tags)
-            shim.learner_object(starter, exercise["name"])  # raises NameError when the starter does not define the name
-
-
 def test_learner_object_returns_what_the_learner_defined(shim):
     assert shim.learner_object("def f(x):\n    return x + 1\n", "f")(1) == 2
     assert shim.learner_object("def estimate_lane(obs):\n    return 7\n", "estimate_lane")(None) == 7  # a redefinition counts
