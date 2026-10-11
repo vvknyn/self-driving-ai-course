@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
@@ -14,6 +15,10 @@ from .types import Observation
 
 OFF_ROAD_OFFSET = 1.8  # m of true offset from ego-lane centre that ends the episode
 MAX_STEP_FACTOR = 3  # default step budget: this many times the steps needed at target speed
+# The values of one step in the order `run` records them: the first 14 fields of `Telemetry`.
+# `run` hands one such tuple to `on_step`.
+COLUMNS = ("t", "x", "y", "yaw", "speed", "steer", "accel", "lat", "head_err",
+           "est_offset", "est_heading", "est_valid", "progress_m", "off_road")
 
 
 @dataclass(frozen=True)
@@ -40,10 +45,13 @@ class Telemetry:
     route_length: float
 
 
-def run(car: Car, scenario, max_steps: int | None = None, seed: int = 0, noise_sigma: float = 0.0) -> Telemetry:
+def run(car: Car, scenario, max_steps: int | None = None, seed: int = 0, noise_sigma: float = 0.0,
+        on_step: Callable[[tuple], None] | None = None) -> Telemetry:
     """Run until the route is complete, the car is off the road, or `max_steps` (default 3x the ideal).
 
-    Exceptions raised inside the car's boxes propagate.  `scenario` is a Scenario or its name.
+    Exceptions raised inside the car's boxes (or in `on_step`) propagate.  `scenario` is a Scenario or its name.
+    `on_step(row)` is called with each step's record (a tuple in `COLUMNS` order) as soon as it is appended, so a
+    caller can stream the telemetry; it sees exactly the values the returned `Telemetry` will hold.
     """
     sc = make_scenario(scenario) if isinstance(scenario, str) else scenario
     road, camera = sc.road, Camera()
@@ -59,8 +67,11 @@ def run(car: Car, scenario, max_steps: int | None = None, seed: int = 0, noise_s
         obs = Observation(camera.render(road, state, noise_sigma, seed + k), state.speed, k * DT)
         est, action = car.step(obs)
         off_road = abs(lat) > OFF_ROAD_OFFSET
-        rows.append((k * DT, state.x, state.y, state.yaw, state.speed, state.steer, action.accel, lat, head_err,
-                     est.offset_m, est.heading_rad, est.valid, progress, off_road))
+        row = (k * DT, state.x, state.y, state.yaw, state.speed, state.steer, action.accel, lat, head_err,
+               est.offset_m, est.heading_rad, est.valid, progress, off_road)
+        rows.append(row)
+        if on_step is not None:
+            on_step(row)
         if off_road or progress >= sc.route_length:
             break
         state = step(state, action.steer_rad, action.accel)
