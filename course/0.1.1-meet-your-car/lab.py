@@ -30,9 +30,9 @@ from zero2fsd.score import metrics_table
 # - `gentle`: a 702.7 m loop with two bends of radius 80 m.
 # - `curvy`: 30 m of straight, then six quarter-circle bends of radius 20 m, alternating left and right.
 #
-# ![](figures/test_roads.png)
-#
 # ![](figures/car_and_view.png)
+#
+# ![](figures/test_roads.png)
 #
 # **Before you run it**, double-click the cell below and write your prediction.
 
