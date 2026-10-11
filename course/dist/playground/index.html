@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Playground</title>
+  <link rel="stylesheet" href="./app.css">
+  <!-- CodeMirror 6, every package pinned to an exact version and mapped to its raw dist file so that one
+       copy of @codemirror/state and @codemirror/view is loaded. (jsDelivr's +esm bundles each pin a
+       different sibling version and fail with "multiple instances of @codemirror/state".) The worker
+       does not use this map. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "@codemirror/view": "https://cdn.jsdelivr.net/npm/@codemirror/view@6.43.14/dist/index.js",
+      "@codemirror/state": "https://cdn.jsdelivr.net/npm/@codemirror/state@6.7.6/dist/index.js",
+      "@codemirror/lang-python": "https://cdn.jsdelivr.net/npm/@codemirror/lang-python@6.2.1/dist/index.js",
+      "@codemirror/commands": "https://cdn.jsdelivr.net/npm/@codemirror/commands@6.11.1/dist/index.js",
+      "@codemirror/language": "https://cdn.jsdelivr.net/npm/@codemirror/language@6.13.1/dist/index.js",
+      "@codemirror/theme-one-dark": "https://cdn.jsdelivr.net/npm/@codemirror/theme-one-dark@6.1.3/dist/index.js",
+      "@codemirror/autocomplete": "https://cdn.jsdelivr.net/npm/@codemirror/autocomplete@6.20.3/dist/index.js",
+      "@codemirror/streamparser": "https://cdn.jsdelivr.net/npm/@codemirror/streamparser@6.0.0/dist/index.js",
+      "@lezer/common": "https://cdn.jsdelivr.net/npm/@lezer/common@1.5.3/dist/index.js",
+      "@lezer/highlight": "https://cdn.jsdelivr.net/npm/@lezer/highlight@1.2.5/dist/index.js",
+      "@lezer/lr": "https://cdn.jsdelivr.net/npm/@lezer/lr@1.4.11/dist/index.js",
+      "@lezer/python": "https://cdn.jsdelivr.net/npm/@lezer/python@1.1.19/dist/index.js",
+      "crelt": "https://cdn.jsdelivr.net/npm/crelt@1.0.7/index.js",
+      "style-mod": "https://cdn.jsdelivr.net/npm/style-mod@4.1.4/src/style-mod.js",
+      "w3c-keyname": "https://cdn.jsdelivr.net/npm/w3c-keyname@2.2.8/index.js",
+      "@marijn/find-cluster-break": "https://cdn.jsdelivr.net/npm/@marijn/find-cluster-break@1.0.4/src/index.js"
+    }
+  }
+  </script>
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <header>
+    <h1 id="exercise-label"></h1>
+    <p id="exercise-task" hidden></p>
+    <nav>
+      <a id="unit-link" target="_top">Back to the lecture</a>
+      <a id="open-colab" target="_blank" rel="noopener">Open in Colab</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="code-pane" aria-label="Your code">
+      <div id="editor"></div>
+      <div class="toolbar">
+        <button id="run" type="button" disabled>Run</button>
+        <button id="check" type="button" disabled>Check</button>
+        <button id="stop" type="button" disabled>Stop</button>
+        <label id="road-label">Road <select id="road"></select></label>
+      </div>
+      <p id="status" data-state="loading" role="status" aria-live="polite">Loading...</p>
+      <div class="status-actions">
+        <button id="retry" type="button" hidden>Retry</button>
+        <a id="colab-fallback" target="_blank" rel="noopener" hidden>Open this exercise in Colab</a>
+      </div>
+      <details id="traceback" hidden><summary>Traceback</summary><pre></pre></details>
+      <div id="verdict" hidden><ul></ul></div>
+      <pre id="stdout" aria-label="Printed output"></pre>
+      <dl id="stats" hidden></dl>
+    </section>
+
+    <section id="drive-view" aria-label="The drive">
+      <div id="player-view">
+        <canvas id="canvas" aria-label="Top-down view of the car on the road"></canvas>
+        <div class="transport">
+          <button id="play" type="button">Play</button>
+          <button id="to-end" type="button">To end</button>
+          <input id="scrub" type="range" min="0" max="0" value="0" step="1" aria-label="Step">
+          <select id="speed" aria-label="Speed">
+            <option value="0.5">0.5x</option>
+            <option value="1" selected>1x</option>
+            <option value="2">2x</option>
+            <option value="4">4x</option>
+          </select>
+        </div>
+        <dl class="readouts">
+          <div><dt>time</dt><dd id="r-t">-</dd></div>
+          <div><dt>off centre (left +)</dt><dd id="r-lat">-</dd></div>
+          <div><dt>speed</dt><dd id="r-speed">-</dd></div>
+          <div><dt>steering</dt><dd id="r-steer">-</dd></div>
+          <div><dt>progress</dt><dd id="r-progress">-</dd></div>
+        </dl>
+        <canvas id="strips" aria-label="Offset, heading error and steering over the last 10 seconds"></canvas>
+      </div>
+      <div class="camera">
+        <canvas id="frame" width="320" height="180" aria-label="What the car's camera sees"></canvas>
+        <canvas id="mask" width="320" height="180" aria-label="The pixels your masks marked" hidden></canvas>
+      </div>
+      <div id="dashboard-view" class="dashboard">
+        <button id="dashboard" type="button" disabled>Dashboard</button>
+        <p id="dashboard-error" role="alert" hidden></p>
+        <img id="dashboard-img" alt="Dashboard of the last run" hidden>
+      </div>
+    </section>
+  </main>
+
+  <footer><p id="engine"></p></footer>
+</body>
+</html>
