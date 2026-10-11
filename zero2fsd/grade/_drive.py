@@ -47,6 +47,13 @@ def require_own(car: Car, *slots: str) -> None:
                       given=f"Car with provided: {car.uses_provided()}")
 
 
+def require_car(car) -> Car:
+    """The all-yours exercise's answer must be a Car (it is `None` until the learner builds one); returns it."""
+    if not isinstance(car, Car):
+        raise Failure(f"my_car must be a Car(perception=..., controller=...), got {type(car).__name__}")
+    return car
+
+
 def gate(car: Car, show: bool) -> str:
     """Fail unless the car completes the gate scenario with mean |lat| under the limit; else say how it did."""
     tel = drive(car, GATE_SCENARIO, f"your car on {GATE_SCENARIO}", show)

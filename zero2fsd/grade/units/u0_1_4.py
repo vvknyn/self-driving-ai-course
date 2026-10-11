@@ -5,9 +5,9 @@ import math
 
 import numpy as np
 
-from ...car import Car, LaneEstimate
+from ...car import LaneEstimate
 from ...sim.dynamics import MAX_STEER
-from .._drive import drive, gate, outcome, require_own
+from .._drive import drive, gate, outcome, require_car, require_own
 from .._report import Failure, call, exercise, fmt, is_real
 
 TOL = 1e-9
@@ -56,8 +56,7 @@ def _p_steer(fn, show):
     hint='lecture 0.1.4, section "Closing the loop"',
 )
 def _my_car(car, show):
-    if not isinstance(car, Car):
-        raise Failure(f"my_car must be a Car(perception=..., controller=...), got {type(car).__name__}")
+    require_car(car)
     require_own(car)
     passed = gate(car, show)
     curvy = drive(car, "curvy", "your cliffhanger on curvy", show)

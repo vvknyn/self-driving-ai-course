@@ -16,7 +16,7 @@ def _iou(a: np.ndarray, b: np.ndarray) -> float:
     return np.count_nonzero(a & b) / union if union else 1.0  # both empty: nothing to find, nothing found
 
 
-def _as_masks(got, shape, given):
+def as_masks(got, shape, given):
     """The learner's answer as two bool masks of the frame's shape, or a Failure saying what is off."""
     masks = list(got) if isinstance(got, tuple | list) else None
     if masks is None or len(masks) != 2:
@@ -39,7 +39,7 @@ def _paint_masks(fn, show):
     for k, pose in enumerate(poses):
         frame, labels = camera.render(pose.road, pose.state, noise_sigma=NOISE_SIGMA, seed=k, return_labels=True)
         given = f"a {frame.shape[1]}x{frame.shape[0]} frame rendered at {pose}"
-        masks = _as_masks(call(fn, frame.copy(), given=given), frame.shape[:2], given)
+        masks = as_masks(call(fn, frame.copy(), given=given), frame.shape[:2], given)
         for name, mask, paint in zip(("yellow", "white"), masks, (YELLOW, WHITE)):
             truth = labels == paint
             iou = _iou(mask, truth)
