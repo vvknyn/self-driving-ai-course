@@ -63,7 +63,7 @@ loops:
         summary: Lattice planning, A*, speed profiles and overtaking a slow car, using graph search and cost functions.
         planned_units: 6
       - id: "1.9"
-        title: Loop 1 capstone
+        title: Classical car capstone
         summary: Your all-classical car beats the provided car on the full scenario suite.
         planned_units: 2
 
@@ -113,12 +113,12 @@ loops:
         planned_units: 4
       - id: "2.11"
         title: Imitation-learned planner
-        summary: Imitation learning, covariate shift and DAgger, ending in the Loop 2 capstone.
+        summary: Imitation learning, covariate shift and DAgger, ending in the Learned car capstone.
         planned_units: 4
 
   - id: "3"
     title: Research car
-    summary: Read, reproduce, extend and write up research. Specific papers are chosen when the pilot reaches this loop.
+    summary: Read, reproduce, extend and write up research. The exact papers are chosen when this part is written.
     modules:
       - id: "3.1"
         title: Reading and reproducing papers

@@ -15,16 +15,15 @@ import sys
 from numbers import Real
 from pathlib import Path
 
-from _course import REPO, heading_slug, load_yaml, syllabus_units, unit_slug
+from _course import FENCE, REPO, REPO_SLUG, heading_slug, load_yaml, syllabus_units, unit_slug
 
-VERSION, REPO_SLUG = 1, "vvknyn/self-driving-ai-course"
+VERSION = 1
 REQUIRED_FILES = ("unit.yaml", "lecture.md", "lab.ipynb", "quiz.yaml", "cards.yaml")
 REQUIRED_UNIT_KEYS = ("id", "title", "minutes", "outcomes", "prerequisites", "box", "go_deeper", "tutor_prompt")
 QUESTION_KEYS = ("id", "type", "prompt", "answer", "explain", "section")
 FIGURE_URL = "/learnfsd-course/figures"
 IMAGE = re.compile(r"(!\[[^\]]*\]\()(?P<path>[^)\s]+)(?P<tail>(?:\s+\"[^\"]*\")?\))")
 LOCAL_FIGURE = re.compile(r"(?:\./)?figures/(?P<file>[^/]+)")
-FENCE = re.compile(r"^```.*?^```", re.S | re.M)
 HEADING = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$", re.M)
 
 

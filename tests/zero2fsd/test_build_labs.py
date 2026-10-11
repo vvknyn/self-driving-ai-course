@@ -1,11 +1,13 @@
 import json
+import re
+from html.parser import HTMLParser
 
 import nbformat
 import pytest
 
 import build_labs
 import make_figures
-from _course import REPO, parse_lab
+from _course import REPO, REPO_SLUG, parse_lab
 
 LAB = """\
 # %% [markdown]
@@ -88,3 +90,105 @@ def test_a_figures_module_without_make_fails_loudly(mini_repo):
 def test_committed_notebooks_are_in_sync_with_their_lab_py():
     """Part C: after editing a lab.py, run scripts/build_labs.py and commit the notebook."""
     assert build_labs.main(["--check"]) == 0, f"stale notebook under {REPO / 'course'}"
+
+
+class _Images(HTMLParser):
+    """The (src, alt, caption) of every <img> in a markdown source; the caption is the text of the <em> that follows it."""
+
+    def __init__(self):
+        super().__init__()
+        self.images, self.in_em = [], False
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "img":
+            self.images.append([dict(attrs).get("src"), dict(attrs).get("alt"), ""])
+        self.in_em |= tag == "em"
+
+    def handle_endtag(self, tag):
+        self.in_em &= tag != "em"
+
+    def handle_data(self, data):
+        if self.in_em:
+            self.images[-1][2] += data
+
+
+def shown_images(markdown):
+    parser = _Images()
+    parser.feed(markdown)
+    return [tuple(image) for image in parser.images]
+
+
+def lecture_figures_of(unit):
+    """{file: (number, alt)} read straight from lecture.md: each line that is only an image is the next figure."""
+    lines = (unit / "lecture.md").read_text(encoding="utf-8").splitlines()
+    found = filter(None, (re.fullmatch(r'!\[(.*)\]\(figures/(\S+?)(?: "[^"]*")?\)', line.strip()) for line in lines))
+    return {m[2]: (n, m[1]) for n, m in enumerate(found, 1)}
+
+
+@pytest.mark.parametrize("notebook", sorted((REPO / "course").glob("*/lab.ipynb")), ids=lambda p: p.parent.name)
+def test_every_lecture_figure_is_in_the_lab_with_its_caption_and_a_url_colab_can_load(notebook):
+    unit, lecture = notebook.parent, lecture_figures_of(notebook.parent)
+    markdown = "\n".join("".join(c["source"]) for c in json.loads(notebook.read_text(encoding="utf-8"))["cells"] if c["cell_type"] == "markdown")
+    assert not re.search(r"""(src=["']|\]\()(\./)?figures/""", markdown), "a repo-relative figure path is left: Colab cannot load it"
+    prefix = f"https://raw.githubusercontent.com/{REPO_SLUG}/{build_labs.FIGURE_REF}/course/{unit.name}/figures/"
+    shown = shown_images(markdown)
+    for src, alt, caption in shown:
+        assert src.startswith(prefix), src
+        file = src[len(prefix):]
+        assert (unit / "figures" / file).is_file(), f"{src} is not a file of this repo"
+        assert file in lecture, f"{file} is not a figure of lecture.md"
+        number, lecture_alt = lecture[file]
+        assert (alt, caption) == (lecture_alt, f"Lecture figure {number}. {lecture_alt}")
+    assert {src[len(prefix):] for src, _, _ in shown} == set(lecture)  # none of the lecture's figures is missing from the lab
+
+
+MINI_LECTURE = """\
+# Mini
+
+![Pic one & "two"](figures/one.png)
+
+```
+![inside a fence](figures/fenced.png)
+```
+
+A sentence with ![inline](figures/inline.png) in it.
+
+![Second](figures/two.png "a title")
+"""
+
+
+def mini_lab_showing(mini_repo, ref):
+    """The fixture unit with a lecture of two figures (one, two) and a lab whose one markdown cell holds `ref` on its own line."""
+    unit = mini_repo / "course" / "0.1.1-mini"
+    (unit / "lecture.md").write_text(MINI_LECTURE, encoding="utf-8")
+    (unit / "figures").mkdir(exist_ok=True)
+    for name in ("one", "two", "fenced", "inline", "other"):
+        (unit / "figures" / f"{name}.png").write_bytes(b"\x89PNG")
+    (unit / "lab.py").write_text(f"# %% [markdown]\n# Before\n#\n# {ref}\n#\n# After\n", encoding="utf-8")
+    return unit / "lab.py"
+
+
+def test_a_figure_ref_becomes_the_lectures_numbered_caption_with_prose_untouched(mini_repo):
+    for file, number, alt in (("one", 1, 'Pic one & "two"'), ("two", 2, "Second")):  # the fenced and inline images are not figures
+        cell = nbformat.reads(build_labs.compile_lab(mini_lab_showing(mini_repo, f"![](figures/{file}.png)")), as_version=4).cells[0]
+        url = f"https://raw.githubusercontent.com/{REPO_SLUG}/{build_labs.FIGURE_REF}/course/0.1.1-mini/figures/{file}.png"
+        assert shown_images(cell.source) == [(url, alt, f"Lecture figure {number}. {alt}")]
+        assert cell.source.startswith("Before\n\n<") and cell.source.endswith(">\n\nAfter") and "![" not in cell.source
+
+
+@pytest.mark.parametrize("ref", ["![](figures/other.png)", "![](figures/fenced.png)", "![](figures/inline.png)"])
+def test_a_ref_to_an_image_that_is_not_a_lecture_figure_fails_the_build(mini_repo, ref):
+    with pytest.raises(ValueError, match="not a standalone image of lecture.md"):
+        build_labs.compile_lab(mini_lab_showing(mini_repo, ref))
+
+
+def test_a_ref_to_a_lecture_figure_missing_from_figures_fails_the_build(mini_repo):
+    lab = mini_lab_showing(mini_repo, "![](figures/two.png)")
+    (lab.parent / "figures" / "two.png").unlink()
+    with pytest.raises(ValueError, match="does not exist"):
+        build_labs.compile_lab(lab)
+
+
+def test_a_lab_figure_with_its_own_alt_text_fails_the_build(mini_repo):
+    with pytest.raises(ValueError, match="empty alt"):
+        build_labs.compile_lab(mini_lab_showing(mini_repo, "![my own caption](figures/two.png)"))
