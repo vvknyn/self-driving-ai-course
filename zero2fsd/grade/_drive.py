@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+from collections.abc import Callable
 
 from ..car import Car, Telemetry, run
 from ..dashboard import dashboard
@@ -29,10 +30,12 @@ def outcome(tel: Telemetry) -> str:
     return f"{how} after {tel.progress_m[-1]:.0f} of {tel.route_length:.0f} m of {tel.scenario}"
 
 
-def drive(car: Car, scenario: str, label: str, show: bool) -> Telemetry:
-    """Run the car on a scenario (learner exceptions become a Failure), print its metrics and maybe the dashboard."""
+def drive(car: Car, scenario: str, label: str, show: bool, on_step: Callable[[tuple], None] | None = None) -> Telemetry:
+    """Run the car on a scenario (learner exceptions become a Failure), print its metrics and maybe the dashboard.
+
+    `on_step` receives each telemetry row as the car drives (see `run`)."""
     with learner_code(f"your car driving {scenario!r}"):
-        tel = run(car, scenario)
+        tel = run(car, scenario, on_step=on_step)
     print(metrics_table(tel, labels=[label]))
     if show:
         show_figure(dashboard(tel, labels=[label]))
@@ -54,9 +57,9 @@ def require_car(car) -> Car:
     return car
 
 
-def gate(car: Car, show: bool) -> str:
+def gate(car: Car, show: bool, on_step: Callable[[tuple], None] | None = None) -> str:
     """Fail unless the car completes the gate scenario with mean |lat| under the limit; else say how it did."""
-    tel = drive(car, GATE_SCENARIO, f"your car on {GATE_SCENARIO}", show)
+    tel = drive(car, GATE_SCENARIO, f"your car on {GATE_SCENARIO}", show, on_step)
     mean_lat = metrics(tel)["mean_abs_lat"]
     seen = f"mean |lat| {mean_lat:.3f} m {vs_limit(mean_lat, GATE_MEAN_LAT, 'm')}"
     if not tel.completed or mean_lat >= GATE_MEAN_LAT:

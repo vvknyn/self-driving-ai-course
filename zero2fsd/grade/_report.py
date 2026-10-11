@@ -1,6 +1,6 @@
 """What a graded exercise is: a checker that raises `Failure` on the first thing wrong.
 
-`exercise(...)` registers a checker in `EXERCISES` and turns it into `(target, show) -> Result`.
+`exercise(...)` registers a checker in `EXERCISES` and turns it into `(target, show, on_step) -> Result`.
 `call` and `learner_code` are the one place learner code is run, so an exception in it becomes a
 readable red result instead of a traceback and a missing implementation can never count as a pass.
 """
@@ -34,7 +34,7 @@ class Failure(Exception):
         self.headline, self.checked, self.shown = headline, checked, shown
 
 
-EXERCISES: dict[str, Callable[[Any, bool], Result]] = {}
+EXERCISES: dict[str, Callable[[Any, bool, Callable[[tuple], None] | None], Result]] = {}
 
 
 def fmt(value) -> str:
@@ -106,13 +106,13 @@ def _lines(failure: Failure, exercise_id, checked, hint) -> list[str]:
 
 
 def exercise(exercise_id: str, *, checked: str, hint: str):
-    """Register a checker `(target, show) -> str` (what passed); it raises `Failure` for the first problem."""
+    """Register a checker `(target, show, on_step) -> str` (what passed); it raises `Failure` for the first problem."""
 
     def register(checker):
         @functools.wraps(checker)
-        def graded(target, show):
+        def graded(target, show, on_step):
             try:
-                message = checker(target, show)
+                message = checker(target, show, on_step)
             except Failure as failure:
                 return Result(False, _lines(failure, exercise_id, checked, hint))
             return Result(True, [f"\N{CHECK MARK} {exercise_id}: {message}"])

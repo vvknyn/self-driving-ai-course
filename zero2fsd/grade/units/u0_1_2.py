@@ -50,7 +50,7 @@ def _iou_text(iou: float) -> str:
     checked=f"yellow and white masks on {N_FRAMES} noisy (sigma={NOISE_SIGMA:g}) frames against the renderer's true paint, IoU >= {IOU_MIN}",
     hint='lecture 0.1.2, section "Paint is a colour threshold"',
 )
-def _paint_masks(fn, show):
+def _paint_masks(fn, show, on_step):
     worst = 1.0  # an IoU cannot be higher
     for given, name, mask, truth, iou in paint_trials(fn):
         if iou < IOU_MIN:

@@ -6,8 +6,10 @@ import numpy as np
 import pytest
 
 import zero2fsd.grade as grade_pkg
-from zero2fsd.car import Car, LaneEstimate, provided
+from zero2fsd.car import Car, LaneEstimate, provided, run
+from zero2fsd.car.runner import COLUMNS
 from zero2fsd.grade import _drive, check
+from zero2fsd.grade._drive import GATE_SCENARIO
 from zero2fsd.grade._poses import LOOKAHEAD, sample_poses
 from zero2fsd.grade._report import EXERCISES, NOT_IMPLEMENTED
 from zero2fsd.sim.dynamics import MAX_STEER
@@ -205,7 +207,7 @@ def telemetry_that(make_tel, *, completed, mean_lat, off_road=False):
 )
 def test_the_gate_decides_on_completion_and_mean_lateral_error(monkeypatch, make_tel, completed, mean_lat, off_road, verdict):
     tel = telemetry_that(make_tel, completed=completed, mean_lat=mean_lat, off_road=off_road)
-    monkeypatch.setattr(_drive, "run", lambda car, scenario: tel)
+    monkeypatch.setattr(_drive, "run", lambda car, scenario, on_step=None: tel)
     if verdict == "pass":
         assert "completed gentle" in _drive.gate(Car(), show=False)
     else:
@@ -215,7 +217,7 @@ def test_the_gate_decides_on_completion_and_mean_lateral_error(monkeypatch, make
 
 
 def test_show_draws_the_dashboard_once_per_run_only_when_asked(monkeypatch, make_tel):
-    monkeypatch.setattr(_drive, "run", lambda car, scenario: telemetry_that(make_tel, completed=True, mean_lat=0.1))
+    monkeypatch.setattr(_drive, "run", lambda car, scenario, on_step=None: telemetry_that(make_tel, completed=True, mean_lat=0.1))
     shown = []
     monkeypatch.setattr(_drive, "show_figure", shown.append)
     _drive.gate(Car(), show=False)
@@ -236,6 +238,43 @@ def test_a_working_all_yours_car_passes_gentle_and_shows_the_curvy_cliffhanger(c
 def test_a_working_perception_passes_the_gate_when_placed_in_the_provided_car():
     result = check("0.1.3.b", own_perception, show=False)
     assert result.passed and "completed gentle" in text(result), text(result)
+
+
+# --- streaming: `on_step` sees every step of the gate drive, and only of a drive ----------------------------------
+
+def own_car():
+    return Car(perception=own_perception, controller=lambda est, obs: provided.steer_p(est))
+
+
+@pytest.mark.parametrize(
+    "exercise_id, target, reference",
+    [
+        ("0.1.3.b", own_perception, lambda: Car(perception=own_perception)),
+        ("0.1.4.b", own_car(), own_car),  # the curvy cliffhanger after the gate is not streamed
+    ],
+)
+def test_the_gate_drive_streams_every_step_to_on_step(exercise_id, target, reference):
+    rows = []
+    result = check(exercise_id, target, show=False, on_step=rows.append)
+    assert result.passed, text(result)
+    steps = len(run(reference(), GATE_SCENARIO).t)
+    assert steps > 0 and len(rows) == steps
+    assert all(len(row) == len(COLUMNS) for row in rows)
+
+
+@pytest.mark.parametrize("exercise_id", ["0.1.1.a", "0.1.1.b", "0.1.2.a", "0.1.3.a", "0.1.4.a"])
+def test_a_grader_that_does_not_drive_never_calls_on_step(exercise_id):
+    calls = []
+    result = check(exercise_id, GOOD[exercise_id], show=False, on_step=calls.append)
+    assert result.passed, text(result)
+    assert calls == []
+
+
+def test_a_car_that_fails_before_driving_streams_nothing():
+    calls = []
+    result = check("0.1.4.b", Car(), show=False, on_step=calls.append)
+    assert not result.passed and "still uses the provided" in text(result)
+    assert calls == []
 
 
 # --- the pose sampler and the grader's own hygiene ---------------------------------------------------------------

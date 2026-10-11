@@ -172,7 +172,7 @@ def tel_that(make_tel, *, completed, mean_lat):
 )
 def test_both_gate_exercises_print_the_gate_limit_and_margin_and_flag_a_thin_one(
         monkeypatch, make_tel, exercise_id, subject, completed, mean_lat, passed, near, says):
-    monkeypatch.setattr(_drive, "run", lambda car, scenario: tel_that(make_tel, completed=completed, mean_lat=mean_lat))
+    monkeypatch.setattr(_drive, "run", lambda car, scenario, on_step=None: tel_that(make_tel, completed=completed, mean_lat=mean_lat))
     result = check(exercise_id, subject, show=False)
     assert result.passed is passed, text(result)
     assert says in text(result), text(result)

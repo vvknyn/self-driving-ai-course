@@ -36,7 +36,7 @@ def _hit_rate_text(hits: int) -> str:
              f"at least {MIN_HIT_RATE:.0%} within {OFFSET_TOL} m and {HEADING_TOL} rad and valid"),
     hint='lecture 0.1.3, section "From masks to a lane estimate"',
 )
-def _estimate_lane(fn, show):
+def _estimate_lane(fn, show, on_step):
     hits, first_miss = 0, None
     for pose, given, est, hit in pose_trials(fn):
         hits += hit
@@ -57,8 +57,8 @@ def _estimate_lane(fn, show):
     checked=f"your perception inside the provided car on `{GATE_SCENARIO}`: it must complete with mean |lat| < {GATE_MEAN_LAT} m",
     hint='lecture 0.1.3, section "Swap your perception into the car"',
 )
-def _perception_gate(fn, show):
+def _perception_gate(fn, show, on_step):
     with learner_code("Car(perception=your function)"):
         car = Car(perception=fn)
     require_own(car, "perception")  # Car(perception=None) would quietly drive on the provided box
-    return gate(car, show)
+    return gate(car, show, on_step)
