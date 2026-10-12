@@ -17,6 +17,8 @@ from typing import Any, Callable
 
 import numpy as np
 
+from ..car.runner import StepHook
+
 REPORT: ContextVar[bool] = ContextVar("REPORT", default=True)  # False while `check(..., report=False)` runs: nothing the grader would print
 NOT_IMPLEMENTED = "not implemented yet \N{EM DASH} write your code in the cell above"
 
@@ -36,7 +38,7 @@ class Failure(Exception):
         self.headline, self.checked, self.shown = headline, checked, shown
 
 
-EXERCISES: dict[str, Callable[[Any, bool, Callable[[tuple], None] | None], Result]] = {}
+EXERCISES: dict[str, Callable[[Any, bool, StepHook | None], Result]] = {}
 
 
 def fmt(value) -> str:
@@ -67,16 +69,16 @@ def margin(value: float, limit: float) -> float:
 
 
 def borderline(value: float, threshold: float) -> str | None:
-    """The borderline sentence when `value` is within BORDERLINE_FRACTION of `threshold`, else None."""
-    return BORDERLINE_NOTE if margin(value, threshold) <= BORDERLINE_FRACTION else None
+    """The borderline sentence when `value` is under BORDERLINE_FRACTION of `threshold` away from it, else None."""
+    return BORDERLINE_NOTE if margin(value, threshold) < BORDERLINE_FRACTION else None
 
 
-def vs_limit(value: float, limit: float, unit: str = "") -> str:
-    """`(limit 0.5 m, margin 25 %)`, then the borderline sentence when the margin is that thin."""
+def vs_limit(value: float, limit: float, unit: str = "", decisive: bool = True) -> str:
+    """`(limit 0.5 m, margin 25 %)`, then the borderline sentence when the margin is that thin and `value` decided the verdict."""
     percent = 100 * margin(value, limit)
     shown = f"{percent:.1f}" if percent < 10 else f"{percent:.0f}"
     text = f"(limit {limit:g}{' ' + unit if unit else ''}, margin {shown} %)"
-    note = borderline(value, limit)
+    note = borderline(value, limit) if decisive else None
     return f"{text}. {note}" if note else text
 
 

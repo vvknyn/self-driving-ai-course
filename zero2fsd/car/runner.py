@@ -19,6 +19,7 @@ MAX_STEP_FACTOR = 3  # default step budget: this many times the steps needed at 
 # `run` hands one such tuple to `on_step`.
 COLUMNS = ("t", "x", "y", "yaw", "speed", "steer", "accel", "lat", "head_err",
            "est_offset", "est_heading", "est_valid", "progress_m", "off_road")
+StepHook = Callable[[tuple], None]  # what `run` calls with each step's row
 
 
 @dataclass(frozen=True)
@@ -46,7 +47,7 @@ class Telemetry:
 
 
 def run(car: Car, scenario, max_steps: int | None = None, seed: int = 0, noise_sigma: float = 0.0,
-        on_step: Callable[[tuple], None] | None = None) -> Telemetry:
+        on_step: StepHook | None = None) -> Telemetry:
     """Run until the route is complete, the car is off the road, or `max_steps` (default 3x the ideal).
 
     Exceptions raised inside the car's boxes (or in `on_step`) propagate.  `scenario` is a Scenario or its name.

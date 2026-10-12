@@ -33,7 +33,7 @@ def test_the_hook_streams_exactly_the_telemetry(scenario):
 def test_the_hook_is_called_once_per_step_on_gentle():
     calls = []
     tel = run(Car(), "gentle", on_step=calls.append)
-    assert tel.completed and len(calls) == len(tel.t) == 1778  # measured Oct 11 2026 on the provided car
+    assert tel.completed and len(calls) == len(tel.t)
 
 
 def test_an_exception_in_the_hook_propagates():

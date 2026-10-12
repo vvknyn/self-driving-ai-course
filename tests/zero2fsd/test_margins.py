@@ -157,10 +157,13 @@ def tel_that(make_tel, *, completed, mean_lat):
     return dataclasses.replace(tel, completed=completed)
 
 
-@pytest.mark.parametrize("exercise_id, subject", [
+GATE_EXERCISES = pytest.mark.parametrize("exercise_id, subject", [
     ("0.1.3.b", own_perception),
     ("0.1.4.b", Car(perception=own_perception, controller=lambda est, obs: provided.steer_p(est))),
 ])
+
+
+@GATE_EXERCISES
 @pytest.mark.parametrize(
     "completed, mean_lat, passed, near, says",
     [
@@ -168,6 +171,9 @@ def tel_that(make_tel, *, completed, mean_lat):
         (True, 0.495, True, True, "mean |lat| 0.495 m (limit 0.5 m, margin 1.0 %)"),
         (True, 0.505, False, True, "mean |lat| 0.505 m (limit 0.5 m, margin 1.0 %)"),
         (False, 0.8, False, False, "mean |lat| 0.800 m (limit 0.5 m, margin 60 %)"),
+        # a run that did not finish fails on completion: a thin mean |lat| did not decide it, so no coin-flip sentence
+        (False, 0.495, False, False, "mean |lat| 0.495 m (limit 0.5 m, margin 1.0 %)"),
+        (False, 0.505, False, False, "mean |lat| 0.505 m (limit 0.5 m, margin 1.0 %)"),
     ],
 )
 def test_both_gate_exercises_print_the_gate_limit_and_margin_and_flag_a_thin_one(
@@ -176,4 +182,13 @@ def test_both_gate_exercises_print_the_gate_limit_and_margin_and_flag_a_thin_one
     result = check(exercise_id, subject, show=False)
     assert result.passed is passed, text(result)
     assert says in text(result), text(result)
+    assert (BORDERLINE_NOTE in text(result)) is near, text(result)
+
+
+@GATE_EXERCISES
+@pytest.mark.parametrize("mean_lat, near", [(98.0, False), (98.01, True), (102.0, False), (101.99, True)])
+def test_the_borderline_sentence_needs_a_margin_under_two_percent_not_at_it(monkeypatch, make_tel, exercise_id, subject, mean_lat, near):
+    monkeypatch.setattr(_drive, "GATE_MEAN_LAT", 100.0)  # a 2 % margin is exact in floating point at 100 and is not at 0.5
+    monkeypatch.setattr(_drive, "run", lambda car, scenario, on_step=None: tel_that(make_tel, completed=True, mean_lat=mean_lat))
+    result = check(exercise_id, subject, show=False)
     assert (BORDERLINE_NOTE in text(result)) is near, text(result)

@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import io
-from collections.abc import Callable
 
 from ..car import Car, Telemetry, run
+from ..car.runner import StepHook
 from ..dashboard import dashboard
 from ..score import driving_score, metrics, metrics_table
 from ._report import REPORT, Failure, learner_code, vs_limit
@@ -30,7 +30,7 @@ def outcome(tel: Telemetry) -> str:
     return f"{how} after {tel.progress_m[-1]:.0f} of {tel.route_length:.0f} m of {tel.scenario}"
 
 
-def drive(car: Car, scenario: str, label: str, show: bool, on_step: Callable[[tuple], None] | None = None) -> Telemetry:
+def drive(car: Car, scenario: str, label: str, show: bool, on_step: StepHook | None = None) -> Telemetry:
     """Run the car on a scenario (learner exceptions become a Failure), print its metrics and maybe the dashboard.
 
     `on_step` receives each telemetry row as the car drives (see `run`)."""
@@ -58,11 +58,12 @@ def require_car(car) -> Car:
     return car
 
 
-def gate(car: Car, show: bool, on_step: Callable[[tuple], None] | None = None) -> str:
+def gate(car: Car, show: bool, on_step: StepHook | None = None) -> str:
     """Fail unless the car completes the gate scenario with mean |lat| under the limit; else say how it did."""
     tel = drive(car, GATE_SCENARIO, f"your car on {GATE_SCENARIO}", show, on_step)
     mean_lat = metrics(tel)["mean_abs_lat"]
-    seen = f"mean |lat| {mean_lat:.3f} m {vs_limit(mean_lat, GATE_MEAN_LAT, 'm')}"
+    # an unfinished run fails on completion, so a thin mean |lat| did not decide it and earns no borderline sentence
+    seen = f"mean |lat| {mean_lat:.3f} m {vs_limit(mean_lat, GATE_MEAN_LAT, 'm', decisive=tel.completed)}"
     if not tel.completed or mean_lat >= GATE_MEAN_LAT:
         raise Failure(f"your car did not pass the {GATE_SCENARIO} gate",
                       expected=f"completes {GATE_SCENARIO} with mean |lat| < {GATE_MEAN_LAT} m",

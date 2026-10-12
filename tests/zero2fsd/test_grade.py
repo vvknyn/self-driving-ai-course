@@ -11,7 +11,7 @@ from zero2fsd.car.runner import COLUMNS
 from zero2fsd.grade import _drive, check
 from zero2fsd.grade._drive import GATE_SCENARIO
 from zero2fsd.grade._poses import LOOKAHEAD, sample_poses
-from zero2fsd.grade._report import EXERCISES, NOT_IMPLEMENTED
+from zero2fsd.grade._report import EXERCISES, NOT_IMPLEMENTED, REPORT
 from zero2fsd.sim.dynamics import MAX_STEER
 
 IDS = ["0.1.1.a", "0.1.1.b", "0.1.2.a", "0.1.3.a", "0.1.3.b", "0.1.4.a", "0.1.4.b"]
@@ -92,6 +92,22 @@ def test_a_correct_answer_passes_and_prints_a_green_summary(exercise_id, capsys)
     result = check(exercise_id, GOOD[exercise_id], show=False)
     assert result.passed, text(result)
     assert capsys.readouterr().out.startswith(f"\033[32m\N{CHECK MARK} {exercise_id}:")
+
+
+@pytest.mark.parametrize("before", [True, False])
+@pytest.mark.parametrize("report", [True, False])
+def test_report_is_restored_after_a_check_that_raises(monkeypatch, before, report):
+    def explode(target, show, on_step):
+        raise RuntimeError("a bug in the grader")
+
+    monkeypatch.setitem(EXERCISES, "x.y.z", explode)
+    token = REPORT.set(before)
+    try:
+        with pytest.raises(RuntimeError, match="a bug in the grader"):
+            check("x.y.z", None, show=False, report=report)
+        assert REPORT.get() is before
+    finally:
+        REPORT.reset(token)
 
 
 def test_check_report_false_prints_nothing_and_the_default_prints(capsys):
@@ -263,11 +279,11 @@ def own_car():
     ],
 )
 def test_the_gate_drive_streams_every_step_to_on_step(exercise_id, target, reference):
-    rows = []
+    rows, ref_rows = [], []
     result = check(exercise_id, target, show=False, on_step=rows.append)
     assert result.passed, text(result)
-    steps = len(run(reference(), GATE_SCENARIO).t)
-    assert steps > 0 and len(rows) == steps
+    run(reference(), GATE_SCENARIO, on_step=ref_rows.append)
+    assert ref_rows and rows == ref_rows  # the very rows a plain run of the same car produces, not just as many
     assert all(len(row) == len(COLUMNS) for row in rows)
 
 

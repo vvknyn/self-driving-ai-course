@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import importlib
 import pkgutil
-from collections.abc import Callable
 
 import numpy as np
 
+from ..car.runner import StepHook
 from . import units
 from ._report import EXERCISES, REPORT, Result, fmt
 
@@ -16,7 +16,7 @@ for _unit in pkgutil.iter_modules(units.__path__):  # importing a unit registers
 GREEN, RED, RESET = "\033[32m", "\033[31m", "\033[0m"
 
 
-def check(exercise_id: str, fn_or_box, show: bool = True, on_step: Callable[[tuple], None] | None = None,
+def check(exercise_id: str, fn_or_box, show: bool = True, on_step: StepHook | None = None,
           report: bool = True) -> Result:
     """Run one exercise's checks on the learner's function (or Car), print the report unless `report` is False, return it.
 
