@@ -182,7 +182,7 @@ Weeks 2–4 then add the `image` kind and their presets; nothing structural.
 | S7 | Progress | Additive `exercises` field, playground passes only | Record Colab passes too: Colab cannot write the browser's storage; a "mark done" button is self-reported and would lie on the map |
 | S8 | Charting library | Loaded on first *Dashboard* press | Always loaded: +9 MB, +8.5 s on slow links, for a panel most runs never open |
 | S9 | Phones | Supported, slower; measured in acceptance | Desktop-only: breaks "no kit, no install" |
-| S10 | Week 1 kinds | `drive` and `stats` | All three now: `image` has no Week 1 exercise |
+| S10 | Week 1 kinds | Week 1 kinds are `drive`, `stats` and one `image` exercise (0.1.2.a); the image preview is one frame beside the mask overlay, no player | Label 0.1.2.a "Colab only": contradicts S-2, which covers every Week 1 exercise |
 
 ## 12. Non-goals and open points
 
