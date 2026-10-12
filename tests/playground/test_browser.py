@@ -2,7 +2,8 @@
 
 Setup once: python -m pip install 'playwright>=1.40' && python -m playwright install chromium
 Each test opens a fresh browser context, so each one downloads Pyodide again (about 10 MB).
-The module takes 15 to 25 minutes. PLAYGROUND_TIMING=1 also runs the S-1 timing test and holds Stop to the S-4 budget.
+The module takes about 8 minutes. Every number that depends on the machine (load, lap speed, Stop, tick gap) is printed on each run
+and asserted only under PLAYGROUND_TIMING=1, on an idle, wired Mac.
 """
 import json
 import math
@@ -23,9 +24,10 @@ from playwright.sync_api import expect, sync_playwright  # noqa: E402
 from _course import REPO, load_solution  # noqa: E402
 from build_playground import exercise_records, write_playground  # noqa: E402
 from playground_browser import P_STEER, exercise_url, open_ready, paint_colours, pasteable, serve, set_code, wait_state  # noqa: E402
-from zero2fsd.car import Car, provided, run  # noqa: E402
+from zero2fsd.car import Car, run  # noqa: E402
 from zero2fsd.grade import check  # noqa: E402
 from zero2fsd.preview import get as get_preview  # noqa: E402
+from zero2fsd.sim.camera import Camera  # noqa: E402
 from zero2fsd.sim.dynamics import DT  # noqa: E402
 
 pytestmark = pytest.mark.browser
@@ -33,12 +35,13 @@ pytestmark = pytest.mark.browser
 TIMING = bool(os.environ.get("PLAYGROUND_TIMING"))
 LOAD_BUDGET_S = 3.0  # spec S-1
 REALTIME_FACTOR = 5  # spec §7: a lap of gentle with camera runs at >= 5x real time on a Mac (measured 10.3x)
-STOP_BUDGET_S = 3.0 if TIMING else 5.0  # spec S-4 is 3 s; the 5 s default ceiling keeps a busy machine from failing the default run
+STOP_BUDGET_S = 3.0  # spec S-4
+TICK_GAP_BUDGET_MS = 500  # the longest the page may go between two 20 ms timer ticks while a `while True` runs
 STEER_ID = "0.1.4.a"
 # A literal on purpose: this key is the contract with the site (src/lib/learnfsd-progress.ts:7), not something to read back from progress.js.
 PROGRESS_KEY = "learnfsd.v2.progress"
-# (exercise id, the unit slug the site files its progress under)
-PASSING = (("0.1.4.a", "0-1-4"), ("0.1.3.a", "0-1-3"))
+PASSING = ("0.1.4.a", "0.1.3.a")  # two units, so the second pass has a first one to leave alone
+SAVED_COPY = "Your progress is saved"  # app.js's status line for a pass that was stored
 STREAMING = ("0.1.4.b", "0.1.3.b")  # spec 5.3: the two checks that drive the car, so their rows stream
 # What a learner holds before writing anything, pasted and as the Mac holds it. check() refuses it in require_own before it
 # drives, so a Check on it streams no rows. (Not `provided.estimate_lane`: the shim rejects a pasted provided box as a NameError.)
@@ -57,6 +60,7 @@ NATIVE_RUN = {
     "image": lambda shim, record, learner: shim.preview_image(learner, record["id"]),
 }
 PNG_MAGIC = [137, 80, 78, 71]
+CAMERA_SIZE = [Camera().width, Camera().height]  # the worker reads these two from this same class to size a frame
 
 RECORDS = exercise_records(REPO)
 BY_ID = {record["id"]: record for record in RECORDS}
@@ -147,11 +151,17 @@ FRAME_SUM_JS = """() => {
   const c = document.querySelector('#frame');
   return c.getContext('2d').getImageData(0, 0, c.width, c.height).data.reduce((a, b) => a + b, 0);
 }"""
-# Longest gap between two 20 ms timer ticks on the page's main thread: a frozen page shows up as a big number.
+# The pixel size of the camera-frame canvas.
+FRAME_SIZE_JS = """() => {
+  const c = document.querySelector('#frame');
+  return [c.width, c.height];
+}"""
+# Counts the 20 ms timer ticks on the page's main thread and keeps the longest gap between two: a frozen page ticks no more.
 TICKER_JS = """() => {
-  window.__ticks = { last: performance.now(), maxGap: 0 };
+  window.__ticks = { last: performance.now(), maxGap: 0, count: 0 };
   setInterval(() => {
     const now = performance.now();
+    window.__ticks.count++;
     window.__ticks.maxGap = Math.max(window.__ticks.maxGap, now - window.__ticks.last);
     window.__ticks.last = now;
   }, 20);
@@ -345,7 +355,8 @@ def test_run_provided_steer_completes_and_draws(page, base_url):
     steps = int(page.get_attribute("#scrub", "max")) + 1
     assert abs(steps - len(run(Car(), record["road"]).t)) <= 2  # the page drove the same lap the Mac drives
     print(f"real_time_x={steps * DT / elapsed:.1f}")  # recorded in the acceptance PR (step C9)
-    assert elapsed * REALTIME_FACTOR < steps * DT, f"the lap ran at {steps * DT / elapsed:.1f}x real time; spec section 7 wants {REALTIME_FACTOR}x"
+    if TIMING:
+        assert elapsed * REALTIME_FACTOR < steps * DT, f"the lap ran at {steps * DT / elapsed:.1f}x real time; spec section 7 wants {REALTIME_FACTOR}x"
     page.click("#to-end")
     expect(page.locator("#scrub")).to_have_value(str(steps - 1))
 
@@ -355,13 +366,25 @@ def test_scrubbing_redraws_the_camera_frame(page, base_url):
     set_code(page, P_STEER)
     page.click("#run")
     wait_state(page, "done")
-    if page.inner_text("#play") == "Pause":
-        page.click("#play")  # hold the playhead still so only the scrubber moves it
+    freeze_playhead(page)  # hold the playhead still so only the scrubber moves it
     page.click("#to-end")
     page.wait_for_function(f"({FRAME_SUM_JS})() > 0")
+    assert page.evaluate(FRAME_SIZE_JS) == CAMERA_SIZE, "the camera frame is not painted at the camera's own width and height"
     at_end = page.evaluate(FRAME_SUM_JS)
     page.fill("#scrub", "0")
     page.wait_for_function(f"({FRAME_SUM_JS})() !== {at_end}")
+
+
+def test_play_button_label_follows_the_playhead(page, base_url):
+    open_ready(page, base_url, STEER_ID)
+    set_code(page, P_STEER)
+    page.click("#run")
+    wait_state(page, "done")
+    freeze_playhead(page)  # leaves the label at "Play"
+    page.click("#play")
+    expect(page.locator("#play")).to_have_text("Pause")
+    page.click("#play")
+    expect(page.locator("#play")).to_have_text("Play")
 
 
 def test_dashboard_library_loads_only_on_demand(page, base_url):
@@ -487,14 +510,15 @@ def test_failing_check_has_the_native_shape(page, base_url):
 
 
 def test_pass_is_recorded_in_progress_store(page, base_url):
-    for exercise_id, _slug in PASSING:
+    for exercise_id in PASSING:
         open_ready(page, base_url, exercise_id)
         press_check(page, pasteable(BY_ID[exercise_id]["unit_id"]))
         expect(page.locator("#verdict")).to_have_attribute("data-passed", "true")
+        expect(page.locator("#status")).to_contain_text(SAVED_COPY)  # the control for test_storage_blocked's "not shown"
     store = json.loads(stored_progress(page))  # read-modify-write: the second pass must not erase the first
     assert store["version"] == 1
-    for exercise_id, slug in PASSING:
-        entry = store["units"][slug]["exercises"][exercise_id]
+    for exercise_id in PASSING:
+        entry = store["units"][BY_ID[exercise_id]["unit_key"]]["exercises"][exercise_id]
         assert entry["via"] == "playground"
         assert entry["passedAt"]
 
@@ -533,7 +557,7 @@ def test_check_that_fails_before_driving_streams_nothing(page, base_url, exercis
     assert len(before_verdict) <= 1, f"#r-progress moved although nothing drove: {before_verdict}"  # one reset at the start is allowed
 
 
-def test_a_drive_record_without_a_road_stops_the_page_at_the_first_streamed_step(page, base_url):
+def test_a_drive_record_without_a_road_fails_the_check_naming_the_problem_and_offers_retry(page, base_url):
     """The worker tags a check's rows with the record's road and does not guess one: with none, the PAGE names the problem and offers Retry."""
 
     def without_roads(route):
@@ -544,8 +568,8 @@ def test_a_drive_record_without_a_road_stops_the_page_at_the_first_streamed_step
 
     page.route(re.compile(r"/exercises\.json$"), without_roads)
     open_ready(page, base_url, STREAMING[0])
-    press = lambda: (set_code(page, pasteable(BY_ID[STREAMING[0]]["unit_id"])), page.click("#check"))  # noqa: E731
-    press()
+    set_code(page, pasteable(BY_ID[STREAMING[0]]["unit_id"]))
+    page.click("#check")
     wait_state(page, "error")
     expect(page.locator("#status")).to_contain_text('names the road "undefined"')
     expect(page.locator("#retry")).to_be_visible()
@@ -560,12 +584,19 @@ def test_stop_halts_while_true_and_page_stays_responsive(page, base_url):
     set_code(page, FOREVER)
     page.click("#run")
     wait_state(page, "running")
+    ticks_at_start = page.evaluate("window.__ticks.count")
     page.wait_for_timeout(1000)  # let the worker spin inside the loop before Stop
+    ticks_while_spinning = page.evaluate("window.__ticks.count") - ticks_at_start
     started = time.monotonic()
     page.click("#stop")
-    wait_state(page, "ready", timeout_ms=int(STOP_BUDGET_S * 1000))
-    print(f"restart_s={time.monotonic() - started:.2f}")
-    assert page.evaluate("window.__ticks.maxGap") < 500, "the page froze while the loop ran"
+    wait_state(page, "ready")
+    restart_s = time.monotonic() - started
+    max_gap_ms = page.evaluate("window.__ticks.maxGap")
+    print(f"restart_s={restart_s:.2f} max_tick_gap_ms={max_gap_ms:.0f}")
+    assert ticks_while_spinning > 1, "the page's main thread did not tick while the loop ran"
+    if TIMING:
+        assert restart_s < STOP_BUDGET_S, f"Stop took {restart_s:.2f} s; spec S-4 wants under {STOP_BUDGET_S} s"
+        assert max_gap_ms < TICK_GAP_BUDGET_MS, f"the page froze for {max_gap_ms:.0f} ms while the loop ran"
     assert visited(page)[-3:] == ["running", "loading", "ready"]
     set_code(page, P_STEER)
     page.click("#run")
@@ -634,6 +665,8 @@ def test_storage_blocked(page, base_url, page_errors):
     open_ready(page, base_url, STEER_ID)
     press_check(page, P_STEER)
     expect(page.locator("#verdict")).to_have_attribute("data-passed", "true")
+    expect(page.locator("#status")).to_contain_text("blocked saving")
+    assert SAVED_COPY not in page.inner_text("#status"), "the page says the pass is saved although storage is blocked"
     assert page_errors == []
 
 

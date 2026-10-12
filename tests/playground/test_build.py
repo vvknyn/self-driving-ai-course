@@ -60,6 +60,21 @@ def starter_of(records, exercise_id):
     return next(r for r in records if r["id"] == exercise_id)["presets"]["starter"]
 
 
+def fingerprints(root):
+    """{path under root: bytes} for every file. A zip gives {"x.zip::member": CRC32} instead of its bytes, which carry timestamps that differ by machine."""
+    found = {}
+    for path in sorted(root.rglob("*")):
+        if not path.is_file():
+            continue
+        name = path.relative_to(root).as_posix()
+        if path.suffix == ".zip":
+            with zipfile.ZipFile(path) as archive:
+                found.update({f"{name}::{member.filename}": member.CRC for member in archive.infolist()})
+        else:
+            found[name] = path.read_bytes()
+    return found
+
+
 # --- exercise_records ---------------------------------------------------------------------------------------
 
 
@@ -321,3 +336,11 @@ def test_write_replaces_the_directory_and_creates_missing_parents(tmp_path):
     (out / "stale.js").write_text("old")
     bp.write_playground(REPO, out)
     assert not (out / "stale.js").exists() and (out / "manifest.json").is_file()
+
+
+def test_the_committed_playground_is_what_the_source_builds(dist):
+    """What the site copies is course/dist/playground/. A stale file, a missing one or an extra one in it fails here, so run
+    `python scripts/build_course_bundle.py` after editing playground/ or zero2fsd/."""
+    committed, built = fingerprints(REPO / "course" / "dist" / "playground"), fingerprints(dist)
+    stale = sorted(name for name in committed.keys() | built.keys() if committed.get(name) != built.get(name))
+    assert not stale, "course/dist/playground/ differs from a fresh build in: " + ", ".join(stale)
