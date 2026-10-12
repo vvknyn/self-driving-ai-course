@@ -60,13 +60,17 @@ def starter_of(records, exercise_id):
     return next(r for r in records if r["id"] == exercise_id)["presets"]["starter"]
 
 
-def fingerprints(root):
-    """{path under root: bytes} for every file. A zip gives {"x.zip::member": CRC32} instead of its bytes, which carry timestamps that differ by machine."""
+def tracked_files(root):
+    """The paths git tracks under `root`, relative to it. An untracked file (a .DS_Store) is not among them."""
+    listed = subprocess.run(["git", "ls-files", "-z"], cwd=root, capture_output=True, text=True, check=True).stdout
+    return [name for name in listed.split("\0") if name]
+
+
+def fingerprints(root, names):
+    """{name: bytes} for each of `names`, paths under root. A zip gives {"x.zip::member": CRC32} instead of its bytes, which carry timestamps that differ by machine."""
     found = {}
-    for path in sorted(root.rglob("*")):
-        if not path.is_file():
-            continue
-        name = path.relative_to(root).as_posix()
+    for name in names:
+        path = root / name
         if path.suffix == ".zip":
             with zipfile.ZipFile(path) as archive:
                 found.update({f"{name}::{member.filename}": member.CRC for member in archive.infolist()})
@@ -339,8 +343,11 @@ def test_write_replaces_the_directory_and_creates_missing_parents(tmp_path):
 
 
 def test_the_committed_playground_is_what_the_source_builds(dist):
-    """What the site copies is course/dist/playground/. A stale file, a missing one or an extra one in it fails here, so run
-    `python scripts/build_course_bundle.py` after editing playground/ or zero2fsd/."""
-    committed, built = fingerprints(REPO / "course" / "dist" / "playground"), fingerprints(dist)
+    """What the site copies is the committed course/dist/playground/. A tracked file the build no longer makes, a fresh output nobody
+    committed or an out-of-date one fails here, so run `python scripts/build_course_bundle.py` after editing playground/ or zero2fsd/.
+    Untracked files in the directory are not part of the commit and are ignored."""
+    committed_dir = REPO / "course" / "dist" / "playground"
+    committed = fingerprints(committed_dir, tracked_files(committed_dir))
+    built = fingerprints(dist, [path.relative_to(dist).as_posix() for path in dist.rglob("*") if path.is_file()])
     stale = sorted(name for name in committed.keys() | built.keys() if committed.get(name) != built.get(name))
     assert not stale, "course/dist/playground/ differs from a fresh build in: " + ", ".join(stale)
