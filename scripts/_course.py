@@ -15,6 +15,10 @@ CELL_HEADER = re.compile(r"^# %%(?P<rest>.*)$")
 FENCE = re.compile(r"^```.*?^```", re.S | re.M)
 
 
+class BuildError(ValueError):
+    """What the build scripts raise for a problem in the course sources; their `main`s report it as one `error:` line, and only it."""
+
+
 def load_yaml(path: Path):
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
@@ -75,7 +79,7 @@ def parse_lab(text: str) -> list[Cell]:
             header, body = match, []
         elif header is None:
             if line.strip():
-                raise ValueError(f"text before the first '# %%' cell header: {line!r}")
+                raise BuildError(f"text before the first '# %%' cell header: {line!r}")
         else:
             body.append(line)
     close()

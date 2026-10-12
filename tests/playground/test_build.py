@@ -1,4 +1,5 @@
 import hashlib
+import io
 import json
 import os
 import re
@@ -10,7 +11,7 @@ import zipfile
 import pytest
 
 import build_playground as bp
-from _course import REPO, syllabus_units
+from _course import REPO, load_yaml, syllabus_units, unit_slug
 from build_course_bundle import build_bundle
 from zero2fsd.export import roads_dict
 from zero2fsd.grade._report import EXERCISES
@@ -66,17 +67,35 @@ def tracked_files(root):
     return [name for name in listed.split("\0") if name]
 
 
+def ready_units():
+    """(syllabus entry, its unit.yaml) for every ready unit of the real course: the data the build reads."""
+    return [(unit, load_yaml(REPO / "course" / unit["folder"] / "unit.yaml")) for unit in syllabus_units(REPO, "ready")]
+
+
 def fingerprints(root, names):
-    """{name: bytes} for each of `names`, paths under root. A zip gives {"x.zip::member": CRC32} instead of its bytes, which carry timestamps that differ by machine."""
+    """{name: bytes} for each of `names` that is a file under root (a deleted one is simply absent, so a comparison names it).
+    A zip gives {"x.zip::member": CRC32} instead of its bytes, which carry timestamps that differ by machine."""
     found = {}
     for name in names:
         path = root / name
+        if not path.is_file():
+            continue
         if path.suffix == ".zip":
             with zipfile.ZipFile(path) as archive:
                 found.update({f"{name}::{member.filename}": member.CRC for member in archive.infolist()})
         else:
             found[name] = path.read_bytes()
     return found
+
+
+def built_fingerprints(dist):
+    return fingerprints(dist, [path.relative_to(dist).as_posix() for path in dist.rglob("*") if path.is_file()])
+
+
+def stale_files(committed_dir, committed_names, built):
+    """The names whose committed fingerprint differs from the built one, a missing side included."""
+    committed = fingerprints(committed_dir, committed_names)
+    return sorted(name for name in committed.keys() | built.keys() if committed.get(name) != built.get(name))
 
 
 # --- exercise_records ---------------------------------------------------------------------------------------
@@ -91,10 +110,16 @@ def test_one_record_per_graded_exercise_in_syllabus_order(records):
 
 
 def test_week_and_label_follow_the_unit_position(records):
-    labels = {r["id"]: r["label"] for r in records}
-    assert labels["0.1.4.b"] == "Week 4 · Closing the loop · Exercise B"
-    assert labels["0.1.1.a"] == "Week 1 · Meet your car · Exercise A"
-    assert [r["week"] for r in records] == [1, 1, 2, 3, 3, 4, 4]
+    weeks = {unit["id"]: week for week, unit in enumerate(syllabus_units(REPO), start=1)}
+    expected = [(weeks[unit["id"]], f"Week {weeks[unit['id']]} · {meta['title']} · Exercise {exercise['id'][-1].upper()}")
+                for unit, meta in ready_units() for exercise in meta["exercises"]]
+    assert [(r["week"], r["label"]) for r in records] == expected
+
+
+def test_the_exercise_letter_comes_from_its_id_not_its_position(mini_repo):
+    rewrite(mini_repo, UNIT_YAML, '  - {id: "0.1.1.a", name: lane_error_stats}\n  - {id: "0.1.1.b", name: steps_off_lane}',
+            '  - {id: "0.1.1.b", name: steps_off_lane}\n  - {id: "0.1.1.a", name: lane_error_stats}')
+    assert [(r["id"], r["label"][-1]) for r in bp.exercise_records(mini_repo)] == [("0.1.1.b", "B"), ("0.1.1.a", "A")]
 
 
 def test_labels_never_show_a_dotted_id(records):
@@ -106,7 +131,7 @@ def test_unit_key_and_colab_url_are_the_ones_the_course_bundle_publishes(records
     for r in records:
         unit = units[r["unit_key"]]  # the site keys progress by this slug, so it must be a unit of course.json
         assert (unit["id"], unit["title"], unit["colab_url"]) == (r["unit_id"], r["unit_title"], r["colab_url"])
-    assert {r["unit_id"]: r["unit_key"] for r in records} == {"0.1.1": "0-1-1", "0.1.2": "0-1-2", "0.1.3": "0-1-3", "0.1.4": "0-1-4"}
+    assert {r["unit_id"]: r["unit_key"] for r in records} == {unit["id"]: unit_slug(unit["id"]) for unit, meta in ready_units() if meta["exercises"]}
 
 
 def test_every_record_has_exactly_the_keys_the_page_reads(records):
@@ -139,8 +164,7 @@ def test_kind_and_road_come_from_the_preview_registry_and_every_named_road_exist
 
 
 def test_car_box_is_the_units_own_key_in_unit_yaml(records):
-    assert {r["unit_id"]: r["car_box"] for r in records} == {
-        "0.1.1": "instruments", "0.1.2": "perception", "0.1.3": "perception", "0.1.4": "steer"}
+    assert {r["unit_id"]: r["car_box"] for r in records} == {unit["id"]: meta["car_box"] for unit, meta in ready_units() if meta["exercises"]}
 
 
 def test_a_unit_with_exercises_and_no_car_box_fails_naming_it_and_one_with_a_car_box_emits_it(mini_repo):
@@ -148,7 +172,7 @@ def test_a_unit_with_exercises_and_no_car_box_fails_naming_it_and_one_with_a_car
     rewrite(mini_repo, UNIT_YAML, "car_box: instruments", "car_box: steer")
     assert {r["car_box"] for r in bp.exercise_records(mini_repo)} == {"steer"}
     rewrite(mini_repo, UNIT_YAML, "car_box: steer\n", "")
-    with pytest.raises(ValueError, match=r"0\.1\.1: unit\.yaml has exercises but no `car_box`"):
+    with pytest.raises(bp.BuildError, match=r"0\.1\.1: unit\.yaml has exercises but no `car_box`"):
         bp.exercise_records(mini_repo)
 
 
@@ -165,6 +189,24 @@ def test_task_is_empty_until_unit_yaml_gives_one(mini_repo):
     assert [r["task"] for r in bp.exercise_records(mini_repo)] == ["", "Count the steps off the lane"]
 
 
+@pytest.mark.parametrize(("old", "new", "message"), [
+    ('exercises:\n  - {id: "0.1.1.a", name: lane_error_stats}\n  - {id: "0.1.1.b", name: steps_off_lane}', "", r"0\.1\.1: unit\.yaml has no `exercises` list"),
+    ('{id: "0.1.1.a", name: lane_error_stats}', '{id: "0.1.1.a"}', r"0\.1\.1\.a: unit\.yaml `name` must be text, got None"),
+    ("car_box: instruments", "car_box: 5", r"0\.1\.1: unit\.yaml `car_box` must be text, got 5"),
+    ('{id: "0.1.1.b", name: steps_off_lane}', '{id: "0.1.1.b", name: steps_off_lane, task: }', r"0\.1\.1\.b: unit\.yaml `task` must be text, got None"),
+])
+def test_a_unit_yaml_field_that_is_missing_or_not_text_fails_naming_the_unit_or_exercise(mini_repo, old, new, message):
+    rewrite(mini_repo, UNIT_YAML, old, new)
+    with pytest.raises(bp.BuildError, match=message):
+        bp.exercise_records(mini_repo)
+
+
+def test_a_ready_unit_without_a_lab_py_fails_naming_it(mini_repo):
+    (mini_repo / "course" / "0.1.1-mini" / "lab.py").unlink()
+    with pytest.raises(bp.BuildError, match=r"0\.1\.1: course/0\.1\.1-mini/lab\.py is missing"):
+        bp.exercise_records(mini_repo)
+
+
 def test_the_week_counts_every_listed_unit_not_only_the_ready_ones(mini_repo):
     assert {r["week"] for r in bp.exercise_records(mini_repo)} == {1}
     rewrite(mini_repo, "course/syllabus.yaml", "          - {id: \"0.1.1\"",
@@ -176,14 +218,28 @@ def test_the_week_counts_every_listed_unit_not_only_the_ready_ones(mini_repo):
 
 def test_an_exercise_without_a_tagged_lab_cell_fails_naming_it(mini_repo):
     rewrite(mini_repo, "course/0.1.1-mini/lab.py", 'tags=["exercise:0.1.1.b"]', 'tags=["exercise:0.1.1.x"]')
-    with pytest.raises(ValueError, match="0.1.1.b"):
+    with pytest.raises(bp.BuildError, match="0.1.1.b"):
         bp.exercise_records(mini_repo)
 
 
 # --- validate_lecture_links ----------------------------------------------------------------------------------
 
 
+@pytest.mark.parametrize(("text", "found"), [
+    ("playground/index.html?exercise=0.1.4.a", ("0.1.4.a", None)),
+    ("see playground/index.html?exercise=0.1.4.a.", ("0.1.4.a", None)),
+    ("playground/index.html?exercise=0.1.4.a#frag", ("0.1.4.a", None)),
+    ("<a href='playground/index.html?exercise=0.1.4.a'>", ("0.1.4.a", None)),
+    ("(playground/index.html?exercise=0.1.4.a&preset=starter), and", ("0.1.4.a", "starter")),
+    ("playground/index.html?exercise=0.1.4.a&preset=starter.", ("0.1.4.a", "starter")),
+    ('<a href="playground/index.html?exercise=0.1.4.a&preset=starter#top">', ("0.1.4.a", "starter")),
+])
+def test_the_link_pattern_stops_the_id_and_the_preset_at_a_delimiter_or_trailing_punctuation(text, found):
+    assert [m.groups() for m in bp.PLAYGROUND_LINK.finditer(text)] == [found]
+
+
 @pytest.mark.parametrize("link", [
+    "Open playground/index.html?exercise=0.1.1.a.",
     "[Open in the playground](playground/index.html?exercise=0.1.1.a)",
     "[Try it](https://intervuhq.com/learnfsd/playground/index.html?exercise=0.1.1.b&preset=starter)",
     '<a href="playground/index.html?exercise=0.1.1.a&preset=starter">try it</a>',
@@ -205,7 +261,7 @@ def test_every_lecture_link_in_the_repo_resolves(records):
 ])
 def test_a_lecture_link_to_a_missing_exercise_or_preset_names_the_lecture_the_link_and_why(mini_repo, link, bad_link, why):
     link_in_lecture(mini_repo, "0.1.1-mini", link)
-    with pytest.raises(ValueError) as caught:
+    with pytest.raises(bp.BuildError) as caught:
         bp.validate_lecture_links(mini_repo, bp.exercise_records(mini_repo))
     assert f"course/0.1.1-mini/lecture.md: {bad_link} ({why}" in str(caught.value)
 
@@ -217,7 +273,7 @@ def test_a_lecture_link_to_a_missing_exercise_or_preset_names_the_lecture_the_li
 ])
 def test_a_link_in_a_form_the_site_does_not_serve_fails_even_when_the_exercise_exists(mini_repo, link):
     link_in_lecture(mini_repo, "0.1.1-mini", link)
-    with pytest.raises(ValueError, match=re.escape("use playground/index.html?exercise=<id>")):
+    with pytest.raises(bp.BuildError, match=re.escape("use playground/index.html?exercise=<id>")):
         bp.validate_lecture_links(mini_repo, bp.exercise_records(mini_repo))
 
 
@@ -225,7 +281,7 @@ def test_every_bad_link_of_every_lecture_is_listed_at_once(mini_repo):
     (mini_repo / "course" / "0.9.9-other").mkdir()
     (mini_repo / "course" / "0.9.9-other" / "lecture.md").write_text("[x](playground/index.html?exercise=8.8.8.y)\n")
     link_in_lecture(mini_repo, "0.1.1-mini", "[x](playground/index.html?exercise=9.9.9.z)")
-    with pytest.raises(ValueError) as caught:
+    with pytest.raises(bp.BuildError) as caught:
         bp.validate_lecture_links(mini_repo, bp.exercise_records(mini_repo))
     message = str(caught.value)
     assert "course/0.9.9-other/lecture.md" in message and "8.8.8.y" in message
@@ -237,7 +293,7 @@ def test_a_bad_link_stops_the_build_before_the_previous_one_is_touched(mini_repo
     out.mkdir()
     (out / "keep.txt").write_text("previous build")
     link_in_lecture(mini_repo, "0.1.1-mini", "[x](playground/index.html?exercise=9.9.9.z)")
-    with pytest.raises(ValueError, match="9.9.9.z"):
+    with pytest.raises(bp.BuildError, match="9.9.9.z"):
         bp.write_playground(mini_repo, out)
     assert (out / "keep.txt").read_text() == "previous build"
 
@@ -263,16 +319,21 @@ def test_dist_holds_the_page_files_and_the_generated_ones_and_nothing_else(dist)
     assert all(p.is_file() for p in dist.iterdir())
 
 
-def test_hidden_files_and_folders_of_playground_are_not_published(mini_repo, tmp_path):
+def test_dot_files_and_dot_or_underscore_folders_of_playground_are_not_published_and_other_folders_are(mini_repo, tmp_path):
     page = mini_repo / "playground"
-    (page / "__pycache__").mkdir(parents=True)
-    (page / "__pycache__" / "shim.cpython-312.pyc").write_bytes(b"x")
-    (page / ".DS_Store").write_bytes(b"x")
-    (page / "app.js").write_text("export {};\n")
+    for hidden in ("__pycache__/shim.cpython-312.pyc", ".cache/x.js", "_private/y.js", "vendor/.keep", "vendor/_skip/z.js", ".DS_Store"):
+        (page / hidden).parent.mkdir(parents=True, exist_ok=True)
+        (page / hidden).write_bytes(b"x")
+    for shown in ("app.js", "vendor/lib.js", "vendor/deep/lib2.js"):
+        (page / shown).parent.mkdir(parents=True, exist_ok=True)
+        (page / shown).write_text("export {};\n")
     (mini_repo / "zero2fsd").mkdir()
     (mini_repo / "zero2fsd" / "__init__.py").write_text('"""stub"""\n')
-    bp.write_playground(mini_repo, tmp_path / "out")
-    assert {p.name for p in (tmp_path / "out").iterdir()} == {"app.js"} | GENERATED
+    out = tmp_path / "out"
+    bp.write_playground(mini_repo, out)
+    published = {p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file()}
+    assert published == {"app.js", "vendor/lib.js", "vendor/deep/lib2.js"} | GENERATED
+    assert {f["path"] for f in json.loads((out / "manifest.json").read_text())["files"]} == published - {"manifest.json"}
 
 
 def test_page_files_are_copied_byte_for_byte(dist):
@@ -314,13 +375,32 @@ def test_the_zip_bytes_depend_on_content_only(tmp_path):
     assert bp.bundle_zip(copy) == bp.bundle_zip(REPO / "zero2fsd")
 
 
+def test_the_zip_orders_names_as_text_and_pins_the_creating_system(tmp_path, monkeypatch):
+    package = tmp_path / "zero2fsd"
+    for name in ("mod.py", "mod/x.py", "mod-b.py"):  # by path parts `mod/x.py` sorts before `mod.py`; as text it does not
+        (package / name).parent.mkdir(parents=True, exist_ok=True)
+        (package / name).write_text("x = 1\n")
+    with monkeypatch.context() as patched:
+        patched.setattr(sys, "platform", "win32")  # zipfile stamps the creating system from it: the bytes must not depend on the build machine
+        data = bp.bundle_zip(package)
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        assert archive.namelist() == sorted(archive.namelist()) == ["zero2fsd/mod-b.py", "zero2fsd/mod.py", "zero2fsd/mod/x.py"]
+        assert {info.create_system for info in archive.infolist()} == {3}
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_the_data_files_refuse_a_number_json_cannot_hold(value):
+    with pytest.raises(ValueError, match="not JSON compliant"):
+        bp._json({"x": [1.0, value]})
+
+
 @pytest.mark.parametrize("contents", [{}, {"README.md": "# not code\n", "data.json": "{}\n"}], ids=["empty", "no-py-files"])
 def test_a_package_with_no_python_files_does_not_pack(tmp_path, contents):
     package = tmp_path / "zero2fsd"
     package.mkdir()
     for name, text in contents.items():
         (package / name).write_text(text)
-    with pytest.raises(ValueError, match="has no Python files to pack"):
+    with pytest.raises(bp.BuildError, match="has no Python files to pack"):
         bp.bundle_zip(package)
 
 
@@ -347,7 +427,16 @@ def test_the_committed_playground_is_what_the_source_builds(dist):
     committed or an out-of-date one fails here, so run `python scripts/build_course_bundle.py` after editing playground/ or zero2fsd/.
     Untracked files in the directory are not part of the commit and are ignored."""
     committed_dir = REPO / "course" / "dist" / "playground"
-    committed = fingerprints(committed_dir, tracked_files(committed_dir))
-    built = fingerprints(dist, [path.relative_to(dist).as_posix() for path in dist.rglob("*") if path.is_file()])
-    stale = sorted(name for name in committed.keys() | built.keys() if committed.get(name) != built.get(name))
+    stale = stale_files(committed_dir, tracked_files(committed_dir), built_fingerprints(dist))
     assert not stale, "course/dist/playground/ differs from a fresh build in: " + ", ".join(stale)
+
+
+@pytest.mark.parametrize("deleted", ["exercises.json", "bundle.zip"])
+def test_a_tracked_file_deleted_from_disk_is_named_as_stale_not_a_file_not_found(dist, tmp_path, deleted):
+    copy = tmp_path / "committed"
+    shutil.copytree(dist, copy)
+    names = [path.relative_to(copy).as_posix() for path in copy.rglob("*") if path.is_file()]
+    assert stale_files(copy, names, built_fingerprints(dist)) == []
+    (copy / deleted).unlink()
+    stale = stale_files(copy, names, built_fingerprints(dist))
+    assert stale and all(name == deleted or name.startswith(f"{deleted}::") for name in stale)

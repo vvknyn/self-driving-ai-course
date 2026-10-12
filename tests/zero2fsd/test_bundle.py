@@ -4,8 +4,8 @@ import pytest
 import yaml
 
 import build_course_bundle as bundler
-from _course import REPO, heading_slug, unit_slug
-from build_course_bundle import BundleError
+from _course import REPO, BuildError, heading_slug, unit_slug
+from zero2fsd.preview import PREVIEWS
 
 UNIT = "course/0.1.1-mini"
 
@@ -90,8 +90,24 @@ def test_main_fails_with_one_line_when_an_exercise_has_no_preview(built_repo, ca
     edit(built_repo, f"{UNIT}/lab.py", "exercise:0.1.1.b", "exercise:9.9.9.z")
     assert bundler.main(["--root", str(built_repo)]) == 1
     err = capsys.readouterr().err
-    assert "error: unknown exercise '9.9.9.z'" in err and "Traceback" not in err
+    assert err.splitlines() == [f"error: unknown exercise '9.9.9.z'; known: {', '.join(sorted(PREVIEWS))}"]
     assert not (built_repo / "course" / "dist" / "playground").exists()
+
+
+def test_main_reports_a_lab_py_with_stray_text_and_a_missing_lab_py_as_one_error_line(built_repo, capsys):
+    edit(built_repo, f"{UNIT}/lab.py", "# %%", "stray text\n# %%")
+    assert bundler.main(["--root", str(built_repo)]) == 1
+    assert capsys.readouterr().err.splitlines() == ["error: text before the first '# %%' cell header: 'stray text'"]
+    edit(built_repo, f"{UNIT}/lab.py", "stray text\n", "")
+    (built_repo / UNIT / "lab.py").unlink()
+    assert bundler.main(["--root", str(built_repo)]) == 1
+    assert capsys.readouterr().err.splitlines() == ["error: 0.1.1: course/0.1.1-mini/lab.py is missing"]
+
+
+def test_main_does_not_swallow_a_value_error_that_is_not_the_builds_own(built_repo):
+    edit(built_repo, f"{UNIT}/lab.py", 'tags=["exercise:0.1.1.b"]', 'tags=["exercise:0.1.1.b"')  # corrupt JSON in a cell header
+    with pytest.raises(json.JSONDecodeError):
+        bundler.main(["--root", str(built_repo)])
 
 
 def test_main_fails_on_a_lecture_link_to_an_exercise_that_does_not_exist(built_repo, capsys):
@@ -103,7 +119,7 @@ def test_main_fails_on_a_lecture_link_to_an_exercise_that_does_not_exist(built_r
 @pytest.mark.parametrize("name", bundler.REQUIRED_FILES)
 def test_a_ready_unit_missing_any_required_file_fails(built_repo, name):
     (built_repo / UNIT / name).unlink()
-    with pytest.raises(BundleError, match=name):
+    with pytest.raises(BuildError, match=name):
         bundler.build_bundle(built_repo)
 
 
@@ -113,7 +129,7 @@ def test_a_unit_yaml_missing_any_required_key_fails(built_repo, key):
     meta = yaml.safe_load(path.read_text())
     del meta[key]
     path.write_text(yaml.safe_dump(meta))
-    with pytest.raises(BundleError, match=key):
+    with pytest.raises(BuildError, match=key):
         bundler.build_bundle(built_repo)
 
 
@@ -138,13 +154,13 @@ def test_a_unit_yaml_missing_any_required_key_fails(built_repo, key):
 )
 def test_bad_content_fails_loudly(built_repo, rel, old, new, message):
     edit(built_repo, rel, old, new)
-    with pytest.raises(BundleError, match=message):
+    with pytest.raises(BuildError, match=message):
         bundler.build_bundle(built_repo)
 
 
 def test_a_quiz_section_may_not_be_a_heading_that_only_appears_in_a_code_fence(built_repo):
     edit(built_repo, f"{UNIT}/quiz.yaml", "section: measuring-lane-error\n- id: q2", "section: this-comment-is-not-a-heading\n- id: q2")
-    with pytest.raises(BundleError, match="not a heading"):
+    with pytest.raises(BuildError, match="not a heading"):
         bundler.build_bundle(built_repo)
 
 

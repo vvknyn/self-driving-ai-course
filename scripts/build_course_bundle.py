@@ -2,7 +2,7 @@
 
     python scripts/build_course_bundle.py [--root DIR]
 
-Fails loudly (BundleError, exit 1) when a ready unit is missing a file, a field, a figure the lecture
+Fails loudly (BuildError, exit 1) when a ready unit is missing a file, a field, a figure the lecture
 references, or a quiz `section` that is not a heading of the lecture.  It then writes course/dist/playground/
 (scripts/build_playground.py), which fails the same way on a lecture link to an exercise that does not exist.
 """
@@ -16,7 +16,7 @@ import sys
 from numbers import Real
 from pathlib import Path
 
-from _course import FENCE, REPO, REPO_SLUG, colab_url, heading_slug, load_yaml, syllabus_units, unit_slug
+from _course import FENCE, REPO, REPO_SLUG, BuildError, colab_url, heading_slug, load_yaml, syllabus_units, unit_slug
 from build_playground import write_playground
 
 VERSION = 1
@@ -29,13 +29,9 @@ LOCAL_FIGURE = re.compile(r"(?:\./)?figures/(?P<file>[^/]+)")
 HEADING = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$", re.M)
 
 
-class BundleError(Exception):
-    pass
-
-
 def _need(condition, message):
     if not condition:
-        raise BundleError(message)
+        raise BuildError(message)
 
 
 def _text(value) -> bool:
@@ -81,7 +77,7 @@ def build_quiz(unit_id: str, quiz, sections: set[str]) -> list[dict]:
             out.append({"id": q["id"], "type": "numeric", "prompt": q["prompt"], "answer": q["answer"], "tolerance": q["tolerance"],
                         "explain": q["explain"], "section": q["section"]})
         else:
-            raise BundleError(f"{where}: type must be mcq or numeric, got {q['type']!r}")
+            raise BuildError(f"{where}: type must be mcq or numeric, got {q['type']!r}")
     return out
 
 
@@ -175,7 +171,7 @@ def main(argv=None) -> int:
     try:
         out = write_bundle(root)
         write_playground(root, playground)
-    except (BundleError, ValueError) as err:
+    except BuildError as err:
         print(f"error: {err}", file=sys.stderr)
         return 1
     bundle = json.loads(out.read_text(encoding="utf-8"))
