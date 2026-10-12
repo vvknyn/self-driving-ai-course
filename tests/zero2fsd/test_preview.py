@@ -156,18 +156,22 @@ def test_a_stats_preview_fails_loudly_on_a_non_number_and_never_changes_the_tele
     (True, "expected a number or a dict of numbers, got bool"),
     ({"mean": "3"}, "expected a number for 'mean', got str"),
     ({"mean": None}, "expected a number for 'mean', got NoneType"),
+    ({None: "3"}, "expected a number for None, got str"),  # a None key is a label like any other, not the bare-number marker
 ])
-def test_a_stats_answer_that_is_not_a_number_is_a_plain_language_type_error(bad, expected_text):
-    tel = run(Car(), STATS_ROAD)
+def test_a_stats_answer_that_is_not_a_number_is_a_plain_language_type_error(canned, bad, expected_text):
     with pytest.raises(TypeError) as err:
-        get("0.1.1.a").build(lambda lat: bad, tel)
+        get("0.1.1.a").build(lambda lat: bad, canned)
     assert expected_text in str(err.value)
 
 
-def test_a_numpy_float_answer_is_accepted_as_a_plain_float():
-    tel = run(Car(), STATS_ROAD)
-    got = get("0.1.1.a").build(lambda lat: np.float64(0.25), tel)
+def test_a_numpy_float_answer_is_accepted_as_a_plain_float(canned):
+    got = get("0.1.1.a").build(lambda lat: np.float64(0.25), canned)
     assert got == {"lane_error_stats": 0.25} and type(got["lane_error_stats"]) is float
+
+
+@pytest.mark.parametrize("exercise_id", ["0.1.1.a", "0.1.1.b"])
+def test_a_dict_with_a_none_key_keeps_that_key_as_its_label(canned, exercise_id):
+    assert get(exercise_id).build(lambda lat: {None: 3, "mean": 1}, canned) == {"None": 3.0, "mean": 1.0}
 
 
 # --- image previews: the learner's masks drawn on the frame ------------------------------------------------------

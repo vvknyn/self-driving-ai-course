@@ -103,7 +103,7 @@ def test_curved_lines_keep_their_lateral_offset(name):
 def test_points_are_spaced_by_the_export_spacing(name):
     gaps = segment_lengths(road_dict(name)["lines"]["yellow"], closed=False)
     np.testing.assert_allclose(gaps[:-1], ROAD_SPACING_M, atol=2e-3)  # chords of the arc, to the rounding
-    assert 0 < gaps[-1] <= ROAD_SPACING_M + 2e-3  # open roads: the remainder before the end; closed: one more full step
+    assert 10 ** -COORD_DECIMALS < gaps[-1] <= ROAD_SPACING_M + 2e-3  # open roads: the remainder before the end; closed: one more full step
 
 
 @pytest.mark.parametrize("name", NAMES)
