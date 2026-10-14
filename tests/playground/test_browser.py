@@ -23,7 +23,7 @@ from playwright.sync_api import expect, sync_playwright  # noqa: E402
 
 from _course import REPO, load_solution  # noqa: E402
 from build_playground import exercise_records, write_playground  # noqa: E402
-from playground_browser import P_STEER, exercise_url, open_ready, paint_colours, pasteable, serve, set_code, wait_state  # noqa: E402
+from playground_browser import EDITOR_READY, P_STEER, exercise_url, open_ready, paint_colours, pasteable, serve, set_code, wait_state  # noqa: E402
 from zero2fsd.car import Car, run  # noqa: E402
 from zero2fsd.grade import check  # noqa: E402
 from zero2fsd.preview import get as get_preview  # noqa: E402
@@ -86,7 +86,8 @@ WRONG_RETURN = {
 }
 
 RETURN_ZERO = "def p_steer(est, k_off, k_head):\n    return 0.0\n"
-FOREVER = "def p_steer(est, k_off, k_head):\n    while True:\n        pass\n"
+# Says it is running, then never returns: the print is the one signal that reaches the page from inside a loop with no rows.
+SPINS = "def p_steer(est, k_off, k_head):\n    print('spinning')\n    while True:\n        pass\n"
 DIVIDES_BY_ZERO = "def p_steer(est, k_off, k_head):\n    return 1 / 0\n"
 RAISES_AFTER_50_STEPS = '''calls = 0
 
@@ -107,11 +108,13 @@ new MutationObserver((records) => {
   for (const r of records) if (r.target.id === "status") window.__states.push(r.oldValue);
 }).observe(document, { subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ["data-state"] });
 """
-# Records the type of every message the page posts to its worker, so a test can count the requests a page action made.
+# Records the type of every message the page posts to its worker, so a test can count the requests a page action made, and keeps
+# the worker itself (window.__worker) so a test can hand the page a reply the worker did not send.
 POSTED_RECORDER = """
 window.__posted = [];
 const postMessage = Worker.prototype.postMessage;
 Worker.prototype.postMessage = function (message, ...rest) {
+  window.__worker = this;
   window.__posted.push(message.type);
   return postMessage.call(this, message, ...rest);
 };
@@ -185,6 +188,39 @@ WORKER_JS = """(init) => {
   window.worker.onerror = (event) => window.messages.push({ type: "onerror", message: event.message });
   if (init) window.worker.postMessage({ type: "init" });
 }"""
+# view.js and player.js, imported from a bare same-origin document (no page, no worker). `body` is the text of an async function
+# that sees view, player (the served modules), palette, roads (the real files), canvas (600x240 CSS px), rows(n) (steps 50 ms
+# apart), wait(ms), newPlayer() (on gentle) and recording() (a 2D context that keeps the points of every stroked path and draws
+# nothing). What it returns comes back as it is, what it throws as {error: message}.
+MODULE_JS = """async (body) => {
+  const [view, player] = await Promise.all([import("./view.js"), import("./player.js")]);
+  const [palette, roads] = await Promise.all(["palette", "roads"].map((file) => fetch(`./${file}.json`).then((r) => r.json())));
+  const canvas = document.body.appendChild(document.createElement("canvas"));
+  canvas.style.cssText = "width: 600px; height: 240px";
+  const scope = {
+    view, player, palette, roads, canvas,
+    rows: (n) => Array.from({ length: n }, (_, i) => ({ t: i * 0.05, x: i, y: 0, yaw: 0, off_road: false })),
+    wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    newPlayer: () => new player.Player(canvas, roads.gentle, palette),
+    recording: () => {
+      const strokes = [];
+      let path = [];
+      const ctx = new Proxy({ canvas }, {
+        get: (target, name) => name in target ? target[name]
+          : name === "beginPath" ? () => { path = []; }
+          : name === "moveTo" || name === "lineTo" ? (x, y) => path.push([x, y])
+          : name === "stroke" ? () => strokes.push({ style: target.strokeStyle, points: path })
+          : () => {},
+        set: (target, name, value) => { target[name] = value; return true; },
+      });
+      return { ctx, strokes };
+    },
+  };
+  const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
+  try { return await new AsyncFunction(...Object.keys(scope), body)(...Object.values(scope)); }
+  catch (error) { return { error: error.message }; }
+}"""
+SPAN_ROAD = "{ lines: { tarmac_left: [[0, 0], [100, 0]], tarmac_right: [[0, -10], [100, -10]] } }"  # 100 m by 10 m
 SENTINEL = {"type": "sentinel"}  # a request no worker has a handler for: its error closes the list of replies before it
 
 
@@ -262,6 +298,13 @@ def native_error(shim, record, code):
 
 def stored_progress(page):
     return page.evaluate("key => localStorage.getItem(key)", PROGRESS_KEY)
+
+
+def seed_progress(page, stored):
+    """Leave the string `stored` under the progress key before the page's scripts run, as the site's own pages would have; a later
+    navigation of the same page finds what the first one left, not the seed again."""
+    key, value = json.dumps(PROGRESS_KEY), json.dumps(stored)
+    page.add_init_script(f"if (localStorage.getItem({key}) === null) localStorage.setItem({key}, {value});")
 
 
 def scroll_width(page):
@@ -523,6 +566,49 @@ def test_pass_is_recorded_in_progress_store(page, base_url):
         assert entry["passedAt"]
 
 
+def test_a_pass_leaves_the_rest_of_the_site_store_as_it_was(page, base_url):
+    """The store belongs to the site: a pass adds its own record and keeps the unit's other fields, other units, the deck and keys it
+    has never heard of, and a second pass of the same exercise keeps the first pass's time."""
+    unit_key = BY_ID[STEER_ID]["unit_key"]
+    site_owned = {
+        "units": {"0-1-1": {"logs": [{"at": "x"}], "quiz": {"best": 1}}, unit_key: {"logs": [], "quiz": {"best": 3}}},
+        "deck": {"0-1-1:q1": {"box": 2}},
+        "extra": 7,
+    }
+    seed_progress(page, json.dumps({"version": 1, **site_owned}))
+    open_ready(page, base_url, STEER_ID)
+    press_check(page, P_STEER)
+    store = json.loads(stored_progress(page))
+    entry = store["units"][unit_key].pop("exercises")[STEER_ID]
+    assert entry["via"] == "playground" and entry["passedAt"]
+    assert store == {"version": 1, **site_owned}, "a pass changed something that is not its own record"
+    press_check(page, P_STEER)
+    expect(page.locator("#status")).to_contain_text(SAVED_COPY)
+    assert json.loads(stored_progress(page))["units"][unit_key]["exercises"][STEER_ID] == entry, "a second pass rewrote the first one's record"
+
+
+@pytest.mark.parametrize("stored", [
+    {"version": 2, "units": {"0-1-1": {"quiz": {"best": 1}}}, "deck": {}},
+    {"version": 0, "units": {}, "deck": {}, "streak": 3},
+], ids=["a newer version", "an older version"])
+def test_a_store_of_another_version_is_left_alone(page, base_url, stored):
+    """A record this page cannot read as version 1 is the site's to migrate: the pass is not written into it, and the page says so."""
+    seed_progress(page, json.dumps(stored))
+    open_ready(page, base_url, STEER_ID)
+    press_check(page, P_STEER)
+    expect(page.locator("#status")).to_contain_text("blocked saving")
+    assert stored_progress(page) == json.dumps(stored), "the page wrote into a record it cannot read"
+
+
+def test_text_that_is_not_a_store_is_replaced_by_one(page, base_url):
+    """The control for the test above: a stored value that is no record at all reads as empty, as it does on the site."""
+    seed_progress(page, "not json")
+    open_ready(page, base_url, STEER_ID)
+    press_check(page, P_STEER)
+    expect(page.locator("#status")).to_contain_text(SAVED_COPY)
+    assert json.loads(stored_progress(page))["version"] == 1
+
+
 def test_failing_check_records_nothing(page, base_url):
     open_ready(page, base_url, STEER_ID)
     press_check(page, RETURN_ZERO)
@@ -585,19 +671,18 @@ def test_a_drive_record_with_no_road_or_an_unknown_one_fails_on_load_naming_the_
 def test_stop_halts_while_true_and_page_stays_responsive(page, base_url):
     open_ready(page, base_url, STEER_ID)
     page.evaluate(TICKER_JS)
-    set_code(page, FOREVER)
+    set_code(page, SPINS)
     page.click("#run")
     wait_state(page, "running")
+    expect(page.locator("#stdout")).to_contain_text("spinning")  # the worker is in the loop: the learner's print is the signal, a loop streams no rows
     ticks_at_start = page.evaluate("window.__ticks.count")
-    page.wait_for_timeout(1000)  # let the worker spin inside the loop before Stop
-    ticks_while_spinning = page.evaluate("window.__ticks.count") - ticks_at_start
+    page.wait_for_function("start => window.__ticks.count - start >= 25", arg=ticks_at_start, timeout=10_000)  # the page's thread ticks while it spins
     started = time.monotonic()
     page.click("#stop")
     wait_state(page, "ready")
     restart_s = time.monotonic() - started
     max_gap_ms = page.evaluate("window.__ticks.maxGap")
     print(f"restart_s={restart_s:.2f} max_tick_gap_ms={max_gap_ms:.0f}")
-    assert ticks_while_spinning > 1, "the page's main thread did not tick while the loop ran"
     if TIMING:
         assert restart_s < STOP_BUDGET_S, f"Stop took {restart_s:.2f} s; spec S-4 wants under {STOP_BUDGET_S} s"
         assert max_gap_ms < TICK_GAP_BUDGET_MS, f"the page froze for {max_gap_ms:.0f} ms while the loop ran"
@@ -616,6 +701,7 @@ def test_stop_during_a_normal_run_keeps_the_rows(page, base_url):
     wait_state(page, "ready")
     assert first_number(page.inner_text("#r-progress")) > 0
     assert int(page.get_attribute("#scrub", "max")) > 0
+    expect(page.locator("#run-hint")).to_be_hidden()  # ready again, but there are rows to show: the "Run to see" caption stays away
 
 
 # ---- learner errors -----------------------------------------------------------------------------------------
@@ -684,6 +770,7 @@ def test_editor_import_blocked_falls_back_to_textarea(page, base_url):
     page.route(re.compile(r"/npm/@codemirror/"), lambda route: route.abort())
     open_ready(page, base_url, STEER_ID)
     expect(page.locator("#editor-fallback")).to_be_visible()
+    expect(page.locator("#editor-note")).to_contain_text("did not load")  # the learner is told why the box is plain
     set_code(page, P_STEER)
     page.click("#run")
     wait_state(page, "done")
@@ -737,6 +824,11 @@ def block_the_dashboard_wheel_then_retry(page, base_url, name):
         shown = page.inner_text(surface)
         assert re.search(rf"{name}-\S+\.whl", shown), f"{surface}: {shown!r}"
     expect(page.locator("#dashboard-error")).to_be_visible()
+    assert page.get_attribute("#dashboard-error", "role") is None, "the sentence is announced twice: #status already carries it"
+    for width in (None, 375):  # the longest sentence the page prints into #stdout, wrapped rather than behind a sideways scroll
+        if width:
+            page.set_viewport_size({"width": width, "height": 700})
+        assert page.evaluate("() => { const e = document.querySelector('#stdout'); return e.scrollWidth <= e.clientWidth; }"), f"#stdout scrolls sideways (viewport {width})"
     expect(page.locator("#dashboard-img")).to_be_hidden()
     expect(page.locator("#dashboard")).to_be_enabled()  # the run behind it stands: pressing again retries
     expect(page.locator("#traceback")).to_be_hidden()  # a failed download is not a failed run
@@ -758,6 +850,88 @@ def test_route_abort_names_the_matplotlib_wheel(page, base_url):
 def test_route_abort_names_a_dependency_wheel_of_matplotlib(page, base_url):
     """A dependency is loaded by the same press: the worker looks at what is loaded, not at the package it was asked for."""
     block_the_dashboard_wheel_then_retry(page, base_url, "kiwisolver")
+
+
+# ---- the page's own details ---------------------------------------------------------------------------------
+
+
+def deliver(page, message):
+    """Hand the page `message` as if its worker had posted it (POSTED_RECORDER keeps the page's worker in window.__worker)."""
+    page.evaluate("data => window.__worker.dispatchEvent(new MessageEvent('message', { data }))", message)
+
+
+@pytest.mark.parametrize("message_type", ["surprise", "dashboard-ready"])
+def test_a_worker_message_the_page_does_not_know_is_shown_not_swallowed(page, base_url, message_type):
+    """A reply the page cannot use must not leave it on "Running..." for ever: it is shown by name, with Retry."""
+    open_ready(page, base_url, STEER_ID)
+    deliver(page, {"type": message_type})
+    wait_state(page, "error")
+    expect(page.locator("#status")).to_contain_text(f'"{message_type}"')
+    expect(page.locator("#retry")).to_be_visible()
+
+
+def test_a_late_error_for_another_request_does_not_free_the_page_mid_run(page, base_url):
+    """A frame error that arrives while a run is still going must not re-enable Run and Check (the run is still the one in flight);
+    an error for the run itself does."""
+    open_ready(page, base_url, STEER_ID)
+    set_code(page, SPINS)
+    page.click("#run")
+    expect(page.locator("#stdout")).to_contain_text("spinning")
+    deliver(page, {"type": "error", "request": "frame", "message": "a late frame failed"})
+    expect(page.locator("#status")).to_contain_text("a late frame failed")  # the page handled it, and still...
+    expect(page.locator("#run")).to_be_disabled()
+    expect(page.locator("#check")).to_be_disabled()
+    expect(page.locator("#stop")).to_be_enabled()
+    deliver(page, {"type": "error", "request": "run", "message": "the run failed"})
+    expect(page.locator("#run")).to_be_enabled()
+    expect(page.locator("#stop")).to_be_disabled()
+
+
+@pytest.mark.parametrize("run_first", [False, True], ids=["nothing run", "after a run"])
+def test_to_end_goes_to_the_last_step_and_does_nothing_when_there_is_none(page, base_url, page_errors, run_first):
+    open_ready(page, base_url, STEER_ID)
+    if run_first:
+        set_code(page, P_STEER)
+        page.click("#run")
+        wait_state(page, "done")
+    page.click("#to-end")
+    expect(page.locator("#scrub")).to_have_value(page.get_attribute("#scrub", "max"))  # 0 of 0 on an empty player, the last step after a run
+    if run_first:
+        assert int(page.get_attribute("#scrub", "max")) > 0
+    assert page_errors == []
+
+
+@pytest.mark.parametrize("exercise_id", ["0.1.4.a", "0.1.4.b"])
+def test_the_editor_wraps_long_lines_instead_of_scrolling_sideways(page, base_url, exercise_id):
+    page.set_viewport_size({"width": 375, "height": 700})
+    page.goto(exercise_url(base_url, exercise_id))
+    page.wait_for_function(EDITOR_READY)  # the editor needs no Python, so these do not wait for Pyodide
+    expect(page.locator("#editor-note")).to_have_count(0)  # the real editor, not the plain text box
+    expect(page.locator(".cm-content")).to_have_class(re.compile(r"\bcm-lineWrapping\b"))
+    assert page.evaluate("() => { const e = document.querySelector('.cm-scroller'); return e.scrollWidth <= e.clientWidth; }")
+
+
+@pytest.mark.parametrize("width", [375, 1280])
+def test_nav_links_are_big_enough_to_touch(page, base_url, width):
+    """WCAG 2.2 AA target size: at least 24 CSS px each way."""
+    page.set_viewport_size({"width": width, "height": 700})
+    page.goto(exercise_url(base_url, STEER_ID))
+    sizes = page.eval_on_selector_all("nav a", "links => links.map((a) => { const r = a.getBoundingClientRect(); return [r.width, r.height]; })")
+    assert sizes and all(w >= 24 and h >= 24 for w, h in sizes), sizes
+
+
+@pytest.mark.parametrize("record", ONE_PER_KIND, ids=lambda record: record["kind"])
+def test_the_run_caption_shows_only_where_a_drive_has_not_run_yet(page, base_url, record):
+    """"Run to see the camera and the strips." explains the two empty boxes of a drive exercise; it goes once there is a run to show."""
+    open_ready(page, base_url, record["id"])
+    if record["kind"] == "drive":
+        expect(page.locator("#run-hint")).to_be_visible()
+    else:
+        expect(page.locator("#run-hint")).to_be_hidden()  # no camera and strips on this kind: nothing to explain
+    set_code(page, pasteable(record["unit_id"]))
+    page.click("#run")
+    wait_state(page, "done")
+    expect(page.locator("#run-hint")).to_be_hidden()
 
 
 # ---- phone width --------------------------------------------------------------------------------------------
@@ -892,3 +1066,152 @@ def test_worker_refuses_a_request_before_init(page, base_url):
     steer = BY_ID[STEER_ID]
     error = reply(page, "error", send(page, {"type": "run", "code": P_STEER, "exercise": steer, "road": steer["road"]}), timeout=15_000)
     assert error["request"] == "run" and 'Send "init" and wait for "ready" first.' in error["message"], error
+
+
+@pytest.mark.parametrize("together", [True, False], ids=["init sent twice at once", "init sent again after ready"])
+def test_worker_loads_python_once_however_often_it_is_asked_to_init(page, base_url, together):
+    """Messages are handled one at a time and a repeated init answers with the first ready: one package load, two equal replies."""
+    start_worker(page, base_url, init=False)
+    since = send(page, {"type": "init"})
+    if not together:
+        reply(page, "ready", since)
+    send(page, {"type": "init"})
+    page.wait_for_function("() => window.messages.filter((m) => m.type === 'ready').length === 2", timeout=120_000)
+    messages = page.evaluate("window.messages")
+    first, second = [m for m in messages if m["type"] == "ready"]
+    assert first == second
+    assert [m["stage"] for m in messages if m["type"] == "progress"].count("packages") == 1
+
+
+def test_worker_names_the_dashboard_download_as_a_stage_of_its_own(page, base_url):
+    """The late matplotlib download is not start-up: the page can tell it by its stage. A second press finds it loaded."""
+    start_worker(page, base_url)
+    stages = lambda: [m["stage"] for m in page.evaluate("window.messages") if m["type"] == "progress"]  # noqa: E731
+    startup = stages()
+    for _ in range(2):  # no run yet, so each press ends in the "run the car first" error, after the download if it is due
+        reply(page, "error", send(page, {"type": "dashboard"}), timeout=180_000)
+    assert "dashboard-packages" not in startup
+    assert stages()[len(startup):] == ["dashboard-packages"]
+
+
+@pytest.mark.parametrize("package_list, asks", [("PACKAGES", "init"), ("DASHBOARD_PACKAGES", "dashboard")])
+def test_worker_names_a_package_the_lockfile_does_not_have(page, base_url, package_list, asks):
+    """A list that asks for a package Pyodide does not ship fails with that name, not with a TypeError on `undefined`. The page's
+    worker.js is served with one more name on the list under test."""
+    page.route("**/worker.js", lambda route: route.fulfill(
+        content_type="text/javascript",
+        body=re.sub(rf"(const {package_list} = \[[^\]]*)\]", r'\1, "no-such-package"]', route.fetch().text(), count=1)))
+    start_worker(page, base_url, init=asks == "dashboard")
+    error = reply(page, "error", send(page, {"type": asks}), timeout=180_000)
+    assert error["request"] == asks and 'Pyodide\'s package list has no "no-such-package".' in error["message"], error
+
+
+# ---- view.js and player.js, called directly -----------------------------------------------------------------
+# Imported from the served files into a bare document: no worker and no Pyodide, so a case costs a page load.
+
+
+def in_module(page, base_url, body):
+    """Run `body` (see MODULE_JS for what it can use) against the served view.js and player.js; a throw comes back as {"error": message}."""
+    page.goto(f"{base_url}exercises.json")
+    return page.evaluate(MODULE_JS, body)
+
+
+BAD_STEP = "The step must be a finite number of zero or more, not {}."
+BAD_SPEED = "The speed must be a finite number above zero, not {}."
+NO_SIZE = {"error": "The road has fewer than two distinct points, so there is nothing to fit to the canvas."}
+FITTED = f"view.fitTransform({SPAN_ROAD}, 200, 100, 10)"  # 100 m in 180 px: a scale of 1.8, centred
+SAMPLE_ROW = {"t": 5, "lat": -0.004, "speed": 8, "steer": 0.1234, "progress_m": 40.4}
+# (an expression over MODULE_JS's scope, what it must give). A number or a list of numbers is compared to a rounding error.
+PURE_CASES = [
+    ("player.rowIndexAt(rows(11), 0, 0)", 0),
+    ("player.rowIndexAt(rows(11), 0, 0.26)", 5),
+    ("player.rowIndexAt(rows(11), 10, 0.12)", 2),  # backwards too
+    ("player.rowIndexAt(rows(11), 3, 99)", 10),  # clamped at the last row
+    ("player.rowIndexAt([], 0, 1)", 0),
+    ("player.rowIndexAt([{ t: 0 }], 5, 1)", 0),  # a stale index is clamped
+    (f"{FITTED}.scale", 1.8),
+    (f"[...view.worldToCanvas({FITTED}, 0, 0), ...view.worldToCanvas({FITTED}, 100, -10)]", [10, 41, 190, 59]),  # y runs up the world, down the screen
+    ("view.fitTransform({ lines: { tarmac_left: [[3, 3], [3, 3]], tarmac_right: [] } }, 200, 100)", NO_SIZE),
+    ("view.fitTransform({ lines: { tarmac_left: [], tarmac_right: [] } }, 200, 100)", NO_SIZE),
+    *[(f"view.fitTransform(roads.gentle, {w}, {h}).scale > 0", True) for w, h in ((0, 0), (10, 10), (47, 400))],  # less room than the padding
+    ("view.readoutText(undefined)", {"t": "-", "lat": "-", "speed": "-", "steer": "-", "progress": "-"}),
+    (f"view.readoutText({json.dumps(SAMPLE_ROW)})", {"t": "5.0 s", "lat": "+0.00 m", "speed": "8.0 m/s", "steer": "+0.123 rad", "progress": "40 m"}),
+    (f"view.readoutText({json.dumps({**SAMPLE_ROW, 'lat': -0.31})}).lat", "-0.31 m"),
+    ("view.describeRun({ completed: true, mean_abs_lat: 0.381 }, 'gentle', 88.9)", "Completed gentle in 88.9 s, mean |lat| 0.38 m"),
+    ("view.describeRun({ completed: false, off_road: true, progress_m: 120.4, mean_abs_lat: 1.234 }, 'curvy', 15)",
+     "Left the road on curvy after 15.0 s and 120 m, mean |lat| 1.23 m"),
+    ("view.describeRun({ completed: false, off_road: false, progress_m: 5, mean_abs_lat: 0 }, 'gentle', 120)",
+     "Ran out of time on gentle after 120.0 s and 5 m, mean |lat| 0.00 m"),
+    *[(f"newPlayer().seek({bad})", {"error": BAD_STEP.format(bad)}) for bad in ("NaN", "-1", "undefined")],
+    *[(f"newPlayer().setSpeed({bad})", {"error": BAD_SPEED.format(bad)}) for bad in ("NaN", "-2", "0", "Infinity")],
+    ("newPlayer().seek(0)", None),  # accepted: the first step, and the end of an empty player
+    ("newPlayer().setSpeed(2)", None),
+]
+
+
+@pytest.mark.parametrize("expression, expected", PURE_CASES, ids=[expression for expression, _ in PURE_CASES])
+def test_the_pure_functions_of_view_and_player(page, base_url, expression, expected):
+    got = in_module(page, base_url, f"return {expression};")
+    assert got == (pytest.approx(expected) if isinstance(expected, (float, list)) else expected)
+
+
+def test_a_throwing_tick_listener_does_not_stop_the_player(page, base_url):
+    """On a real requestAnimationFrame: the loop re-arms before it calls listeners, and each listener is called on its own."""
+    reported = []
+    page.on("console", lambda message: reported.append(message.text))
+    heard = in_module(page, base_url, """
+        const p = newPlayer(), heard = [];
+        p.onTick(() => { throw new Error("a listener bug"); });
+        p.onTick((tick) => heard.push(tick.k));
+        p.setRows(rows(40));
+        p.play();
+        await wait(400);
+        return heard;""")
+    assert len(heard) > 3 and heard[-1] > heard[0], heard
+    assert any("A player tick listener failed" in text for text in reported), reported
+
+
+def test_set_rows_keeps_its_own_copy(page, base_url):
+    got = in_module(page, base_url, """
+        const caller = rows(3), p = newPlayer();
+        p.setRows(caller);
+        p.append(rows(1)[0]);
+        const afterAppend = [caller.length, p.length];
+        caller.pop();
+        return [afterAppend, p.length];""")
+    assert got == [[3, 4], 4]  # the caller's array is not grown by append(), nor does it shrink the player
+
+
+@pytest.mark.parametrize("line, closed, car, foot", [
+    ("[[0, 0], [10, 0]]", False, (4.25, 0.4), (4.25, 0)),  # inside a segment, far from both ends
+    ("[[0, 0], [10, 0], [10, 10], [0, 10]]", True, (0.4, 4.25), (0, 4.25)),  # on the segment that closes the loop
+], ids=["open road", "closed loop"])
+def test_the_e_off_brace_ends_on_the_lane_centre_nearest_the_car(page, base_url, line, closed, car, foot):
+    got = in_module(page, base_url, f"""
+        const line = {line}, road = {{ closed: {str(closed).lower()}, dash_period: 6, dash_fraction: 0.5,
+          lines: {{ tarmac_left: line, tarmac_right: line, ego_center: line, white: line, yellow: line }} }};
+        const t = view.fitTransform(road, 600, 240), {{ ctx, strokes }} = recording();
+        view.draw(ctx, road, [{{ x: {car[0]}, y: {car[1]}, yaw: 0, off_road: false }}], 0, palette, t);
+        const brace = strokes.find((s) => s.style === palette.quantity.e_off && s.points.length === 2);
+        return {{ end: brace.points[1], want: view.worldToCanvas(t, {foot[0]}, {foot[1]}) }};""")
+    assert "error" not in got, got
+    assert got["end"] == pytest.approx(got["want"])
+
+
+LABEL_BASELINE_PX = 11  # view.js draws each strip's range label on this line below the strip's top
+
+
+@pytest.mark.parametrize("sign", [1, -1], ids=["extreme above zero", "extreme below zero"])
+def test_strip_traces_stay_clear_of_their_range_label_and_inside_the_canvas(page, base_url, sign):
+    """The label (±0.76 m) is at the top left of its strip, where a trace that starts at its extreme would run through it."""
+    got = in_module(page, base_url, f"""
+        const first = (value) => (i) => (i === 0 ? {sign} * value : 0);
+        const lat = first(2), angle = first(0.5), data = Array.from({{ length: 50 }}, (_, i) => ({{ t: i * 0.1, speed: 8, est_valid: true,
+          lat: lat(i), est_offset: lat(i), head_err: angle(i), est_heading: angle(i), steer: angle(i) }}));
+        const {{ ctx, strokes }} = recording();
+        view.drawStrips(ctx, data, data.length - 1, palette);
+        return {{ height: canvas.clientHeight, points: strokes.flatMap((s) => s.points) }};""")
+    band = got["height"] / 3
+    assert got["points"], "drawStrips drew no line"
+    for x, y in got["points"]:
+        assert 0 <= y <= got["height"] and y % band >= LABEL_BASELINE_PX, f"({x}, {y}) is outside the canvas or under a strip's range label"
