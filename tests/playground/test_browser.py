@@ -23,7 +23,9 @@ from playwright.sync_api import expect, sync_playwright  # noqa: E402
 
 from _course import REPO, load_solution  # noqa: E402
 from build_playground import exercise_records, write_playground  # noqa: E402
-from playground_browser import EDITOR_READY, P_STEER, exercise_url, open_ready, paint_colours, pasteable, serve, set_code, wait_state  # noqa: E402
+from measure_phone import lap  # noqa: E402
+from playground_browser import (EDITOR_READY, P_STEER, exercise_url, open_ready, paint_colours, pasteable, serve, set_code,  # noqa: E402
+                                wait_settled, wait_state)
 from zero2fsd.car import Car, run  # noqa: E402
 from zero2fsd.grade import check  # noqa: E402
 from zero2fsd.preview import get as get_preview  # noqa: E402
@@ -954,6 +956,32 @@ def test_no_horizontal_scroll_with_a_failing_verdict(page, base_url):
     open_ready(page, base_url, STEER_ID)
     press_check(page, RETURN_ZERO)
     assert scroll_width(page) <= 375
+
+
+# ---- scripts/measure_phone.py, on this browser -------------------------------------------------------------
+
+
+@pytest.mark.parametrize("code, state", [(P_STEER, "done"), (DIVIDES_BY_ZERO, "error")], ids=["a lap", "a ZeroDivisionError"])
+def test_wait_settled_returns_the_state_a_run_ended_in(page, base_url, code, state):
+    open_ready(page, base_url, STEER_ID)
+    set_code(page, code)
+    page.click("#run")
+    assert wait_settled(page, timeout_ms=60_000) == state
+
+
+def test_a_lap_can_be_repeated_on_one_page_and_reports_the_same_lap(page, base_url):
+    open_ready(page, base_url, STEER_ID)
+    set_code(page, P_STEER)
+    first, second = lap(page), lap(page)
+    assert (first["road"], first["steps"]) == (second["road"], second["steps"]) and first["steps"] > 1000
+    assert first["steps_per_s"] > 0 and second["steps_per_s"] > 0
+
+
+def test_a_lap_whose_run_fails_raises_with_the_pages_words_instead_of_waiting_out_the_timeout(page, base_url):
+    open_ready(page, base_url, STEER_ID)
+    set_code(page, DIVIDES_BY_ZERO)
+    with pytest.raises(ValueError, match="ZeroDivisionError"):
+        lap(page, timeout_ms=15_000)
 
 
 # ---- the worker's protocol, driven directly -----------------------------------------------------------------

@@ -4,12 +4,15 @@ from __future__ import annotations
 import importlib.util
 import json
 import re
+import sys
 from pathlib import Path
 from typing import NamedTuple
 
 import yaml
 
 REPO = Path(__file__).resolve().parents[1]
+if str(REPO) not in sys.path:  # `python scripts/<name>.py` puts scripts/ first, not the repo root: scripts that import zero2fsd get it from here
+    sys.path.insert(0, str(REPO))
 REPO_SLUG = "vvknyn/self-driving-ai-course"
 CELL_HEADER = re.compile(r"^# %%(?P<rest>.*)$")
 FENCE = re.compile(r"^```.*?^```", re.S | re.M)

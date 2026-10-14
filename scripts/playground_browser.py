@@ -2,7 +2,6 @@
 import inspect
 import json
 import re
-import sys
 import threading
 from contextlib import contextmanager
 from functools import partial
@@ -13,10 +12,7 @@ from urllib.request import urlopen
 from playwright.sync_api import expect
 
 from _course import REPO
-
-sys.path.insert(0, str(REPO))  # `python scripts/<name>.py` puts scripts/ first, not the repo root
-
-from zero2fsd.car import provided  # noqa: E402
+from zero2fsd.car import provided
 
 # The provided steering law under the exercise's function name: learner code that passes 0.1.4.a.
 P_STEER = inspect.getsource(provided.steer_p).replace("def steer_p(", "def p_steer(", 1)
@@ -66,6 +62,16 @@ def paint_colours(base_url):
 
 def wait_state(page, state, timeout_ms=60_000):
     expect(page.locator("#status")).to_have_attribute("data-state", state, timeout=timeout_ms)
+
+
+# The state a run ends in, well or badly; `false` until then, so wait_for_function keeps polling.
+SETTLED = "() => { const s = document.querySelector('#status').dataset.state; return (s === 'done' || s === 'error') && s; }"
+
+
+def wait_settled(page, timeout_ms=60_000):
+    """Wait until the run ends, whichever way, and return the state it ended in ("done" or "error"). Polled every 50 ms: a wall-clock
+    reading taken after it is not late by the 100 to 1000 ms back-off of an assertion's retries."""
+    return page.wait_for_function(SETTLED, polling=50, timeout=timeout_ms).json_value()
 
 
 def open_ready(page, base_url, exercise_id, query=""):
