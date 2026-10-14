@@ -15,6 +15,8 @@ const TO_JS = { dict_converter: Object.fromEntries };
 let pyodide;
 let shim;
 let frameSize; // [width, height] of the camera image, read from the camera that renders it
+let ready; // the `ready` message once init finished: a repeated init answers with it instead of loading again
+let queue = Promise.resolve(); // messages are handled one at a time: an async handler (init, dashboard) must not interleave with the next
 
 const post = (type, fields = {}, transfer = []) => postMessage({ type, ...fields }, transfer);
 
@@ -27,19 +29,25 @@ async function loading(url, work) {
   }
 }
 
+/** The lockfile entry for package `key`; a key the lockfile does not have is named, not left to a TypeError on `undefined`. */
+function lockEntry(key) {
+  const entry = pyodide.lockfile.packages[key];
+  if (!entry) throw new Error(`Pyodide's package list has no "${key}".`);
+  return entry;
+}
+
 /** The lockfile keys of `keys` and of everything they depend on whose wheel is not loaded. `loadedPackages` is keyed by the
  *  lockfile's display name ("Pillow"), the lockfile by the package key ("pillow"). */
 function notLoaded(keys) {
-  const { packages } = pyodide.lockfile;
   const seen = new Set();
   const pending = [...keys];
   while (pending.length) {
     const key = pending.pop();
     if (seen.has(key)) continue;
     seen.add(key);
-    pending.push(...packages[key].depends);
+    pending.push(...lockEntry(key).depends);
   }
-  return [...seen].filter((key) => !pyodide.loadedPackages[packages[key].name]);
+  return [...seen].filter((key) => !pyodide.loadedPackages[lockEntry(key).name]);
 }
 
 /** `loadPackage` reports a failed download through its error callback and still resolves, and it skips the dependencies of
@@ -95,7 +103,8 @@ async function init() {
   post("progress", { stage: "probe", detail: "timing the simulator" });
   const stepsPerS = shim.probe_steps_per_s(100);
   const [python, numpy, pillow] = plain(pyodide.runPython("import sys, numpy, PIL\n[sys.version.split()[0], numpy.__version__, PIL.__version__]"));
-  post("ready", { versions: { pyodide: pyodide.version, python, numpy, pillow }, steps_per_s_probe: stepsPerS });
+  ready = { versions: { pyodide: pyodide.version, python, numpy, pillow }, steps_per_s_probe: stepsPerS };
+  post("ready", ready);
 }
 
 /** Build the learner's object, hand it to `use`, and release it. */
@@ -137,7 +146,7 @@ const HANDLERS = {
 
   dashboard: async () => {
     if (notLoaded(DASHBOARD_PACKAGES).length) {
-      post("progress", { stage: "packages", detail: DASHBOARD_PACKAGES.join(", ") });
+      post("progress", { stage: "dashboard-packages", detail: DASHBOARD_PACKAGES.join(", ") }); // its own stage: a late download, not start-up
       await loading(`${PYODIDE_BASE} (${DASHBOARD_PACKAGES.join(", ")})`, loadPackages(DASHBOARD_PACKAGES));
     }
     const png = bytesOf(shim.dashboard_png());
@@ -158,13 +167,18 @@ function errorFields(error) {
   }
 }
 
-onmessage = async ({ data }) => {
+async function handle(data) {
   try {
     const handler = Object.hasOwn(HANDLERS, data.type) ? HANDLERS[data.type] : null;
     if (!handler) throw new Error(`The worker has no handler for message type "${data.type}".`);
-    if (!shim && data.type !== "init") throw new Error('Send "init" and wait for "ready" first.');
+    if (data.type === "init" && ready) return post("ready", ready); // already loaded: the same answer, no second download
+    if (!ready && data.type !== "init") throw new Error('Send "init" and wait for "ready" first.');
     await handler(data);
   } catch (error) {
     post("error", { ...errorFields(error), request: data.type });
   }
+}
+
+onmessage = ({ data }) => {
+  queue = queue.then(() => handle(data)).catch(console.error); // handle reports its own failures; this keeps one that escapes from blocking the rest
 };

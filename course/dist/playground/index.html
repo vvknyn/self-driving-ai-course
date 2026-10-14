@@ -85,6 +85,7 @@
           <div><dt>progress</dt><dd id="r-progress">-</dd></div>
         </dl>
         <canvas id="strips" aria-label="Offset, heading error and steering over the last 10 seconds"></canvas>
+        <p id="run-hint" hidden>Run to see the camera and the strips.</p>
       </div>
       <div class="camera">
         <canvas id="frame" width="320" height="180" aria-label="What the car's camera sees"></canvas>
@@ -92,7 +93,7 @@
       </div>
       <div id="dashboard-view" class="dashboard">
         <button id="dashboard" type="button" disabled>Dashboard</button>
-        <p id="dashboard-error" role="alert" hidden></p>
+        <p id="dashboard-error" hidden></p>
         <img id="dashboard-img" alt="Dashboard of the last run" hidden>
       </div>
     </section>

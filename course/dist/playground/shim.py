@@ -56,9 +56,9 @@ def learner_object(code: str, name: str) -> Any:
     """Run the learner's code after the prelude and return what it bound to `name`."""
     ns: dict[str, Any] = {}
     exec(PRELUDE, ns)
-    provided = dict(ns)
+    untouched = dict(ns)  # what the prelude bound, to tell a name the learner left alone from one they defined
     exec(compile(code, LEARNER_FILENAME, "exec"), ns)
-    if name not in ns or (name in provided and ns[name] is provided[name]):  # a provided box is not an answer
+    if name not in ns or (name in untouched and ns[name] is untouched[name]):  # a provided box is not an answer
         raise NameError(f"define `{name}` in the editor; the check looks for that exact name")
     return ns[name]
 
@@ -72,7 +72,8 @@ def _learner_line(exc: BaseException) -> int | None:
 
 
 def format_error(exc: BaseException) -> dict[str, Any]:
-    return {"message": f"{type(exc).__name__}: {exc}", "line": _learner_line(exc),
+    message = ": ".join(part for part in (type(exc).__name__, str(exc)) if part)  # an empty message leaves no dangling colon
+    return {"message": message, "line": _learner_line(exc),
             "traceback": "".join(traceback.format_exception(exc))}
 
 
@@ -106,7 +107,7 @@ class HostCallbackError(RuntimeError):
     """The playground's own per-row callback failed. Not the learner's code; the page is broken."""
 
 
-def _host_hook(on_row):
+def _host_hook(on_row: Callable[[dict], None] | None) -> tuple[Callable[[tuple], None] | None, Callable[[], None]]:
     """The step hook for a host callback, and a check to run after the drive.
 
     The drive runs under the grader's learner_code / _at_boundary, which label every exception the learner's.
@@ -138,7 +139,8 @@ def summary(tel: Telemetry) -> dict[str, Any]:
 
 
 def preview_run(obj: Any, exercise_id: str, road: str, on_row: Callable[[dict], None]) -> dict[str, Any]:
-    """Drive the learner's car on `road`, handing each step to `on_row`; return the run's summary."""
+    """Drive the learner's car on `road`, handing each step to `on_row`; return the run's summary. If `on_row` fails,
+    the run still completes and `HostCallbackError` is raised after the drive (the page is broken, not the learner's code)."""
     global LAST_RUN
     preview = _preview(exercise_id, "drive")
     LAST_RUN = None  # a run that raises must not leave the previous run behind for the dashboard
@@ -182,7 +184,8 @@ def preview_image(obj: Any, exercise_id: str, seed: int = 0) -> dict[str, Any]:
 
 def check_code(obj: Any, exercise_id: str, on_row: Callable[[dict], None] | None = None) -> dict[str, Any]:
     """The verdict Colab gives, plus the rows of any run the check makes when `on_row` is given. Colab prints the
-    report; here the same lines are the verdict's `details`, so the check prints nothing."""
+    report; here the same lines are the verdict's `details`, so the check prints nothing. If `on_row` fails,
+    `HostCallbackError` is raised after the drive instead of a verdict."""
     on_step, after = _host_hook(on_row)
     result = check(exercise_id, obj, show=False, on_step=on_step, report=False)
     after()

@@ -10,7 +10,10 @@ const STRIPS = [
   { label: "ψ", unit: "rad", truth: "head_err", estimate: "est_heading", color: "psi", floor: 0.1 },
   { label: "δ", unit: "rad", truth: "steer", color: "delta", floor: 0.1 },
 ];
+const MIN_SCALE = 0.001; // pixels per metre: a canvas with no room (a hidden 0x0 one) still fits the road at a positive scale
 const LABEL_MARGIN_PX = 76; // room right of the strip lines for the quantity names
+const RANGE_LABEL_PX = 14; // the top of each strip holds its range label; traces stay below it
+const STRIP_PAD_PX = 4; // space under a strip's traces
 const LABEL_GAP_PX = 12;
 const FONT = '10px "IBM Plex Mono", ui-monospace, monospace';
 
@@ -26,14 +29,16 @@ export function fitCanvas(canvas) {
   return { ctx, width, height };
 }
 
-/** Scale and offsets that fit the whole tarmac into width x height pixels, centred, world y up. */
+/** Scale and offsets that fit the whole tarmac into width x height pixels, centred, world y up. A road needs two distinct
+ *  points to have a size; a canvas smaller than the padding still gets a positive scale, never a negative (mirrored) one. */
 export function fitTransform(road, width, height, padding = 24) {
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   for (const [x, y] of [...road.lines.tarmac_left, ...road.lines.tarmac_right]) {
     minX = Math.min(minX, x); maxX = Math.max(maxX, x);
     minY = Math.min(minY, y); maxY = Math.max(maxY, y);
   }
-  const scale = Math.min((width - 2 * padding) / (maxX - minX), (height - 2 * padding) / (maxY - minY));
+  if (!(maxX > minX || maxY > minY)) throw new Error("The road has fewer than two distinct points, so there is nothing to fit to the canvas.");
+  const scale = Math.max(MIN_SCALE, Math.min((width - 2 * padding) / (maxX - minX), (height - 2 * padding) / (maxY - minY)));
   return { scale, ox: (width - scale * (minX + maxX)) / 2, oy: (height + scale * (minY + maxY)) / 2, width, height };
 }
 
@@ -70,10 +75,13 @@ function fillTarmac(ctx, t, road, colour) {
   ctx.fill("evenodd");
 }
 
-function nearestPoint(points, x, y) {
+/** The point of a polyline (closed back to its start when `closed`) nearest to (x, y): a vertex or the foot of a perpendicular. */
+function nearestPoint(points, closed, x, y) {
   let best = points[0], bestD = Infinity;
-  for (const p of points) {
-    const d = (p[0] - x) ** 2 + (p[1] - y) ** 2;
+  for (let i = 0; i < points.length - (closed ? 0 : 1); i++) {
+    const [ax, ay] = points[i], [bx, by] = points[(i + 1) % points.length];
+    const u = Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / ((bx - ax) ** 2 + (by - ay) ** 2 || 1)));
+    const p = [ax + u * (bx - ax), ay + u * (by - ay)], d = (p[0] - x) ** 2 + (p[1] - y) ** 2;
     if (d < bestD) { bestD = d; best = p; }
   }
   return best;
@@ -116,7 +124,7 @@ export function draw(ctx, road, rows, k, palette, t) {
   const row = rows[k];
   if (!row) return;
   strokeLine(ctx, t, rows.slice(0, k + 1).map((r) => [r.x, r.y]), { closed: false }, { color: quantity.e_off, width: LINE_PX });
-  const [bx, by] = nearestPoint(lines.ego_center, row.x, row.y); // the e_off brace: car to the lane centre
+  const [bx, by] = nearestPoint(lines.ego_center, road.closed, row.x, row.y); // the e_off brace: car to the lane centre
   strokeLine(ctx, t, [[row.x, row.y], [bx, by]], { closed: false }, { color: quantity.e_off, width: LINE_PX });
   drawCar(ctx, t, row, chrome.background, row.off_road ? quantity.perception : chrome.text);
 }
@@ -152,11 +160,12 @@ export function drawStrips(ctx, rows, k, palette, windowS = 10) {
   ctx.font = FONT;
   ctx.lineWidth = LINE_PX;
   STRIPS.forEach((strip, i) => {
-    const mid = band * (i + 0.5);
+    const half = (band - RANGE_LABEL_PX - STRIP_PAD_PX) / 2; // traces use the band below the label
+    const mid = band * i + RANGE_LABEL_PX + half;
     const estimateOk = (row) => strip.estimate !== undefined && row.est_valid;
     const spread = visible.flatMap((r) => [r[strip.truth], estimateOk(r) ? r[strip.estimate] : NaN]).filter(Number.isFinite);
     const range = Math.max(strip.floor, ...spread.map(Math.abs)) * 1.1;
-    const yOf = (v) => mid - (v / range) * (band / 2 - 6);
+    const yOf = (v) => mid - (v / range) * half;
     ctx.beginPath(); // yOf already gives canvas pixels, so the zero line skips worldToCanvas (which flips y)
     ctx.moveTo(0, yOf(0));
     ctx.lineTo(plotWidth, yOf(0));
@@ -166,7 +175,7 @@ export function drawStrips(ctx, rows, k, palette, windowS = 10) {
     ctx.lineWidth = LINE_PX;
     ctx.fillStyle = chrome.text;
     ctx.globalAlpha = 0.6;
-    ctx.fillText(`±${range.toFixed(2)} ${strip.unit}`, 4, band * i + 11);
+    ctx.fillText(`±${range.toFixed(2)} ${strip.unit}`, 4, band * i + RANGE_LABEL_PX - 3);
     ctx.globalAlpha = 1;
     ctx.strokeStyle = quantity[strip.color];
     const end = plotSeries(ctx, visible, xOf, yOf, strip.truth, () => true);

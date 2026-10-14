@@ -284,7 +284,7 @@ def test_every_exercise_opens_ready_with_its_label_and_links(page, base_url, rec
     open_ready(page, base_url, record["id"])
     expect(page.locator("#exercise-label")).to_have_text(record["label"])
     assert not re.search(r"\d+\.\d+\.\d+", page.inner_text("#exercise-label")), "a dotted id reached the learner"
-    expect(page.locator("#unit-link")).to_have_attribute("href", f"/learnfsd/unit/{record['unit_key']}/")
+    expect(page.locator("#unit-link")).to_have_attribute("href", f"../unit/{record['unit_key']}/")  # relative: spec §12
     expect(page.locator("#open-colab")).to_have_attribute("href", record["colab_url"])
 
 
@@ -557,21 +557,25 @@ def test_check_that_fails_before_driving_streams_nothing(page, base_url, exercis
     assert len(before_verdict) <= 1, f"#r-progress moved although nothing drove: {before_verdict}"  # one reset at the start is allowed
 
 
-def test_a_drive_record_without_a_road_fails_the_check_naming_the_problem_and_offers_retry(page, base_url):
-    """The worker tags a check's rows with the record's road and does not guess one: with none, the PAGE names the problem and offers Retry."""
+@pytest.mark.parametrize("road, named", [
+    (None, "names none"),  # a drive record with no road is not given the first one
+    ("nowhere", 'names road "nowhere", which roads.json does not have'),
+], ids=["omitted", "unknown"])
+def test_a_drive_record_with_no_road_or_an_unknown_one_fails_on_load_naming_the_problem_and_offers_retry(page, base_url, road, named):
+    """The page names the problem at load (before any run) and offers Retry; it never plays the exercise on a road it was not given."""
 
-    def without_roads(route):
+    def with_road(route):
         records = route.fetch().json()
         for record in records:
             record.pop("road", None)
+            if road is not None:
+                record["road"] = road
         route.fulfill(json=records)
 
-    page.route(re.compile(r"/exercises\.json$"), without_roads)
-    open_ready(page, base_url, STREAMING[0])
-    set_code(page, pasteable(BY_ID[STREAMING[0]]["unit_id"]))
-    page.click("#check")
+    page.route(re.compile(r"/exercises\.json$"), with_road)
+    page.goto(exercise_url(base_url, STREAMING[0]))
     wait_state(page, "error")
-    expect(page.locator("#status")).to_contain_text('names the road "undefined"')
+    expect(page.locator("#status")).to_contain_text(named)
     expect(page.locator("#retry")).to_be_visible()
 
 

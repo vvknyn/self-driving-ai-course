@@ -30,6 +30,7 @@ a { color: var(--link); }
 header h1 { margin: 0 0 4px; font-size: 1.1rem; }
 header p { margin: 0 0 4px; }
 nav { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.9rem; }
+nav a { padding: 6px 0; } /* 24 px tall at least: a touch target */
 
 main { display: grid; gap: 16px; margin-top: 12px; }
 @media (min-width: 720px) {
@@ -55,6 +56,7 @@ button:disabled { opacity: 0.45; }
 #editor { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--panel); }
 #editor .cm-editor { max-height: 24rem; font-size: 13px; }
 #editor .cm-scroller { overflow: auto; font-family: var(--mono); }
+#editor-note { margin: 0; padding: 4px 8px; font-size: 0.8rem; border-bottom: 1px solid var(--border); }
 #editor-fallback {
   display: block;
   width: 100%;
@@ -78,6 +80,7 @@ button:disabled { opacity: 0.45; }
 
 pre { margin: 8px 0 0; padding: 8px; overflow-x: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; font: 12px/1.5 var(--mono); }
 pre:empty { display: none; }
+#stdout { white-space: pre-wrap; overflow-wrap: anywhere; } /* a long error sentence wraps instead of hiding behind a scroll */
 details { margin-top: 8px; }
 
 #verdict { margin-top: 8px; padding: 6px 10px; background: var(--panel); border-left: 3px solid var(--error); }
@@ -101,6 +104,7 @@ canvas { display: block; width: 100%; background: var(--panel); border: 1px soli
 .readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 4px 12px; margin: 8px 0 0; }
 .readouts dt { font-size: 0.75rem; opacity: 0.7; }
 .readouts dd { margin: 0; font-family: var(--mono); }
+#run-hint { margin: 8px 0 0; font-size: 0.85rem; opacity: 0.7; }
 
 .dashboard { margin-top: 8px; }
 #dashboard-error { margin: 8px 0 0; padding: 6px 10px; border-left: 3px solid var(--error); background: var(--panel); overflow-wrap: anywhere; }

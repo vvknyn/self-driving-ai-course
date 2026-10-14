@@ -34,6 +34,7 @@ const frames = { wanted: null, inFlight: false, timer: 0, sentAt: 0 };
 function setStatus(state, text) {
   $("status").dataset.state = state;
   $("status").textContent = text;
+  $("run-hint").hidden = state !== "ready" || Boolean(app?.player.length); // the empty boxes are explained only before there is anything to show
 }
 
 function controls() {
@@ -118,7 +119,7 @@ async function mountEditor(parent, doc) {
       state: state.EditorState.create({
         doc,
         extensions: [
-          view.lineNumbers(), view.drawSelection(), language.indentOnInput(), language.bracketMatching(), commands.history(),
+          view.lineNumbers(), view.drawSelection(), view.EditorView.lineWrapping, language.indentOnInput(), language.bracketMatching(), commands.history(),
           view.keymap.of([...commands.defaultKeymap, ...commands.historyKeymap, commands.indentWithTab]),
           python.python(), dark.oneDark,
         ],
@@ -131,7 +132,11 @@ async function mountEditor(parent, doc) {
   } catch (error) {
     console.warn("CodeMirror did not load; using a plain textarea.", error);
     const textarea = Object.assign(document.createElement("textarea"), { id: "editor-fallback", value: doc, spellcheck: false });
-    parent.replaceChildren(textarea);
+    const note = Object.assign(document.createElement("p"), {
+      id: "editor-note",
+      textContent: "The code editor did not load; this is a plain text box. Everything else works.",
+    });
+    parent.replaceChildren(note, textarea);
     return { get: () => textarea.value, set: (text) => { textarea.value = text; } };
   }
 }
@@ -148,11 +153,17 @@ async function setUp({ records, roads, palette }) {
   $("exercise-label").textContent = record.label;
   $("exercise-task").textContent = record.task ?? "";
   $("exercise-task").hidden = !record.task;
-  $("unit-link").href = `/learnfsd/unit/${record.unit_key}/`;
+  $("unit-link").href = `../unit/${record.unit_key}/`; // relative: the lecture sits beside the playground wherever the course is served
   $("open-colab").href = record.colab_url;
   const kind = KINDS[record.kind];
   if (!kind) throw new Error(`Exercise ${record.id} has kind "${record.kind}", which this page does not know how to run.`);
-  const roadName = record.road || Object.keys(roads)[0]; // an image exercise names no road ("")
+  // Only a kind with a player is played on a road; the others name none ("" for an image) and borrow the first to size the canvas.
+  const roadName = record.road || (kind.shows.includes("player-view") ? "" : Object.keys(roads)[0]);
+  if (!Object.hasOwn(roads, roadName)) {
+    throw new Error(record.road
+      ? `Exercise ${record.id} names road "${record.road}", which roads.json does not have.`
+      : `Exercise ${record.id} is a ${record.kind} exercise, which is played on a road, but names none.`);
+  }
   $("road").replaceChildren(...Object.keys(roads).map((name) => new Option(name, name, false, name === roadName)));
 
   // Fitting a canvas that has no size (a hidden panel) gives NaN, so both canvases are fitted before the groups are hidden.
@@ -214,7 +225,7 @@ function startWorker(note = "") {
 }
 
 function unknownMessage(message) {
-  console.error("Unknown message from the worker", message);
+  throw new Error(`The worker sent a "${message.type}" message, which this page does not know.`); // routed to failWorker by onmessage
 }
 
 function start(message) {
@@ -369,7 +380,7 @@ const FROM_WORKER = {
   error: ({ message, line, traceback, request }) => {
     if (request === "init") return failWorker(message);
     frames.inFlight = false;
-    finishWork();
+    if (request === busy) finishWork(); // a late frame error must not end the run that is still streaming
     const said = line ? `${message} (your code, line ${line})` : message;
     setStatus("error", said);
     $("stdout").textContent += `${said}\n`; // the same line where the learner's own prints appear
@@ -401,7 +412,7 @@ $("check").addEventListener("click", () => start("check"));
 $("stop").addEventListener("click", stop);
 $("retry").addEventListener("click", boot);
 $("play").addEventListener("click", () => app.player.toggle());
-$("to-end").addEventListener("click", () => app.player.seek(app.player.length - 1));
+$("to-end").addEventListener("click", () => app.player.seek(Math.max(0, app.player.length - 1)));
 $("scrub").addEventListener("input", (event) => app.player.seek(event.target.valueAsNumber));
 $("speed").addEventListener("change", (event) => app.player.setSpeed(Number(event.target.value)));
 $("road").addEventListener("change", (event) => {

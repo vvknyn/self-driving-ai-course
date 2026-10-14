@@ -105,6 +105,16 @@ def test_format_error_reports_the_learner_line_and_nothing_else(shim):
     assert shim.format_error(syntax.value)["line"] == 2
 
 
+@pytest.mark.parametrize("exc, message", [
+    (ValueError("boom"), "ValueError: boom"),
+    (NotImplementedError(), "NotImplementedError"),  # an empty message leaves no dangling colon for the page to pad
+    (AssertionError(""), "AssertionError"),
+    (KeyError("k"), "KeyError: 'k'"),
+])
+def test_format_error_joins_only_the_non_empty_parts(shim, exc, message):
+    assert shim.format_error(exc)["message"] == message
+
+
 def test_row_dict_is_plain_json(shim):
     rows = []
     run(Car(), "straight", max_steps=3, on_step=rows.append)
@@ -190,7 +200,7 @@ def test_a_host_callback_failure_on_check_code_is_raised_once_after_the_run_and_
         shim.check_code(shim.learner_object(MY_CAR, "my_car"), "0.1.4.b", on_row=on_row)
     assert len(seen) == 1, "the hook goes quiet after the first failure"
     assert isinstance(caught.value.__cause__, TypeError)
-    assert "your code" not in str(caught.value)
+    assert str(caught.value).startswith("the playground's row callback failed")  # the host's own sentence, not a learner-facing one
 
 
 CALLS = {  # the kind of exercise a call is for -> a call of it that never gets as far as the learner's code

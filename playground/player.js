@@ -4,6 +4,14 @@ import { draw, fitCanvas, fitTransform } from "./view.js";
 
 const MAX_FRAME_S = 0.25; // a backgrounded tab must not fast-forward the lap when it wakes
 
+/** `x` when it is a finite number above zero (zero too with `zeroOk`); otherwise a RangeError that says what `name` must be. */
+function finitePositive(x, name, { zeroOk = false } = {}) {
+  if (!Number.isFinite(x) || x < 0 || (x === 0 && !zeroOk)) {
+    throw new RangeError(`${name} must be a finite number ${zeroOk ? "of zero or more" : "above zero"}, not ${x}.`);
+  }
+  return x;
+}
+
 /** Index of the newest row shown at `clock` seconds, searching from `k` (rows are in time order). */
 export function rowIndexAt(rows, k, clock) {
   let i = Math.max(0, Math.min(k, rows.length - 1));
@@ -38,6 +46,7 @@ export class Player {
 
   get k() { return this.#k; }
   get length() { return this.#rows.length; }
+  /** The rows so far; read-only, do not mutate. */
   get rows() { return this.#rows; }
   get playing() { return this.#playing; }
 
@@ -54,9 +63,9 @@ export class Player {
     this.fit();
   }
 
-  /** Replace all rows with a finished drive. */
+  /** Replace all rows with a finished drive. The player keeps its own copy: a later append() never touches `rows`. */
   setRows(rows) {
-    this.#rows = rows;
+    this.#rows = Array.from(rows);
     this.#finished = true;
     this.seek(0);
   }
@@ -98,13 +107,13 @@ export class Player {
   toggle() { this.#playing ? this.pause() : this.play(); }
 
   seek(k) {
-    this.#k = Math.max(0, Math.min(Math.trunc(k), this.#rows.length - 1));
+    this.#k = Math.max(0, Math.min(Math.trunc(finitePositive(k, "The step", { zeroOk: true })), this.#rows.length - 1));
     this.#clock = this.#rows[this.#k]?.t ?? 0;
     this.#dirty = true;
     this.#kick();
   }
 
-  setSpeed(multiplier) { this.#speed = multiplier; }
+  setSpeed(multiplier) { this.#speed = finitePositive(multiplier, "The speed"); }
 
   /** The one place `playing` changes: a change is a frame to draw, so every listener hears it in a tick. */
   #setPlaying(value) {
@@ -129,14 +138,20 @@ export class Player {
       this.#k = k;
       if (this.#finished && k >= this.#rows.length - 1) this.#setPlaying(false); // reached the end
     }
+    if (this.#playing) this.#kick(); // re-arm before drawing: a listener that throws must not end the loop
     if (this.#dirty) this.#render();
-    if (this.#playing) this.#kick();
   };
 
   #render() {
     this.#dirty = false;
     draw(this.#ctx, this.#road, this.#rows, this.#k, this.#palette, this.#transform);
     const tick = { k: this.#k, row: this.#rows[this.#k], playing: this.#playing };
-    this.#ticks.forEach((callback) => callback(tick));
+    for (const callback of this.#ticks) {
+      try {
+        callback(tick);
+      } catch (error) {
+        console.error("A player tick listener failed", error);
+      }
+    }
   }
 }
