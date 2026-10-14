@@ -3614,6 +3614,11 @@ def test_worker_protocol(page):
     frame = reply(page, "frame", n)
     assert (frame["k"], frame["width"], frame["height"], frame["rgb_bytes"]) == (400, 320, 180, 320 * 180 * 3), frame
 
+    # The dashboard draws the last completed run (the straight run above printing 'hello'); asked after a failed run it errors by design.
+    n = send(page, {"type": "dashboard"})
+    png = reply(page, "dashboard", n, timeout=180_000)
+    assert png["png_magic"] == [137, 80, 78, 71], png
+
     n = send(page, {"type": "run", "code": "def p_steer(est, k_off, k_head):\n    return 1 / 0\n", "exercise": a, "road": "gentle"})
     error = reply(page, "error", n)
     assert "ZeroDivisionError" in error["message"] and error["line"] == 2 and error["request"] == "run", error
@@ -3624,10 +3629,6 @@ def test_worker_protocol(page):
 
     n = send(page, {"type": "nonsense"})
     assert "nonsense" in reply(page, "error", n)["message"]
-
-    n = send(page, {"type": "dashboard"})
-    png = reply(page, "dashboard", n, timeout=180_000)
-    assert png["png_magic"] == [137, 80, 78, 71], png
 
 
 if __name__ == "__main__":
@@ -3642,6 +3643,8 @@ if __name__ == "__main__":
             print("messages:", page.evaluate("JSON.stringify(window.messages).slice(0, 1500)"))
             browser.close()
 ```
+
+> NOTE (the dashboard comes before the failing runs): a dashboard asked for after a failed run errors by design with `RuntimeError("run the car first: ...")`, because `preview_run` clears the previous run before it starts and keeps nothing when the learner's code raises. `tests/playground/test_shim.py` pins both halves: `test_a_learner_that_raises_mid_run_stops_the_run_and_the_next_run_works` (a run that raises leaves `LAST_RUN` as `None`) and `test_dashboard_png_shows_the_last_completed_run` (no run, no dashboard). So `check_worker.py` asks for the dashboard while the last run is the completed straight run, before the `1 / 0` and `x = 1` runs; a check (`check_code`) does not touch the last run. The first draft asked after those two failed runs and could not pass against the Task 7 shim.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
@@ -4313,10 +4316,12 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
   - The site's progress store, `src/lib/learnfsd-progress.ts` in the vivekn repo: `STORAGE_KEY` at `:7`, `parseProgress` at `:22`, `logs: PilotLog[]` at `:13`.
 - Produces (Task 12 and the site plan rely on these):
   - The page URL `playground/index.html?exercise=<id>[&preset=<name>]`. Self-links use `index.html`; module imports are relative.
-  - DOM ids: `#exercise-label`, `#exercise-task`, `#unit-link` (`/learnfsd/unit/<unit_key>/`), `#open-colab`, `#editor` (`#editor-fallback` is the textarea when CodeMirror does not load), `#run`, `#check`, `#stop`, `#road-label`, `#road`, `#status` (`data-state` is `loading | ready | running | done | error`), `#retry`, `#colab-fallback`, `#traceback`, `#verdict` (`data-passed`), `#stdout`, `#stats` (a `<dl>`), `#drive-view`, `#player-view`, `#canvas`, `#play`, `#to-end`, `#scrub`, `#speed`, `#r-t`, `#r-lat`, `#r-speed`, `#r-steer`, `#r-progress`, `#strips`, `#frame` (320 x 180), `#mask` (320 x 180), `#dashboard-view`, `#dashboard`, `#dashboard-img`, `#engine`.
+  - DOM ids: `#exercise-label`, `#exercise-task`, `#unit-link` (`../unit/<unit_key>/`, relative: the lecture sits beside the playground wherever the course is served, spec section 12), `#open-colab`, `#editor` (`#editor-fallback` is the textarea when CodeMirror does not load), `#run`, `#check`, `#stop`, `#road-label`, `#road`, `#status` (`data-state` is `loading | ready | running | done | error`), `#retry`, `#colab-fallback`, `#traceback`, `#verdict` (`data-passed`), `#stdout`, `#stats` (a `<dl>`), `#drive-view`, `#player-view`, `#canvas`, `#play`, `#to-end`, `#scrub`, `#speed`, `#r-t`, `#r-lat`, `#r-speed`, `#r-steer`, `#r-progress`, `#strips`, `#frame` (320 x 180), `#mask` (320 x 180), `#dashboard-view`, `#dashboard`, `#dashboard-img`, `#engine`.
   - `window.__setCode(text)`: replaces the code, whether CodeMirror or the textarea is active.
   - `progress.js`: `STORAGE_KEY = "learnfsd.v2.progress"`, `readProgress() -> object | null` (never throws), `markPassed(unitKey, exerciseId, now = new Date()) -> boolean` (true when written, false when storage is unavailable; the first pass keeps its timestamp; other units and unknown keys are kept).
   - What B6 asserts for this task: all 19 numbered cases (20 runs) of `check_page.py`. Task 12's pytest cases drive the same page through `window.__setCode`.
+
+> CARRY (site plan): `#unit-link` is `../unit/<slug>/`, so the site must serve the playground at `<prefix>/playground/` (the iframe's `src` is `<prefix>/playground/index.html?exercise=<id>`), and then `../unit/<slug>/` resolves to `<prefix>/unit/<slug>/`. Served from any other depth the link breaks, so the site plan's iframe task must use that path.
 
 > NOTE: an unknown `?exercise=` does not show an error page. This page opens the FIRST exercise in state `ready` and writes "Unknown exercise <id>; showing <label>." in `#status`, as Task 12 pins. An unknown `preset=` falls back to `starter` with "Unknown preset <name>; showing the starter."
 > 
@@ -5185,7 +5190,7 @@ async function setUp({ records, roads, palette }) {
   $("exercise-label").textContent = record.label;
   $("exercise-task").textContent = record.task ?? "";
   $("exercise-task").hidden = !record.task;
-  $("unit-link").href = `/learnfsd/unit/${record.unit_key}/`;
+  $("unit-link").href = `../unit/${record.unit_key}/`; // relative: the lecture sits beside the playground wherever the course is served
   $("open-colab").href = record.colab_url;
   const kind = KINDS[record.kind];
   if (!kind) throw new Error(`Exercise ${record.id} has kind "${record.kind}", which this page does not know how to run.`);
@@ -5742,7 +5747,7 @@ def test_every_exercise_opens_ready_with_its_label_and_links(page, base_url, rec
     open_ready(page, base_url, record["id"])
     expect(page.locator("#exercise-label")).to_have_text(record["label"])
     assert not re.search(r"\d+\.\d+\.\d+", page.inner_text("#exercise-label")), "a dotted id reached the learner"
-    expect(page.locator("#unit-link")).to_have_attribute("href", f"/learnfsd/unit/{record['unit_key']}/")
+    expect(page.locator("#unit-link")).to_have_attribute("href", f"../unit/{record['unit_key']}/")
     expect(page.locator("#open-colab")).to_have_attribute("href", record["colab_url"])
 
 
@@ -6597,7 +6602,7 @@ S-1  cold load to Ready: <load_s> s (budget 3.0); lecture click path: <yes/no>
 S-2  check verdicts identical on the 7 references, 0.1.2.a (image) included: <7 of 7 tests passed>; Colab vs playground diff, Exercise A: <identical/differs>, Exercise B: <identical/differs>
 S-3  pass shown without reload: unit page <yes/no>, course map <yes/no>
 S-4  Stop restart: <restart_s> s (budget 3.0)
-S-5  phone <model, browser>: lap <W> s = <steps/s> steps/s, Check <passed/failed>; emulated iPhone 12: <steps/s> steps/s
+S-5  phone <model, browser>: lap <W> s = <steps/s> steps/s, Check <passed/failed>; emulated iPhone 12, best of 3 laps: <steps/s> steps/s
 S-6  margin tests: <N passed>
 10 Mbit/s 40 ms cold load: <t1>, <t2>, <t3> s (budget 12); transferred <MB> MB (budget 11)
 Machine: <Mac model, macOS, Chrome version>
