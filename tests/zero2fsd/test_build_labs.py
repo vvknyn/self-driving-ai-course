@@ -137,8 +137,8 @@ def test_every_lecture_figure_is_in_the_lab_with_its_caption_and_a_url_colab_can
         file = src[len(prefix):]
         assert (unit / "figures" / file).is_file(), f"{src} is not a file of this repo"
         assert file in lecture, f"{file} is not a figure of lecture.md"
-        number, lecture_alt = lecture[file]
-        assert (alt, caption) == (lecture_alt, f"Lecture figure {number}. {lecture_alt}")
+        number, plain = lecture[file][0], lecture[file][1].replace("`", "")  # a `code` span renders as <code>: no backticks reach the learner
+        assert (alt, caption) == (plain, f"Lecture figure {number}. {plain}")
     assert {src[len(prefix):] for src, _, _ in shown} == set(lecture)  # none of the lecture's figures is missing from the lab
 
 
@@ -192,3 +192,32 @@ def test_a_ref_to_a_lecture_figure_missing_from_figures_fails_the_build(mini_rep
 def test_a_lab_figure_with_its_own_alt_text_fails_the_build(mini_repo):
     with pytest.raises(ValueError, match="empty alt"):
         build_labs.compile_lab(mini_lab_showing(mini_repo, "![my own caption](figures/two.png)"))
+
+
+def lecture_with_alt(mini_repo, alt):
+    """The fixture lab showing two.png, whose lecture alt text for two.png is `alt`."""
+    lab = mini_lab_showing(mini_repo, "![](figures/two.png)")
+    lecture = lab.parent / "lecture.md"
+    lecture.write_text(lecture.read_text(encoding="utf-8").replace("![Second]", f"![{alt}]"), encoding="utf-8")
+    return lab
+
+
+def test_a_code_span_in_the_alt_is_code_in_the_caption_and_plain_text_in_the_img_alt(mini_repo):
+    cell = nbformat.reads(build_labs.compile_lab(lecture_with_alt(mini_repo, "Drive `a<b` on `gentle` & stop")), as_version=4).cells[0]
+    url = f"https://raw.githubusercontent.com/{REPO_SLUG}/{build_labs.FIGURE_REF}/course/0.1.1-mini/figures/two.png"
+    assert f'<img src="{url}" alt="Drive a&lt;b on gentle &amp; stop">' in cell.source
+    assert "<figcaption><em>Lecture figure 2. Drive <code>a&lt;b</code> on <code>gentle</code> &amp; stop</em></figcaption>" in cell.source
+    assert "`" not in cell.source
+    assert shown_images(cell.source) == [(url, "Drive a<b on gentle & stop", "Lecture figure 2. Drive a<b on gentle & stop")]
+
+
+def test_markdown_characters_inside_a_code_span_are_allowed(mini_repo):
+    cell = nbformat.reads(build_labs.compile_lab(lecture_with_alt(mini_repo, "mask `a[0] * 2` costs `$x`")), as_version=4).cells[0]
+    assert "Lecture figure 2. mask <code>a[0] * 2</code> costs <code>$x</code></em>" in cell.source
+
+
+@pytest.mark.parametrize("alt", ["*bold* roads", "a [link](x) here", "cost $5 each", "`open span", "two `a` and `b` and `c"],
+                         ids=["emphasis", "link", "maths", "unbalanced", "unbalanced-after-spans"])
+def test_markdown_outside_a_code_span_or_an_unbalanced_backtick_fails_the_build(mini_repo, alt):
+    with pytest.raises(ValueError, match="alt text"):
+        build_labs.compile_lab(lecture_with_alt(mini_repo, alt))
