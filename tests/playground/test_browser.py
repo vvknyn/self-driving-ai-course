@@ -371,9 +371,9 @@ def test_preset_starter_runs_automatically(page, base_url, shim, record):
     expected = native_error(shim, record, record["presets"]["starter"])
     assert page.get_attribute("#status", "data-state") == ("error" if expected else "done")
     if expected:
-        name = type(expected).__name__
-        status = " ".join(page.inner_text("#status").split())  # #status collapses spaces; the shim's empty message leaves two
-        assert status.startswith(f"{name}:"), f"the page names a different exception than the Mac's shim ({name}): {status!r}"
+        said = " ".join(shim.format_error(expected)["message"].split())  # the text the Mac's shim gives this exception, empty message or not
+        status = " ".join(page.inner_text("#status").split())  # #status collapses spaces
+        assert status.startswith(said), f"the page words the exception differently from the Mac's shim ({said!r}): {status!r}"
         assert " ".join(page.inner_text("#stdout").split()).count(status) == 1, "the error line is not in #stdout exactly once"
 
 
