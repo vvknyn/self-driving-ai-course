@@ -1076,7 +1076,7 @@ Expected: `5 passed`. (`test_storage_blocked` asserts `page_errors == []` with e
 - [ ] **Step 7: Rebuild the committed playground and run the fast checks**
 
 ```bash
-cd /Users/vivek/Antigravity/self-driving-ai-course-week1 && /Users/vivek/Antigravity/self-driving-ai-course/.venv/bin/python scripts/build_course_bundle.py && git status --short course/dist && PYTHONPYCACHEPREFIX=/private/tmp/claude-501/c1-pycache /Users/vivek/Antigravity/self-driving-ai-course/.venv/bin/python -m pytest -p no:cacheprovider -q tests/playground/test_build.py tests/playground/test_app_css.py > /private/tmp/claude-501/c1-out/C1-build.txt 2>&1; tail -3 /private/tmp/claude-501/c1-out/C1-build.txt
+cd /Users/vivek/Antigravity/self-driving-ai-course-week1 && PYTHONPYCACHEPREFIX=/private/tmp/claude-501/c1-pycache /Users/vivek/Antigravity/self-driving-ai-course/.venv/bin/python scripts/build_course_bundle.py && git status --short course/dist && PYTHONPYCACHEPREFIX=/private/tmp/claude-501/c1-pycache /Users/vivek/Antigravity/self-driving-ai-course/.venv/bin/python -m pytest -p no:cacheprovider -q tests/playground/test_build.py tests/playground/test_app_css.py > /private/tmp/claude-501/c1-out/C1-build.txt 2>&1; tail -3 /private/tmp/claude-501/c1-out/C1-build.txt
 ```
 Expected: `git status` lists `M course/dist/playground/app.js`, `M course/dist/playground/index.html`, `M course/dist/playground/manifest.json`, `?? course/dist/playground/draft.js` and nothing else under course/dist; pytest `… passed` with 0 failed (test_build.py:315 derives the expected dist file set from `playground/`, so `draft.js` is expected automatically; test_app_css.py:47 scans app.js and index.html for colour literals — none were added).
 
@@ -1154,7 +1154,7 @@ Expected: `2 failed, 1 passed`. The first fails at `expect(page.locator("#restor
 
 In `playground/app.js`:
 
-(a) Line 22 becomes:
+(a) The line that starts `let app;` becomes:
 ```js
 let app; // the page's long-lived pieces, built once: { record, roads, palette, player, strips, editor, notice, autoRun, draft }
 ```
@@ -1196,7 +1196,7 @@ $("restore-draft").addEventListener("click", () => {
 
 - [ ] **Step 4: Add the control to `playground/index.html`**
 
-After line 58 `<a id="colab-fallback" target="_blank" rel="noopener" hidden>Open this exercise in Colab</a>` add:
+After the line `<a id="colab-fallback" target="_blank" rel="noopener" hidden>Open this exercise in Colab</a>` add:
 ```html
         <button id="restore-draft" type="button" hidden>Restore my draft</button>
 ```
@@ -1212,7 +1212,7 @@ Expected: `7 passed`.
 - [ ] **Step 6: Rebuild the committed playground and run the fast checks**
 
 ```bash
-cd /Users/vivek/Antigravity/self-driving-ai-course-week1 && /Users/vivek/Antigravity/self-driving-ai-course/.venv/bin/python scripts/build_course_bundle.py && git status --short course/dist && PYTHONPYCACHEPREFIX=/private/tmp/claude-501/c1-pycache /Users/vivek/Antigravity/self-driving-ai-course/.venv/bin/python -m pytest -p no:cacheprovider -q tests/playground/test_build.py tests/playground/test_app_css.py > /private/tmp/claude-501/c1-out/C2-build.txt 2>&1; tail -3 /private/tmp/claude-501/c1-out/C2-build.txt
+cd /Users/vivek/Antigravity/self-driving-ai-course-week1 && PYTHONPYCACHEPREFIX=/private/tmp/claude-501/c1-pycache /Users/vivek/Antigravity/self-driving-ai-course/.venv/bin/python scripts/build_course_bundle.py && git status --short course/dist && PYTHONPYCACHEPREFIX=/private/tmp/claude-501/c1-pycache /Users/vivek/Antigravity/self-driving-ai-course/.venv/bin/python -m pytest -p no:cacheprovider -q tests/playground/test_build.py tests/playground/test_app_css.py > /private/tmp/claude-501/c1-out/C2-build.txt 2>&1; tail -3 /private/tmp/claude-501/c1-out/C2-build.txt
 ```
 Expected: `M course/dist/playground/app.js`, `M course/dist/playground/index.html`, `M course/dist/playground/manifest.json` and nothing else; pytest `… passed`, 0 failed.
 
@@ -1226,10 +1226,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ### Task 8: Pin `target="_top"` on "Back to the lecture"
 
-The attribute is already there (`playground/index.html:41`, since commit 78bffe7, and in `course/dist/playground/index.html`); the recon's "needs adding" is stale. What is missing is the test: `test_every_exercise_opens_ready_with_its_label_and_links` (:332) pins only `href`, so the attribute could be dropped by any edit of the header without a check going red. The page runs inside the site's `<iframe>` (spec :115); without `target="_top"` the lecture would open inside the iframe.
+The attribute is already there (`playground/index.html:41`, since commit 78bffe7, and in `course/dist/playground/index.html`); the recon's "needs adding" is stale. What is missing is the test: `test_every_exercise_opens_ready_with_its_label_and_links` pins only `href`, so the attribute could be dropped by any edit of the header without a check going red. The page runs inside the site's `<iframe>` (spec :115); without `target="_top"` the lecture would open inside the iframe.
 
 **Files:**
-- Test: `tests/playground/test_browser.py:332` (`test_every_exercise_opens_ready_with_its_label_and_links`)
+- Test: `tests/playground/test_browser.py` (`test_every_exercise_opens_ready_with_its_label_and_links`)
 - Touched only to prove the test bites, then restored: `playground/index.html`
 
 **Interfaces:** none new. The test is parametrized over every exercise record, so it pins the attribute for the class, not for one id.
@@ -1656,7 +1656,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
       assert 'hint:     lecture "Meet your car", section "Summarising lane error"' in capsys.readouterr().out
   ```
 
-  - `tests/playground/test_shim.py`: `assert message.startswith(f"{exercise}: ") and expected in message` → `assert message.startswith(f"Exercise {exercise[-1].upper()}: ") and expected in message` (rest of the line unchanged); `assert str(caught.value) == f"0.1.2.a: {expected}"` → `assert str(caught.value) == f"Exercise A: {expected}"`.
+  - `tests/playground/test_shim.py`: `assert message.startswith(f"{exercise}: ") and expected in message` → `assert message.startswith(f"Exercise {exercise[-1].upper()}: ") and expected in message` (rest of the line unchanged); `assert str(caught.value) == f"0.1.2.a: {expected}"` → `assert str(caught.value) == f"Exercise A: {expected}"`; `assert str(caught.value) == f"{exercise}: expected {what}, {got}"` → `assert str(caught.value) == f"Exercise {exercise[-1].upper()}: expected {what}, {got}"`.
   - Confirm no other test or page still expects an id prefix: `grep -rn '{exercise_id}:\|{exercise}: \|"0\.1\.[0-9]\.[ab]: ' /Users/vivek/Antigravity/self-driving-ai-course-week1/tests /Users/vivek/Antigravity/self-driving-ai-course-week1/playground` → expected: no output.
 
   Run: `cd /Users/vivek/Antigravity/self-driving-ai-course-week1 && PYTHONPATH=/Users/vivek/Antigravity/self-driving-ai-course-week1 PYTHONPYCACHEPREFIX=/private/tmp/claude-501/c1-pycache MPLBACKEND=Agg /Users/vivek/Antigravity/self-driving-ai-course/.venv/bin/python -m pytest -p no:cacheprovider -q tests/zero2fsd/test_grade.py tests/zero2fsd/test_verify_units.py tests/playground/test_shim.py 2>&1 | tail -3`
@@ -1684,7 +1684,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Modify: `/Users/vivek/Antigravity/self-driving-ai-course-week1/scripts/build_labs.py` (import block; new `CHECK_CALL`, `labelled`; one token in `compile_lab` — Part A owns the rest of that function)
 - Modify: `/Users/vivek/Antigravity/self-driving-ai-course-week1/playground/index.html` (the `#check` button only; `#reset`/`#restore-draft` are Part C's)
 - Modify: `/Users/vivek/Antigravity/self-driving-ai-course-week1/tests/zero2fsd/test_build_labs.py`, `/Users/vivek/Antigravity/self-driving-ai-course-week1/tests/playground/test_build.py` (one new test each)
-- Modify (by the script in Step 3): `course/0.1.{1,2,3,4}-*/lecture.md`, `lab.py`, `unit.yaml` — 78 exact substitutions
+- Modify (by the script in Step 3): `course/0.1.{1,2,3,4}-*/lecture.md`, `lab.py`, `unit.yaml` — 83 exact substitutions
 - Rebuild + commit: `course/0.1.{1,2,3,4}-*/lab.ipynb`, `course/dist/course.json`, `course/dist/playground/index.html`, `course/dist/playground/manifest.json`
 
 **Interfaces:** `build_labs.labelled(cell: Cell) -> str`; `build_labs.CHECK_CALL`; the text contract in Part interfaces. Parts A (Task 2 moved cells in 0.1.2 and 0.1.4 lab.py, renamed colours in figure prose) and C (C4 playground links) have already edited these files: every substitution below is an exact substring that must occur once; the script stops and names any that does not.
@@ -1726,13 +1726,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
         """A code cell that grades the learner's answer starts with the name of the action; every other cell is as authored."""
         return f"# {CHECK_MY_WORK}\n{cell.source}" if cell.kind == "code" and CHECK_CALL.search(cell.source) else cell.source
     ```
-  - inside `compile_lab`, the expression that supplies a CODE cell's source is `cell.source` (the `else cell.source` branch of the `source = … if cell.kind == "markdown" else cell.source` statement, unless Part A reshaped it — then whatever expression now feeds a code cell's source): change that one token to `labelled(cell)`. Do not touch the figure code or the `check_lecture_order` call.
+  - inside `compile_lab`, the expression that supplies a CODE cell's source is the statement `source = cell.source` (Task 2 left it in this form; `labelled` returns `cell.source` unchanged for every cell that is not a graded code cell): change it to `source = labelled(cell)`. Do not touch the figure code or the `check_lecture_order` call.
 
   In `playground/index.html` replace `<button id="check" type="button" disabled>Check</button>` with `<button id="check" type="button" disabled>Check my work</button>`.
 
   Run the Step 1 command. Expected: `2 passed`.
 
-- [ ] **Step 3: The 78 text substitutions.** Write the following to `/private/tmp/claude-501/c1-b3-rename.py` and run it twice: first `--check` (counts only, writes nothing), then without a flag (applies). Each `old` must occur exactly once in its file; if the script prints a `… occurrences of …` line, Part A's or C's edits moved or reworded that text: open the file, apply the same intent by hand on the current wording, re-run `--check` until it reports `0 problem(s)`, then apply.
+- [ ] **Step 3: The 83 text substitutions.** Write the following to `/private/tmp/claude-501/c1-b3-rename.py` and run it twice: first `--check` (counts only, writes nothing), then without a flag (applies). Each `old` must occur exactly once in its file; if the script prints a `… occurrences of …` line, Part A's or C's edits moved or reworded that text: open the file, apply the same intent by hand on the current wording, re-run `--check` until it reports `0 problem(s)`, then apply.
 
   ```python
   """Task 13: every learner-visible dotted id becomes a title or an exercise letter, and every section citation takes the
@@ -1766,6 +1766,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
           ('(Lecture: "The signed-mean trap".)', '(section "The signed-mean trap".)'),
           ('Write the three summaries from "Summarising lane error" with NumPy', 'Write the three summaries from section "Summarising lane error" with NumPy'),
           ('(lecture: "Counting steps off the lane")', '(section "Counting steps off the lane")'),
+          (' (lecture: "Counting\n# steps off the lane" says', '\n# (section "Counting steps off the lane" says'),
       ],
       f"{U1}/unit.yaml": [
           ('passes check(\\"0.1.1.a\\") in the lab', 'passes Exercise A\'s \\"Check my work\\" in the lab'),
@@ -1778,6 +1779,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
           ('you will read it properly in unit 0.1.4.', 'you will read it properly in "Closing the loop".'),
       ],
       f"{U2}/lab.py": [
+          (' (lecture: "Why exact\n# equality fails"). Now turn', '\n# (section "Why exact equality fails"). Now turn'),
           ('# # Lab 0.1.2: Images are arrays', '# # Lab: Images are arrays'),
           ('### 0.1.2.a `paint_masks`', '### Exercise A · `paint_masks`'),
           ('In unit 0.1.3 you turn these two masks', 'In "Your first perception box" you turn these two masks'),
@@ -1801,6 +1803,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
           ('Check `0.1.3.b` drives that car around', "Exercise B's check drives that car around"),
       ],
       f"{U3}/lab.py": [
+          ('degrees (lecture: "The horizon")', 'degrees (section "The horizon")'),
           ('# # Lab 0.1.3: Your first perception box', '# # Lab: Your first perception box'),
           ('from unit 0.1.2, replace the import', 'from "Images are arrays", replace the import'),
           ('### 0.1.3.a and 0.1.3.b `estimate_lane`', '### Exercise A and Exercise B · `estimate_lane`'),
@@ -1834,6 +1837,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
           ('Check `0.1.4.b` requires a `Car`', "Exercise B's check requires a `Car`"),
       ],
       f"{U4}/lab.py": [
+          (' (lecture: "Why your car leaves\n# curvy"). First', '\n# (section "Why your car leaves curvy"). First'),
+          ('Your perception box from lab 0.1.3: paste it here.', 'Your perception box from the "Your first perception box" lab: paste it here.'),
           ('# # Lab 0.1.4: Closing the loop', '# # Lab: Closing the loop'),
           ('## 3. Graded exercise 0.1.4.a `p_steer`', '## 3. Exercise A (graded) · `p_steer`'),
           ('## 5. Graded exercise 0.1.4.b `my_car`', '## 5. Exercise B (graded) · `my_car`'),
@@ -1880,20 +1885,20 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   ```
 
   Run: `cd /Users/vivek/Antigravity/self-driving-ai-course-week1 && /Users/vivek/Antigravity/self-driving-ai-course/.venv/bin/python -B /private/tmp/claude-501/c1-b3-rename.py --check && /Users/vivek/Antigravity/self-driving-ai-course/.venv/bin/python -B /private/tmp/claude-501/c1-b3-rename.py`
-  Expected: `78 edits in 12 files; 0 problem(s); checked only` then `78 edits in 12 files; 0 problem(s); applied` (the planner dry-ran this list against the tree at 335491a: 78/78 unique). Then confirm the old citation forms are gone and no course id is left in prose: `grep -rnE '\((lecture|Lecture): "|unit 0\.1\.[0-9]|lab 0\.1\.[0-9]|Lab 0\.1\.[0-9]|### 0\.1\.|exercise 0\.1\.' course/*/lecture.md course/*/lab.py course/*/unit.yaml` → expected: no output.
+  Expected: `83 edits in 12 files; 0 problem(s); checked only` then `83 edits in 12 files; 0 problem(s); applied` (the planner dry-ran this list against the tree at 335491a: 78/78 unique; the pre-flight scan added 5 more). Then confirm the old citation forms are gone and no course id is left in prose: `grep -rnE '\((lecture|Lecture): "|unit 0\.1\.[0-9]|lab 0\.1\.[0-9]|Lab 0\.1\.[0-9]|### 0\.1\.|exercise 0\.1\.' course/*/lecture.md course/*/lab.py course/*/unit.yaml` → expected: no output.
 
 - [ ] **Step 4: Rebuild the notebooks and the bundle.** Run: `cd /Users/vivek/Antigravity/self-driving-ai-course-week1 && PYTHONPATH=/Users/vivek/Antigravity/self-driving-ai-course-week1 PYTHONPYCACHEPREFIX=/private/tmp/claude-501/c1-pycache MPLBACKEND=Agg /Users/vivek/Antigravity/self-driving-ai-course/.venv/bin/python scripts/build_labs.py && PYTHONPATH=/Users/vivek/Antigravity/self-driving-ai-course-week1 PYTHONPYCACHEPREFIX=/private/tmp/claude-501/c1-pycache MPLBACKEND=Agg /Users/vivek/Antigravity/self-driving-ai-course/.venv/bin/python scripts/build_course_bundle.py && git status --short course`
-  Expected: four `built course/…/lab.ipynb` lines, two `wrote …` lines, then ` M` for the four `lecture.md`, four `lab.py`, four `lab.ipynb`, four `unit.yaml`, `course/dist/course.json`, `course/dist/playground/index.html`, `course/dist/playground/manifest.json` — 19 files. `exercises.json` must NOT appear (no `task:` text held an id); if it does, read its diff before going on. Spot-check the Colab label: `grep -c '"# Check my work\\n",' course/0.1.1-meet-your-car/lab.ipynb` → `2`; `course/0.1.3-your-first-perception-box/lab.ipynb` → `2`; 0.1.2 → `1`; 0.1.4 → `2`.
+  Expected: four `built course/…/lab.ipynb` lines, two `wrote …` lines, then ` M` for the four `lecture.md`, four `lab.py`, four `lab.ipynb`, four `unit.yaml`, `course/dist/course.json`, `course/dist/playground/index.html`, `course/dist/playground/manifest.json`, `course/dist/playground/exercises.json` — 20 files. `exercises.json` changes only in the 0.1.4.b starter (`from lab 0.1.3` → `from the "Your first perception box" lab`); read its diff to confirm nothing else moved. Spot-check the Colab label: `grep -c '"# Check my work\\n",' course/0.1.1-meet-your-car/lab.ipynb` → `2`; `course/0.1.3-your-first-perception-box/lab.ipynb` → `2`; 0.1.2 → `1`; 0.1.4 → `2`.
 
 - [ ] **Step 5: Tests, including the real-course gates that exist so far.** Run: `cd /Users/vivek/Antigravity/self-driving-ai-course-week1 && PYTHONPATH=/Users/vivek/Antigravity/self-driving-ai-course-week1 PYTHONPYCACHEPREFIX=/private/tmp/claude-501/c1-pycache MPLBACKEND=Agg /Users/vivek/Antigravity/self-driving-ai-course/.venv/bin/python -m pytest -p no:cacheprovider -q tests/zero2fsd/test_build_labs.py tests/zero2fsd/test_bundle.py tests/zero2fsd/test_verify_units.py tests/playground/test_build.py 2>&1 | tail -3`
   Expected: all passed, 0 failed (`test_committed_notebooks_are_in_sync_with_their_lab_py`, the course.json/dist freshness tests and `test_every_ready_unit_in_the_repo_verifies` included).
 
 - [ ] **Step 6: Commit.**
   ```
-  cd /Users/vivek/Antigravity/self-driving-ai-course-week1 && git add scripts/build_labs.py playground/index.html tests/zero2fsd/test_build_labs.py tests/playground/test_build.py course/0.1.1-meet-your-car course/0.1.2-images-are-arrays course/0.1.3-your-first-perception-box course/0.1.4-closing-the-loop course/dist/course.json course/dist/playground/index.html course/dist/playground/manifest.json && git status --short && git commit -q -F - <<'MSG'
+  cd /Users/vivek/Antigravity/self-driving-ai-course-week1 && git add scripts/build_labs.py playground/index.html tests/zero2fsd/test_build_labs.py tests/playground/test_build.py course/0.1.1-meet-your-car course/0.1.2-images-are-arrays course/0.1.3-your-first-perception-box course/0.1.4-closing-the-loop course/dist/course.json course/dist/playground/index.html course/dist/playground/manifest.json course/dist/playground/exercises.json && git status --short && git commit -q -F - <<'MSG'
   feat(course): learner text names lessons, exercise letters and sections; the check action is "Check my work"
 
-  78 substitutions across the four units' lecture.md, lab.py and unit.yaml: no dotted id in prose, every citation in
+  83 substitutions across the four units' lecture.md, lab.py and unit.yaml: no dotted id in prose, every citation in
   the form section "<Heading>", proofs name Exercise A's "Check my work". build_labs prepends "# Check my work" to
   every check cell; the playground button says the same. Notebooks, course.json and the playground page rebuilt.
 
@@ -2046,13 +2051,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `main`: `"all exercises: skeleton fails, solution passes"` → `"all units: skeleton fails, solution passes, learner text clean"`.
 
   Run: `cd /Users/vivek/Antigravity/self-driving-ai-course-week1 && PYTHONPATH=/Users/vivek/Antigravity/self-driving-ai-course-week1 PYTHONPYCACHEPREFIX=/private/tmp/claude-501/c1-pycache MPLBACKEND=Agg /Users/vivek/Antigravity/self-driving-ai-course/.venv/bin/python -m pytest -p no:cacheprovider -q tests/zero2fsd/test_verify_units.py --deselect tests/zero2fsd/test_verify_units.py::test_every_ready_unit_in_the_repo_verifies 2>&1 | tail -6`
-  Expected: the five `test_a_course_id_in_learner_text_is_a_violation` cases, `test_ids_in_code_fences…`, `test_lecture_sections…` and `test_a_section_citation…` pass; **`test_a_correct_unit_has_no_violations_and_never_runs_untagged_cells` FAILS** with `the grader's hint names section 'Summarising lane error', not a ## heading of lecture.md (headings: ['Counting steps off the lane', 'Measuring lane error'])` — the new check catching the fixture's own mismatch with the real 0.1.1.a grader — and `test_a_grader_hint_must_cite_a_heading_of_the_lecture` fails on `edit`'s assert (`'## Summarising lane error' not in …`). Both go green in Step 3; `test_cli_exit_codes_and_report` passes (its substring survives).
+  Expected: until Step 3 renames the fixture heading, every test that verifies the mini fixture through `built_repo` carries one extra violation (the fixture's 0.1.1.a hint cites 'Summarising lane error', not yet a heading), so the five `test_a_course_id_in_learner_text_is_a_violation` cases, `test_ids_in_code_fences…`, `test_a_section_citation…` and the existing `test_cli_exit_codes_and_report` FAIL on that hint violation and nothing else; `test_lecture_sections…` passes; **`test_a_correct_unit_has_no_violations_and_never_runs_untagged_cells` FAILS** with `the grader's hint names section 'Summarising lane error', not a ## heading of lecture.md (headings: ['Counting steps off the lane', 'Measuring lane error'])` — the new check catching the fixture's own mismatch with the real 0.1.1.a grader — and `test_a_grader_hint_must_cite_a_heading_of_the_lecture` fails on `edit`'s assert (`'## Summarising lane error' not in …`). Both go green in Step 3; `test_cli_exit_codes_and_report` passes (its substring survives).
 
 - [ ] **Step 3: The fixture's lecture heading follows the grader it is graded by.**
   - `tests/zero2fsd/fixtures/mini_repo/course/0.1.1-mini/lecture.md`: `## Measuring lane error` → `## Summarising lane error`.
   - `tests/zero2fsd/fixtures/mini_repo/course/0.1.1-mini/quiz.yaml`: both `section: measuring-lane-error` → `section: summarising-lane-error` (the bundle build checks quiz slugs against the headings).
   - `tests/zero2fsd/test_bundle.py`: both occurrences of `"section: measuring-lane-error\n- id: q2"` (the `test_bad_content_fails_loudly` row with message `not a heading of the lecture`, and the `old` in `test_a_quiz_section_may_not_be_a_heading_that_only_appears_in_a_code_fence`) → `"section: summarising-lane-error\n- id: q2"`. The `heading_slug` row `("Measuring lane error", "measuring-lane-error")` near the top of that file is a slug-function literal, not the fixture: leave it.
-  - Check nothing else spells the old heading: `grep -rn 'measuring-lane-error\|Measuring lane error' tests/ scripts/ zero2fsd/` → expected: only the `test_bundle.py` `heading_slug` literal line.
+  - Check nothing else spells the old heading: `grep -rn 'measuring-lane-error\|Measuring lane error' tests/ scripts/ zero2fsd/` → expected: the `test_bundle.py` `heading_slug` literal line plus the two lines of `tests/zero2fsd/test_verify_units.py` in `test_a_grader_hint_must_cite_a_heading_of_the_lecture`, which spell the old heading on purpose.
 
   Run: `cd /Users/vivek/Antigravity/self-driving-ai-course-week1 && PYTHONPATH=/Users/vivek/Antigravity/self-driving-ai-course-week1 PYTHONPYCACHEPREFIX=/private/tmp/claude-501/c1-pycache MPLBACKEND=Agg /Users/vivek/Antigravity/self-driving-ai-course/.venv/bin/python -m pytest -p no:cacheprovider -q tests/zero2fsd/test_verify_units.py tests/zero2fsd/test_bundle.py tests/zero2fsd/test_build_labs.py 2>&1 | tail -3`
   Expected: all passed, 0 failed, including `test_every_ready_unit_in_the_repo_verifies` (the real course under the full gate).
