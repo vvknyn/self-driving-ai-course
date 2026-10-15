@@ -215,7 +215,7 @@ function startWorker(note = "") {
   worker = new Worker("./worker.js", { type: "module" });
   worker.onmessage = ({ data: message }) => {
     try {
-      (FROM_WORKER[message.type] ?? unknownMessage)(message);
+      (Object.hasOwn(FROM_WORKER, message.type) ? FROM_WORKER[message.type] : unknownMessage)(message); // an inherited name ("constructor") is no handler
     } catch (error) {
       failWorker(error.message); // a bug in the page or the worker is shown, never left as "Running..."
     }

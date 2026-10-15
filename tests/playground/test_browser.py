@@ -862,13 +862,14 @@ def deliver(page, message):
     page.evaluate("data => window.__worker.dispatchEvent(new MessageEvent('message', { data }))", message)
 
 
-@pytest.mark.parametrize("message_type", ["surprise", "dashboard-ready"])
+@pytest.mark.parametrize("message_type", ["surprise", "dashboard-ready", "constructor", "toString", "__proto__"])
 def test_a_worker_message_the_page_does_not_know_is_shown_not_swallowed(page, base_url, message_type):
-    """A reply the page cannot use must not leave it on "Running..." for ever: it is shown by name, with Retry."""
+    """A reply the page cannot use must not leave it on "Running..." for ever: it is shown by name, with Retry.
+    An inherited name (`constructor`, `toString`, `__proto__`) is no handler: it takes the same path as any other unknown type."""
     open_ready(page, base_url, STEER_ID)
     deliver(page, {"type": message_type})
     wait_state(page, "error")
-    expect(page.locator("#status")).to_contain_text(f'"{message_type}"')
+    expect(page.locator("#status")).to_contain_text(f'The worker sent a "{message_type}" message, which this page does not know.')
     expect(page.locator("#retry")).to_be_visible()
 
 
