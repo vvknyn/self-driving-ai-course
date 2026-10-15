@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 
 from zero2fsd.car import Car, Telemetry, run
-from zero2fsd.car.runner import COLUMNS
+from zero2fsd.car.runner import COLUMNS, StepHook
 from zero2fsd.dashboard import dashboard
 from zero2fsd.grade import check
 from zero2fsd.grade._report import Failure
@@ -107,7 +107,7 @@ class HostCallbackError(RuntimeError):
     """The playground's own per-row callback failed. Not the learner's code; the page is broken."""
 
 
-def _host_hook(on_row: Callable[[dict], None] | None) -> tuple[Callable[[tuple], None] | None, Callable[[], None]]:
+def _host_hook(on_row: Callable[[dict], None] | None) -> tuple[StepHook | None, Callable[[], None]]:
     """The step hook for a host callback, and a check to run after the drive.
 
     The drive runs under the grader's learner_code / _at_boundary, which label every exception the learner's.
