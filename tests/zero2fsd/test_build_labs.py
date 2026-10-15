@@ -221,3 +221,19 @@ def test_markdown_characters_inside_a_code_span_are_allowed(mini_repo):
 def test_markdown_outside_a_code_span_or_an_unbalanced_backtick_fails_the_build(mini_repo, alt):
     with pytest.raises(ValueError, match="alt text"):
         build_labs.compile_lab(lecture_with_alt(mini_repo, alt))
+
+
+@pytest.mark.parametrize(("first", "second"), [("two", "one"), ("one", "one")], ids=["reversed", "repeated"])
+def test_lab_figures_out_of_lecture_order_fail_the_build(mini_repo, first, second):
+    lab = mini_lab_showing(mini_repo, f"![](figures/{first}.png)")
+    lab.write_text(lab.read_text(encoding="utf-8") + f"\n# %% [markdown]\n# ![](figures/{second}.png)\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="out of lecture order"):
+        build_labs.compile_lab(lab)
+
+
+def test_lab_figures_in_lecture_order_across_cells_build(mini_repo):
+    lab = mini_lab_showing(mini_repo, "![](figures/one.png)")
+    lab.write_text(lab.read_text(encoding="utf-8") + "\n# %%\nx = 1\n\n# %% [markdown]\n# ![](figures/two.png)\n", encoding="utf-8")
+    cells = nbformat.reads(build_labs.compile_lab(lab), as_version=4).cells
+    shown = shown_images(cells[0].source) + shown_images(cells[2].source)
+    assert [url.rsplit("/", 1)[1] for url, _, _ in shown] == ["one.png", "two.png"]

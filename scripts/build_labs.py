@@ -9,6 +9,7 @@ raw HTML: an <img> with the absolute raw.githubusercontent.com src (Colab cannot
 lecture's own alt text as a numbered caption. A `code` span in that alt text becomes <code>; any other markdown in it
 (*, [, $ outside a code span) fails the build. Raw HTML, because the website wraps markdown images in its own captions.
 The build fails if x.png is not a standalone image of the unit's lecture.md or is missing from its figures/.
+A lab shows its lecture's figures in lecture order (a build error otherwise).
 """
 from __future__ import annotations
 
@@ -66,14 +67,28 @@ def figure_html(unit: Path, ref: re.Match) -> str:
     return f'<figure>\n<img src="{src}" alt="{plain}">\n<figcaption><em>Lecture figure {number}. {caption}</em></figcaption>\n</figure>'
 
 
+def check_lecture_order(unit: Path, shown: list[str]) -> None:
+    """BuildError unless the lecture figures a lab shows, in lab order, are a strict subsequence of the lecture's figure order."""
+    if not shown:
+        return
+    figures = lecture_figures((unit / "lecture.md").read_text(encoding="utf-8"))
+    numbers = [figures[path][0] for path in shown]  # every path is a lecture figure: figure_html already checked
+    if any(a >= b for a, b in zip(numbers, numbers[1:])):
+        raise BuildError(f"{unit.name}: the lab shows lecture figures out of lecture order: {shown}")
+
+
 def compile_lab(lab: Path) -> str:
     """The notebook JSON for a lab.py; cell ids are c000, c001, ... so rebuilding never churns them."""
     make = {"code": v4.new_code_cell, "markdown": v4.new_markdown_cell}
-    cells = []
+    cells, shown = [], []
     for index, cell in enumerate(parse_lab(lab.read_text(encoding="utf-8"))):
         metadata = {"tags": cell.tags} if cell.tags else {}
-        source = LAB_FIGURE.sub(lambda ref: figure_html(lab.parent, ref), cell.source) if cell.kind == "markdown" else cell.source
+        source = cell.source
+        if cell.kind == "markdown":
+            shown += [ref["path"] for ref in LAB_FIGURE.finditer(source)]
+            source = LAB_FIGURE.sub(lambda ref: figure_html(lab.parent, ref), source)
         cells.append(make[cell.kind](source, id=f"c{index:03d}", metadata=metadata))
+    check_lecture_order(lab.parent, shown)
     notebook = v4.new_notebook(cells=cells, metadata={"kernelspec": KERNEL, "language_info": {"name": "python"}})
     nbformat.validate(notebook)
     return nbformat.writes(notebook) + "\n"

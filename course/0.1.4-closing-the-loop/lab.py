@@ -157,9 +157,6 @@ offset_right = None  # your code
 practice("settled offset in a right bend of radius 18.2 m (m)", offset_right, -0.715, tol=0.001)
 
 # %% [markdown]
-# ![](figures/steady_state.png)
-
-# %% [markdown]
 # ## 3. Graded exercise 0.1.4.a `p_steer`
 #
 # Write the P law of "The P controller" and "Two errors, two gains" as a function of the estimate and the two gains.
@@ -205,6 +202,8 @@ except NotImplementedError:
 # late, so each swing is wider than the last. "More gain, tighter tracking" is the misconception.
 #
 # ![](figures/gain_sweep.png)
+#
+# ![](figures/steady_state.png)
 #
 # ## 5. Graded exercise 0.1.4.b `my_car`
 #
