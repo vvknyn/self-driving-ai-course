@@ -103,7 +103,7 @@ def _direction_angle(fn, show, on_step):
     zero_row = 17
     vectors[zero_row] = 0.0  # the zero arrow inside a batch: it must give nan too, not east
     given = f"{len(vectors)} seeded arrows of shape {vectors.shape}, row {zero_row} the zero arrow"
-    got = _as_floats(call(fn, vectors.copy(), given=given), given)
+    got = _as_floats(call(fn, vectors, given=given), given)
     want = np.arctan2(vectors[:, 1], vectors[:, 0])
     want[zero_row] = np.nan
     if np.shape(got) != want.shape:
@@ -116,7 +116,7 @@ def _direction_angle(fn, show, on_step):
         raise Failure(_why_wrong(got[worst], vectors[worst]), given=f"arrow {fmt(vectors[worst])}", expected=want[worst], got=got[worst])
     arrows, _ = _lap()
     given = f"the {len(arrows)} step arrows of the provided car's lap of gentle"
-    got = _as_floats(call(fn, arrows.copy(), given=given), given)
+    got = _as_floats(call(fn, arrows, given=given), given)
     if np.shape(got) != (len(arrows),):
         raise Failure(f"expected one angle per arrow, shape {(len(arrows),)}", given=given, got=f"shape {np.shape(got)}")
     want_lap = np.arctan2(arrows[:, 1], arrows[:, 0])
@@ -163,14 +163,14 @@ def _forward_left(fn, show, on_step):
     points = rng.uniform(-50, 50, (40, 25, 2))
     for pose, p in zip(poses, points):
         arrows, given = p - pose[:2], f"yaw {pose[2]:.4f} rad and 25 arrows of shape (25, 2)"
-        got, want = _as_floats(call(fn, float(pose[2]), arrows.copy(), given=given), given), _parts(pose, p)
+        got, want = _as_floats(call(fn, float(pose[2]), arrows, given=given), given), _parts(pose, p)
         if np.shape(got) != want.shape:
             raise Failure(f"expected shape {want.shape}: (forward, left) for each arrow", given=given, got=f"shape {np.shape(got)}")
         if not np.all(np.abs(got - want) <= PARTS_TOL):
             bad = int(np.argmax(np.where(np.abs(got - want) <= PARTS_TOL, -1.0, np.abs(got - want)).max(axis=1)))
             raise Failure(_parts_mistake(pose[2], arrows[bad], got[bad]), given=f"yaw {pose[2]:.4f} rad and arrow {fmt(arrows[bad])}", expected=want[bad], got=got[bad])
     given = "40 yaws, one arrow each: θ of shape (40,), v of shape (40, 2)"
-    got = _as_floats(call(fn, poses[:, 2].copy(), (points[:, 0] - poses[:, :2]).copy(), given=given), given)
+    got = _as_floats(call(fn, poses[:, 2], points[:, 0] - poses[:, :2], given=given), given)
     want = np.stack([_parts(pose, p[0]) for pose, p in zip(poses, points)])
     if np.shape(got) != want.shape or not np.all(np.abs(got - want) <= PARTS_TOL):
         raise Failure("with an array of yaws, row i must use yaw i", given=given, expected=f"shape {want.shape}", got=f"shape {np.shape(got)}")

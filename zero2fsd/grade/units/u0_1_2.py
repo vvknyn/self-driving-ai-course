@@ -38,7 +38,7 @@ def paint_trials(fn):
     for k, pose in enumerate(poses):
         frame, labels = camera.render(pose.road, pose.state, noise_sigma=NOISE_SIGMA, seed=k, return_labels=True)
         given = f"a {frame.shape[1]}x{frame.shape[0]} frame rendered at {pose}"
-        masks = as_masks(call(fn, frame.copy(), given=given), frame.shape[:2], given)
+        masks = as_masks(call(fn, frame, given=given), frame.shape[:2], given)
         for name, mask, paint in zip(("yellow", "white"), masks, (YELLOW, WHITE)):
             truth = labels == paint
             yield given, name, mask, truth, _iou(mask, truth)

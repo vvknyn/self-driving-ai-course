@@ -174,7 +174,7 @@ def _to_road_frame(fn, show, on_step):
     scenes = _scenes_a()
     for what, road, p in scenes:
         given = f"{what}: the road's vertices, closed={road.closed}, p = {fmt(p)}"
-        s, d = _pair(call(fn, road.centerline, road.closed, p, given=given), given)  # a fresh copy each call: the learner may change it
+        s, d = _pair(call(fn, road.centerline, road.closed, p, given=given), given)
         want_s, want_d = road.project(*p)
         left = _Segments(road.centerline, road.closed).left_at_nearest(p)
         if s_misfit(road, s, want_s) > TOL or d_misfit(d, want_d, left) > TOL:

@@ -10,14 +10,14 @@ import pytest
 import yaml
 
 import zero2fsd.grade as grade_pkg
-from _course import REPO, parse_lab
+from _course import REPO, load_solution, parse_lab
 from zero2fsd import geom
 from zero2fsd.car import Car, LaneEstimate, provided, run
 from zero2fsd.car.runner import COLUMNS
 from zero2fsd.grade import _drive, check
 from zero2fsd.grade._drive import GATE_SCENARIO
 from zero2fsd.grade._poses import LOOKAHEAD, sample_poses
-from zero2fsd.grade._report import EXERCISES, LESSON_TITLES, NOT_IMPLEMENTED, REPORT, Failure, _lines, exercise_label, fmt, fmt_pair, lesson_titles
+from zero2fsd.grade._report import EXERCISES, LESSON_TITLES, NOT_IMPLEMENTED, REPORT, Failure, _lines, call, exercise_label, fmt, fmt_pair, lesson_titles
 from zero2fsd.sim.dynamics import MAX_STEER
 
 IDS = [e["id"] for p in sorted(Path("course").glob("*/unit.yaml")) for e in yaml.safe_load(p.read_text())["exercises"]]  # every unit.yaml, so a new unit adds no line here
@@ -450,3 +450,35 @@ def test_a_real_1_1_2_lab_practice_prints_no_e_minus_17_noise(capsys):
     eval(statement, {"practice": grade_pkg.practice, "np": np, "R": geom.rotation_matrix(2.2)})
     out = capsys.readouterr().out
     assert "e-17" not in out and "e-18" not in out and "\N{CHECK MARK}" in out and "all within 1e-12" in out
+
+
+# --- learner code may edit its arguments in place; the grader's arrays must not change ----------------------------
+
+
+def test_call_hands_the_learner_copies_of_every_array_and_container_of_arrays_and_the_failure_stays_honest():
+    road, extra, options = np.arange(6.0).reshape(3, 2), np.array([1.0, 2.0]), {"w": np.ones(2)}
+    original = road.copy()
+
+    def mutating(line, parts, opts, scale=None):
+        line += 100.0
+        parts[0] += 100.0
+        opts["w"] += 100.0
+        scale += 100.0
+        return float(line[0, 0])
+
+    got = call(mutating, road, [extra, 7], options, scale=extra, given="a road")
+    assert got == 100.0 and np.array_equal(road, original) and np.array_equal(extra, [1.0, 2.0]) and np.array_equal(options["w"], np.ones(2))
+    failure = Failure("wrong", expected=road[0, 0], got=got)
+    assert expected_got(failure)["expected"] == "0" and expected_got(failure)["got"] == "100"  # the grader's own value, not the shifted one
+
+
+def test_a_real_1_1_2_grader_is_not_fooled_by_a_learner_that_wipes_its_input_after_answering():
+    solution = load_solution(REPO, "1.1.2")
+
+    def wiping(pose, points):
+        answer = solution.world_to_ego(pose, points)
+        points[...] = 0.0  # the grader reads its own points again afterwards (the round trip back to the world)
+        return answer
+
+    result = check("1.1.2.a", wiping, show=False, report=False)
+    assert result.passed, "\n".join(result.details)

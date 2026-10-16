@@ -67,7 +67,7 @@ def renderer_gap(fn) -> float:
     worst = 0.0
     for (x, y, theta), pts in zip(poses, points):
         given = f"pose ({x:.1f}, {y:.1f}, {theta:.3f}) and {N_POINTS} points"
-        got = np.asarray(call(fn, (float(x), float(y), float(theta)), pts.copy(), given=given), dtype=float)
+        got = np.asarray(call(fn, (float(x), float(y), float(theta)), pts, given=given), dtype=float)
         if got.shape != pts.shape:
             raise Failure(f"returned shape {got.shape}, expected {pts.shape}", given=given)
         forward, left = to_vehicle(BicycleState(x, y, theta, 0.0, 0.0), pts[:, 0], pts[:, 1])
@@ -86,14 +86,14 @@ def _world_to_ego(fn, show, on_step):
     for label, (yaw, _) in NAMED_YAWS.items():
         point = car + AHEAD * geom.heading_vector(yaw) + LEFT * np.array([-math.sin(yaw), math.cos(yaw)])
         given = f"pose {(*CAR_AT, round(yaw, 4))}, world point {fmt(point)} (yaw {label})"
-        got = np.asarray(call(fn, (*CAR_AT, yaw), point.copy(), given=given), dtype=float)
+        got = np.asarray(call(fn, (*CAR_AT, yaw), point, given=given), dtype=float)
         if got.shape != (2,) or not np.allclose(got, (AHEAD, LEFT), rtol=0, atol=TOL):
             raise Failure(name_the_mistake((*CAR_AT, yaw), point, got, label), given=given, expected=(AHEAD, LEFT), got=got)
     pose = (31.0, -12.0, 2.2)
     rows = np.array([[40.0, 3.0], [12.0, -20.0]])  # 2 points: the one shape where matrix @ rows runs without an error
     given = f"pose {pose} and 2 points as rows {fmt(rows)}"
     want = geom.world_to_ego(pose, rows)
-    got = np.asarray(call(fn, pose, rows.copy(), given=given), dtype=float)
+    got = np.asarray(call(fn, pose, rows, given=given), dtype=float)
     if got.shape != want.shape or not np.allclose(got, want, rtol=0, atol=TOL):
         matrix_first = geom.rotation_matrix(pose[2]).T @ (rows - np.array(pose[:2]))
         what = ("this is matrix @ rows: with 2 points it runs and mixes the points' parts; points stored as rows go on the left, rows @ R"
@@ -101,7 +101,7 @@ def _world_to_ego(fn, show, on_step):
         raise Failure(f'{what}. See the section "Every point at once"', given=given, expected=want, got=got)
     rng = np.random.default_rng(1103)
     cloud = rng.uniform(-200, 200, (146, 4, 2))
-    ego = np.asarray(call(fn, pose, cloud.copy(), given="146 quads of 4 corners at one pose"), dtype=float)
+    ego = np.asarray(call(fn, pose, cloud, given="146 quads of 4 corners at one pose"), dtype=float)
     if ego.shape != cloud.shape:
         raise Failure(f"returned shape {ego.shape}, expected {cloud.shape}: one answer per point, whatever the leading shape",
                       given="a (146, 4, 2) array of points")

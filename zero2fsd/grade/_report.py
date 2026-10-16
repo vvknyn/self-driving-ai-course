@@ -128,10 +128,22 @@ def learner_code(given: str):
         raise Failure(f"your code raised {type(err).__name__}: {err} (line {where.lineno}, in {where.name})", given=given) from err
 
 
+def fresh(value):
+    """`value` with every ndarray in it copied (a list, tuple or dict is rebuilt around the copies)."""
+    if isinstance(value, np.ndarray):
+        return value.copy()
+    if type(value) in (list, tuple):
+        return type(value)(fresh(v) for v in value)
+    if type(value) is dict:
+        return {key: fresh(v) for key, v in value.items()}
+    return value
+
+
 def call(fn, *args, given: str, **kwargs):
-    """Run a learner function and return its result.  None means the learner forgot `return` (no grader's function may answer None)."""
+    """Run a learner function on copies of its arrays (it may edit them in place; the grader's own stay as they were) and return its result.
+    None means the learner forgot `return` (no grader's function may answer None)."""
     with learner_code(given):
-        result = fn(*args, **kwargs)
+        result = fn(*fresh(args), **fresh(kwargs))
     if result is None:
         raise Failure(f"your function {getattr(fn, '__name__', repr(fn))} returned None: it needs a `return` line giving its answer", given=given)
     return result[()] if isinstance(result, np.ndarray) and result.ndim == 0 else result  # np.where(..) on a scalar gives a 0-d array: graders get its NumPy scalar, which is_real and fmt already handle
