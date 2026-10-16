@@ -28,15 +28,15 @@ Open a unit's `lab.ipynb` in Jupyter, or in Colab through the badge inside the n
 - `playground/`: the in-browser Python playground (Pyodide).
 - `scripts/`, `tests/`, `solutions/`, `data/`: build tools, tests, reference solutions and small synthetic datasets.
 
-Legacy v1 material (not reviewed) lives in `modules/`, `notebooks/`, `docs/` and `visual_explainers/`; the maintained course is `course/`.
+Legacy v1 material (not reviewed) lives in `modules/`, `notebooks/`, `docs/` and `visual_explainers/`; the maintained course is `course/`. Plain `pytest` runs only `tests/`; the v1 tests run when you name their path (they need torch, cv2 and scipy).
 
-## Licence
+## License
 
 Free for non-commercial use (source-available).
 
 - Lessons, figures, quizzes, flashcards and lab text: [CC BY-NC-SA 4.0](LICENSE-content). Code: [PolyForm Noncommercial 1.0.0](LICENSE).
 - Free for personal study, teaching, research and nonprofit use.
-- Commercial use (selling it, paywalls, paid courses or training, commercial products) needs a licence: licensing@zero2fsd.com
+- Commercial use (selling it, paywalls, paid courses or training, commercial products) needs a license: licensing@zero2fsd.com
 - Attribution: "Zero2FSD by Vivek Narayanan (https://zero2fsd.com), CC BY-NC-SA 4.0"
 - Details: https://zero2fsd.com/license. Third-party software the course loads is listed in [NOTICE](NOTICE).
 
