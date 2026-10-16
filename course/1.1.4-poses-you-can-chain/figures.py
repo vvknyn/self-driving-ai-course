@@ -1,6 +1,6 @@
 """Figures for lecture 1.1.4 Poses you can chain.  `python scripts/make_figures.py course/1.1.4-poses-you-can-chain`.
 
-Ruling F: every figure is 5.5 in wide, saved at the figstyle dpi, with its smallest text at FS = 16 pt (at least 2.7 x the
+Phone-legible figures: every figure is 5.5 in wide, saved at the figstyle dpi, with its smallest text at FS = 16 pt (at least 2.7 x the
 width in inches), panels stacked in one column.  The lap is the simulator's own `gentle` drive; the drift figures read the
 arrays `measure.py` wrote next to this file (drift_fig7.npz, drift_fig9.npz, drift_laps.npz, rear_fig8.npz).
 """

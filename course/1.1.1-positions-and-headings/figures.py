@@ -1,6 +1,6 @@
 """Figures for lecture 1.1.1 Positions and headings.  `python scripts/make_figures.py course/1.1.1-positions-and-headings`.
 
-Every figure is 5.5 in wide (Ruling F: its smallest text is 15 pt, at least 2.7 x the width in pt).  Every number drawn
+Every figure is 5.5 in wide (phone-legible: its smallest text is 15 pt, at least 2.7 x the width in pt).  Every number drawn
 is read from the simulation or computed here from `tel`; the lecture's numbers come from measure.py (tags in comments).
 """
 import functools

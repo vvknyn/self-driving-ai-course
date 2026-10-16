@@ -1,4 +1,4 @@
-"""drawing.py obeys Ruling F: no dpi, no colour literal, no font size of its own."""
+"""drawing.py keeps figures phone-legible: no dpi, no colour literal, no font size of its own."""
 import ast
 import math
 from pathlib import Path

@@ -1,6 +1,6 @@
 """Matplotlib drawing helpers shared by the course's figures: one look for every frame and track.
 
-Ruling F: nothing here sets a dpi, a colour literal or a font size. Colours come in as arguments (callers take them from
+Phone-legible figures: nothing here sets a dpi, a colour literal or a font size. Colours come in as arguments (callers take them from
 `zero2fsd.palette`), except `draw_offset`, which owns the one colour per sideways symbol; text inherits `rcParams["font.size"]` unless the caller passes `fontsize=`, because the legal
 size depends on the figure's width.
 """
@@ -13,7 +13,7 @@ from matplotlib.patches import FancyArrowPatch
 from .geom import Pose, heading_vector
 from .palette import CHROME, QUANTITY
 
-OFFSET_COLOUR = {"d": CHROME["text"], "e": QUANTITY["e_off"]}  # ruling 10b/10c: e is blue; d, a distance to the road, is untinted neutral ink
+OFFSET_COLOUR = {"d": CHROME["text"], "e": QUANTITY["e_off"]}  # e is blue; d, a distance to the road, is untinted neutral ink
 LABEL_GAP = 0.18  # label distance beyond an arrow tip, as a fraction of the arrow length
 
 

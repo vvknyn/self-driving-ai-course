@@ -1,6 +1,6 @@
 """Figures for lecture 1.1.5 The camera's point of view.  `python scripts/make_figures.py course/1.1.5-the-cameras-point-of-view`.
 
-Ruling F: every figure is 5 in wide, saved at the figstyle dpi, with its smallest text at FS = 14 pt (>= 2.7 x 5 in), so a digit is
+Phone-legible figures: every figure is 5 in wide, saved at the figstyle dpi, with its smallest text at FS = 14 pt (>= 2.7 x 5 in), so a digit is
 at least 9 px tall when the PNG is shown 330 px wide on a phone.  Panels are stacked in one column.  Every number drawn here is
 recomputed from the course's own geom and renderer, never typed in.
 """

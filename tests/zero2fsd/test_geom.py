@@ -130,7 +130,7 @@ def test_lane_errors_match_ego_truth_including_poses_a_full_turn_away(name):
 
 
 def test_at_a_corner_equidistant_from_two_segments_either_adjacent_heading_is_right():
-    """A point on the L-corner's bisector is equally near both legs (ruling U3a): s and d are unambiguous, psi may be either leg's."""
+    """A point on the L-corner's bisector is equally near both legs (by design): s and d are unambiguous, psi may be either leg's."""
     p = (10.0 - 3.0, 3.0)  # inside the turn, on the bisector of the corner vertex (10, 0)
     s, d = geom.to_road_frame(L_CORNER, False, p)
     assert (s, d) == pytest.approx((7.0, 3.0))  # nearest to leg 1 at (7, 0) AND to leg 2 at (10, 3): leg 1 wins by 0 in s

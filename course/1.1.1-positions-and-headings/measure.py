@@ -1,7 +1,7 @@
 """Measurements behind the v2 lecture of *Positions and headings*.  Every number in lecture-v2.md traces to a [TAG] line.
 
 Run: PYTHONPATH=<course tree> PYTHONPYCACHEPREFIX=... MPLBACKEND=Agg <venv>/python measure.py > measure.out
-Set ZERO2FSD_REPO to the tree being built; the default is the read-only tree the lecture was written against.
+Set ZERO2FSD_REPO to the tree being built; the default is the repository this file sits in.
 Once zero2fsd/geom.py exists, its four 1.1.1 functions are measured instead of the reference copies below,
 so a diff of the two measure.out files (all but the [geom] line) checks the shared code against the lecture.
 """
@@ -22,7 +22,7 @@ from zero2fsd.sim.dynamics import DT, MAX_STEER, MAX_STEER_RATE, WHEELBASE
 from zero2fsd.sim.scenarios import GENTLE_RADIUS, TARGET_SPEED
 from zero2fsd.sim.world import EGO_LANE_CENTER, LANE_WIDTH, ROAD_HALF_WIDTH
 
-REPO = Path(os.environ.get("ZERO2FSD_REPO", "/Users/vivek/Antigravity/self-driving-ai-course-0.1.2")).resolve()
+REPO = Path(os.environ.get("ZERO2FSD_REPO", Path(__file__).resolve().parents[2])).resolve()
 assert Path(zero2fsd.__file__).resolve().is_relative_to(REPO), f"zero2fsd resolves to {zero2fsd.__file__}, not {REPO}"
 HERE = Path(__file__).resolve().parent
 J = {}

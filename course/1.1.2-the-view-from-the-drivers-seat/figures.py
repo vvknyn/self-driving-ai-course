@@ -1,6 +1,6 @@
 """Figures for lecture 1.1.2 The view from the driver's seat.  `python scripts/make_figures.py course/1.1.2-the-view-from-the-drivers-seat`.
 
-Ruling F: every figure is 5.5 in wide, saved at 200 dpi, smallest text 16 pt (titles 18 pt), panels stacked in one column.
+Phone-legible figures: every figure is 5.5 in wide, saved at 200 dpi, smallest text 16 pt (titles 18 pt), panels stacked in one column.
 Every number drawn comes from the simulator and zero2fsd.geom, never typed; measure.py prints the same values.
 """
 import math

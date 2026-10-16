@@ -2,7 +2,7 @@
 """Gate G2: no figures.py (nor scripts/figstyle.py) holds a string colour literal; colours come from zero2fsd.palette.
 Gate G3: every quantity hue, and every shade of it, reads on the dark figure background (WCAG contrast >= 3:1).
 Gate G7: no figure plots data outside its axes (an axes that is a deliberate zoom carries the gid "zoom-inset").
-Gate G9 (ruling 10b): a symbol has one colour across the text and the figures; a figure label naming a symbol never wears another symbol's colour.
+Gate G9: a symbol has one colour across the text and the figures; a figure label naming a symbol never wears another symbol's colour.
 
 What counts as a colour literal is derived from matplotlib itself, never from a list of names: the kwarg aliases of
 every Artist property whose name contains "color", any kwarg or dict key containing "color"/"colour", any "#hex"
@@ -500,7 +500,7 @@ def test_no_figure_label_names_a_symbol_in_another_symbols_colour(source, tmp_pa
     assert {name: found for name, found in drawn.items() if found} == {}
 
 
-# --- G9 (ruling 10c): a segment between two points is never drawn raw in e's colour; `drawing.draw_offset` is the one place that does ---
+# --- G9: a segment between two points is never drawn raw in e's colour; `drawing.draw_offset` is the one place that does ---
 
 
 def _is_segment_call(node: ast.Call) -> bool:
