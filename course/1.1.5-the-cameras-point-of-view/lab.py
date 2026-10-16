@@ -342,7 +342,14 @@ except NotImplementedError:
 #
 # ![](figures/height_scale.png)
 #
-# ## 9. Challenge problems
+# ## 9. What comes next
+#
+# Every lap so far ran at 8 m/s. Who chose it, and how would the car change speed? That is the next module,
+# *Longitudinal control and vehicle motion*.
+#
+# ![](figures/next_lesson.png)
+#
+# ## 10. Challenge problems
 #
 # Not graded; the answers are in the lecture (lecture: "Challenge problems"). Four marks painted on the road, at (3, ±1)
 # and (8, ±1) m, let you recover the camera's pitch and height from one picture, with neither known.
@@ -356,10 +363,3 @@ except NotImplementedError:
 #
 # Then try the others: why no pixel ray points down when you give it `w = 1`, and why a camera 1.2 m up read as 1.4 m
 # scales every road point by the same factor.
-#
-# ## 10. What comes next
-#
-# Every lap so far ran at 8 m/s. Who chose it, and how would the car change speed? That is the next module,
-# *Longitudinal control and vehicle motion*.
-#
-# ![](figures/next_lesson.png)

@@ -392,15 +392,6 @@ practice("mean lateral error e in the first bend, rear axle (m)", e_rear[bend].m
 #
 # ![](figures/rear_axle_error.png)
 #
-# ## Challenges
-#
-# The lecture ends with four paper-and-pencil challenge problems on how drift grows with the number of steps, and why
-# the wrong order ends so near the truth. Their answers are measured with `dead_reckon` and the steps above.
-#
-# ![](figures/levers.png)
-#
-# ![](figures/drift_loglog.png)
-#
 # ## What's next
 #
 # You can now chain poses, undo them, and turn a record of motion back into a path, and you know what a small error in
@@ -408,3 +399,12 @@ practice("mean lateral error e in the first bend, rear axle (m)", e_rear[bend].m
 # `invert_pose` at any size, so that a pixel can become a point on the road.
 #
 # ![](figures/next_lesson.png)
+#
+# ## Challenges
+#
+# The lecture also has four paper-and-pencil challenge problems on how drift grows with the number of steps, and why
+# the wrong order ends so near the truth. Their answers are measured with `dead_reckon` and the steps above.
+#
+# ![](figures/levers.png)
+#
+# ![](figures/drift_loglog.png)

@@ -259,6 +259,18 @@ That is the measured gap.
 
 **Answer:** just after the first bend ends, as the car straightens out: at step 893, 44.65 s in, the rear axle is 0.123 m further left than the front. On the straights the two agree to 0.0004 m on average. Over the lap, the rear axle's mean $|\color{#58C4DD}{e}|$ is 0.406 m and its largest 0.576 m, against 0.376 m and 0.533 m at the front. Both *Longitudinal control and vehicle motion* and *Lateral control* build on `T_EGO_REAR`.
 
+## Recap
+
+- A pose $(x, y, \theta)$ is a 3×3 transform $T_{\text{world}\leftarrow\text{ego}}$ that works on points with a trailing 1. Neighbouring names cancel, the order matters, and the closed-form inverse swaps the names.
+- Odometry measures $T_{k\leftarrow k+1} = T_{k\leftarrow\text{world}} \cdot T_{\text{world}\leftarrow k+1}$. Dead reckoning multiplies the steps on the right and rebuilds `gentle` to $1.5 \times 10^{-12}$ m. The wrong order ends 1.11 m off but is 204.88 m off mid-lap, so check every step.
+- A turn error of 0.0001 rad per step drifts 0.608 m RMS in one lap and keeps growing: 2.454 m after 16 laps.
+
+![The car from the side on flat ground, with heights stretched about three times. The camera sits 1.4 m above the ground at the front axle, tipped 5° down, with its own small set of axes drawn in teal, labelled camera axes, beside the car's axes in purple, labelled car axes, and an orange arc marking the 5°. One ray leaves the camera through a pixel, slants down to the road and ends at a question mark.](figures/next_lesson.png)
+
+Every frame in this lesson lay flat on the road, and a 3×3 matrix with a trailing 1 moved points between them. The camera's frame does not lie flat. It sits 1.4 m up and is tipped 5° down, so getting from what the camera sees to a place on the road takes one more transform: a 4×4 matrix, built with the same trailing 1. Given how the camera is mounted, where on the road is the thing a pixel sees?
+
+That is the next lesson, *The camera's point of view*.
+
 ## Challenge problems
 
 Use one fact without proof: when you add errors that are random and drawn independently, their squared spreads add. Two errors of spread σ add up to an error of spread $\sqrt{2}\,\sigma$.
@@ -285,15 +297,3 @@ Use one fact without proof: when you add errors that are random and drawn indepe
 4. The wrong order computes $S_k \cdot T_{\text{world}\leftarrow k}$, where $S_k$ is the step's matrix. Its third column is $S_k$ times $(\mathbf p_k, 1)$: the step's turn applied to the old position, plus the step's (forward, left) added straight onto world $x$ and $y$. That is $\mathbf p_{k+1} = R(\Delta\theta_k)\,\mathbf p_k + \mathbf s_k$, and its yaw, $\theta_k + \Delta\theta_k$, is right. Now turn each position back by the yaw so far, $\mathbf q_m = R(-\theta_m)\,\mathbf p_m$. Then $\mathbf q_{m+1} = \mathbf q_m + R(-\theta_{m+1})\,\mathbf s_m$: a path driven with every turn reversed, almost the true lap's mirror image. (The left parts are not mirrored, which moves its end by 0.307 m.) So the wrong-order car is that mirror lap, spun about the world origin by the yaw so far, $\mathbf p_m = R(\theta_m)\,\mathbf q_m$; the measured positions match this to $8.2 \times 10^{-13}$ m. At step 866 the yaw is 2.9984 rad, almost half a turn, so the mirror lap is spun almost to the other side of the origin, 204.88 m from the truth. At the end the yaw is 6.2264 rad, almost a full turn, so the spin nearly vanishes. The mirror lap, like the true one, ends near its start, and the car lands 1.11 m from the truth.
 
 </details>
-
-## Recap
-
-- A pose $(x, y, \theta)$ is a 3×3 transform $T_{\text{world}\leftarrow\text{ego}}$ that works on points with a trailing 1. Neighbouring names cancel, the order matters, and the closed-form inverse swaps the names.
-- Odometry measures $T_{k\leftarrow k+1} = T_{k\leftarrow\text{world}} \cdot T_{\text{world}\leftarrow k+1}$. Dead reckoning multiplies the steps on the right and rebuilds `gentle` to $1.5 \times 10^{-12}$ m. The wrong order ends 1.11 m off but is 204.88 m off mid-lap, so check every step.
-- A turn error of 0.0001 rad per step drifts 0.608 m RMS in one lap and keeps growing: 2.454 m after 16 laps.
-
-![The car from the side on flat ground, with heights stretched about three times. The camera sits 1.4 m above the ground at the front axle, tipped 5° down, with its own small set of axes drawn in teal, labelled camera axes, beside the car's axes in purple, labelled car axes, and an orange arc marking the 5°. One ray leaves the camera through a pixel, slants down to the road and ends at a question mark.](figures/next_lesson.png)
-
-Every frame in this lesson lay flat on the road, and a 3×3 matrix with a trailing 1 moved points between them. The camera's frame does not lie flat. It sits 1.4 m up and is tipped 5° down, so getting from what the camera sees to a place on the road takes one more transform: a 4×4 matrix, built with the same trailing 1. Given how the camera is mounted, where on the road is the thing a pixel sees?
-
-That is the next lesson, *The camera's point of view*.

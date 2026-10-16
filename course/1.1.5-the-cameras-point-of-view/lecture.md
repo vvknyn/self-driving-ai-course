@@ -295,6 +295,16 @@ Every road point scales by 7/6, forward and sideways alike, and scaling keeps an
 
 Measuring the mount's real height and pitch, so that the box's numbers match the picture, is called **calibration**. The first challenge problem does it with four painted marks.
 
+## Recap
+
+- The ego frame is right-handed in 3D: x forward, y left, z up. Positive pitch, about y, is nose down; the camera's φ is 0.0873 rad.
+- The mount $T_{\text{ego}\leftarrow\text{cam}}$ packs $R_y(\varphi)\,B^\top$ and **t** = (0, 0, 1.4). Points take w = 1, directions w = 0, and with the pinhole step it reproduces the renderer to 0.0 px.
+- A pixel's ray meets the road at λ = −t_z / r_z. Flip the pitch sign and the car still drives `straight`, but leaves `gentle` at 86.3 m.
+
+![The provided car's speed through one lap of gentle, plotted against time: a flat line at 8 m/s from the first step to the last, 88.9 s later.](figures/next_lesson.png)
+
+Every lap in this course, on every road, has run at 8 m/s. The scenario starts the car at that speed, and the provided speed controller holds it there, bend or no bend. Who chose 8 m/s, and how would the car reach a different speed, hold it, or slow down for a bend? That is the next module, *Longitudinal control and vehicle motion*.
+
 ## Challenge problems
 
 1. **Calibrate the mount.** You paint four marks on flat ground at (3, 1), (3, −1), (8, 1) and (8, −1) m, forward and left of the ego origin, and find them in the picture: the near pair in row 147.789 and the far pair in row 103.291. Recover the pitch and the height, knowing neither. Hint: for a guessed pitch, a mark x m ahead in a row with ratio b implies a height of $x\tan(\varphi + \arctan b)$. Only the right pitch makes the near and far marks imply the same height.
@@ -317,13 +327,3 @@ Measuring the mount's real height and pitch, so that the box's numbers match the
 **4.** The box computes λ from its assumed 1.4 m, so its ground point is $(1.4/h)$ times the one the ray truly reaches, and both the forward and the sideways parts scale by the same factor. Over 200 random road points the box's forward and sideways distances are 1.166667 times the truth for h = 1.2 and 0.875 times for h = 1.6, with no exceptions. Scaling a picture keeps its angles, which is why the heading survives.
 
 </details>
-
-## Recap
-
-- The ego frame is right-handed in 3D: x forward, y left, z up. Positive pitch, about y, is nose down; the camera's φ is 0.0873 rad.
-- The mount $T_{\text{ego}\leftarrow\text{cam}}$ packs $R_y(\varphi)\,B^\top$ and **t** = (0, 0, 1.4). Points take w = 1, directions w = 0, and with the pinhole step it reproduces the renderer to 0.0 px.
-- A pixel's ray meets the road at λ = −t_z / r_z. Flip the pitch sign and the car still drives `straight`, but leaves `gentle` at 86.3 m.
-
-![The provided car's speed through one lap of gentle, plotted against time: a flat line at 8 m/s from the first step to the last, 88.9 s later.](figures/next_lesson.png)
-
-Every lap in this course, on every road, has run at 8 m/s. The scenario starts the car at that speed, and the provided speed controller holds it there, bend or no bend. Who chose 8 m/s, and how would the car reach a different speed, hold it, or slow down for a bend? That is the next module, *Longitudinal control and vehicle motion*.

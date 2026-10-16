@@ -46,3 +46,28 @@ def test_words_behind_a_figure_a_details_block_a_fence_or_a_display_do_not_count
 def test_no_lecture_has_a_run_of_prose_over_300_words_between_figures(unit):
     runs = over_the_limit((REPO / "course" / unit["folder"] / "lecture.md").read_text(encoding="utf8"))
     assert not runs, f"{unit['id']}: runs over {MAX_RUN_WORDS} words: " + "; ".join(f"{n} words, starting {line!r}" for n, line in runs)
+
+
+def h2_titles(text):
+    """The `## ` headings of a lecture, outside code fences and details blocks."""
+    text = re.sub(r"```.*?```", " ", text, flags=re.S)
+    text = re.sub(r"<details>.*?</details>", " ", text, flags=re.S)
+    return re.findall(r"(?m)^## (.+?)\s*$", text)
+
+
+def recap_after_challenges(text):
+    titles = h2_titles(text)
+    return "Recap" not in titles or "Challenge problems" not in titles or titles.index("Recap") < titles.index("Challenge problems")
+
+
+@pytest.mark.parametrize("titles, ok", [(["A", "Recap", "Challenge problems"], True), (["A", "Challenge problems", "Recap"], False), (["A", "Recap"], True), (["A", "Challenge problems"], True)])
+def test_recap_must_come_before_challenge_problems(titles, ok):
+    assert recap_after_challenges("\n\n".join(f"## {t}" for t in titles)) is ok
+
+
+LECTURES = sorted((REPO / "course").glob("*/lecture.md"))
+
+
+@pytest.mark.parametrize("path", LECTURES, ids=[p.parent.name for p in LECTURES])
+def test_every_lecture_puts_recap_before_challenge_problems(path):
+    assert recap_after_challenges(path.read_text(encoding="utf8")), f"{path.parent.name}: `## Challenge problems` comes before `## Recap`"
