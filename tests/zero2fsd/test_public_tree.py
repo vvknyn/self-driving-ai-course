@@ -1,7 +1,7 @@
 """The public tree stays clean: no personal paths, no dangling internal-doc references, no private identifiers.
 
 Rules are structural; the one named list is PRIVATE, because privacy terms are names. The legacy v1 directories
-(named in the README) are not reviewed and are skipped.
+(named in the README) are not reviewed, so the docs/ reference rule skips them; the other two rules scan every tracked file.
 """
 import re
 import subprocess
@@ -29,10 +29,10 @@ def private_identifiers(text):
     return PRIVATE.findall(text)
 
 
-def tracked_texts():
+def tracked_texts(skip_legacy=False):
     files = subprocess.run(["git", "ls-files"], cwd=REPO, capture_output=True, text=True, check=True).stdout.splitlines()
     for name in files:
-        if name == THIS_FILE or name.startswith(LEGACY):
+        if name == THIS_FILE or (skip_legacy and name.startswith(LEGACY)):
             continue
         try:
             yield name, (REPO / name).read_text(encoding="utf-8")
@@ -77,7 +77,7 @@ def test_tracked_public_files_hold_no_home_paths():
 
 
 def test_tracked_public_files_reference_no_missing_docs_path():
-    assert [(name, ref) for name, text in tracked_texts() for ref in dangling_docs_refs(text, exists_in_tree)] == []
+    assert [(name, ref) for name, text in tracked_texts(skip_legacy=True) for ref in dangling_docs_refs(text, exists_in_tree)] == []
 
 
 def test_tracked_public_files_hold_no_private_identifiers():
