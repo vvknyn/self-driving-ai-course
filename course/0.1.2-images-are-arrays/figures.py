@@ -1,9 +1,11 @@
 """Figures for lecture 0.1.2 Images are arrays.  `python scripts/make_figures.py course/0.1.2-images-are-arrays`."""
 import numpy as np
+from matplotlib.colors import ListedColormap
 from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
 
 from zero2fsd.car.provided import PAINT_DISTANCE
+from zero2fsd.palette import CHROME, QUANTITY, SCENE
 from zero2fsd.sim import BicycleState, Camera, make_scenario
 from zero2fsd.sim.camera import PALETTE, WHITE, YELLOW
 from zero2fsd.sim.scenarios import TARGET_SPEED
@@ -12,6 +14,7 @@ VIEW_S, NOISE_SIGMA, SEED = 20.0, 6.0, 0  # the lab renders this same frame
 PATCH_ROWS, PATCH_COLS = slice(148, 154), slice(55, 61)  # where the road meets the yellow line
 CROP_ROWS = slice(100, 180)  # the part of the frame where the paint is
 NAMES = ("sky", "grass", "road", "yellow", "white")
+MASK = ListedColormap([CHROME["panel"], CHROME["text"]])  # a boolean mask: False in the panel colour, True in the text colour
 
 
 def _frames():
@@ -37,7 +40,7 @@ def _show_patch(ax, patch, title):
     for i in range(patch.shape[0]):
         for j in range(patch.shape[1]):
             ax.text(j, i, "\n".join(str(v) for v in patch[i, j]), ha="center", va="center", fontsize=8,
-                    color="white" if patch[i, j].mean() < 150 else "black")
+                    color=CHROME["text"] if patch[i, j].mean() < 150 else CHROME["background"])
     ax.set_xticks(range(patch.shape[1]), range(PATCH_COLS.start, PATCH_COLS.stop))
     ax.set_yticks(range(patch.shape[0]), range(PATCH_ROWS.start, PATCH_ROWS.stop))
     ax.set(title=title, xlabel="column index", ylabel="row index")
@@ -48,7 +51,7 @@ def _frame_grid(path, clean):
     full, zoom = fig.subplots(1, 2, gridspec_kw={"width_ratios": [1.5, 1]})
     full.imshow(clean)
     r, c = PATCH_ROWS, PATCH_COLS
-    full.add_patch(Rectangle((c.start - 0.5, r.start - 0.5), c.stop - c.start, r.stop - r.start, fill=False, color="red", lw=2))
+    full.add_patch(Rectangle((c.start - 0.5, r.start - 0.5), c.stop - c.start, r.stop - r.start, fill=False, color=QUANTITY["perception"], lw=2))
     full.set(title="frame: 180 rows x 320 columns x 3 colours", xlabel="column index", ylabel="row index (row 0 is the top)")
     _show_patch(zoom, clean[r, c], f"frame[{r.start}:{r.stop}, {c.start}:{c.stop}]: red, green, blue")
     fig.tight_layout()
@@ -69,8 +72,8 @@ def _colour_distance(path, noisy, labels):
     for ax, paint in zip(fig.subplots(1, 2, sharey=True), (YELLOW, WHITE)):
         d = _distance(noisy, paint)
         for k, name in enumerate(NAMES):
-            ax.hist(d[labels == k], bins=bins, color=PALETTE[k] / 255, edgecolor="0.2", linewidth=0.4, label=f"true {name} pixels")
-        ax.axvline(PAINT_DISTANCE, color="red", linewidth=2, label=f"threshold {PAINT_DISTANCE:g}")
+            ax.hist(d[labels == k], bins=bins, color=SCENE[name], edgecolor=CHROME["background"], linewidth=0.4, label=f"true {name} pixels")
+        ax.axvline(PAINT_DISTANCE, color=QUANTITY["perception"], linewidth=2, label=f"threshold {PAINT_DISTANCE:g}")
         ax.set(yscale="log", xlabel=f"distance to {NAMES[paint]} paint colour {tuple(int(v) for v in PALETTE[paint])}",
                title=f"every pixel of the noisy frame: distance to {NAMES[paint]}")
         ax.legend(fontsize=8)
@@ -90,7 +93,7 @@ def _exact_vs_threshold(path, noisy, labels):
     ]
     fig = Figure(figsize=(12, 1.9))
     for ax, (img, title) in zip(fig.subplots(1, 3), panels):
-        ax.imshow(img[CROP_ROWS], cmap="gray", vmin=0, vmax=1) if img.ndim == 2 else ax.imshow(img[CROP_ROWS])
+        ax.imshow(img[CROP_ROWS], cmap=MASK, vmin=0, vmax=1) if img.ndim == 2 else ax.imshow(img[CROP_ROWS])
         ax.set_title(title, fontsize=10)
         ax.set_xticks([])
         ax.set_yticks([])

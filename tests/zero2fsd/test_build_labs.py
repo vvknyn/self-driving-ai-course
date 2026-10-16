@@ -3,11 +3,13 @@ import re
 from html.parser import HTMLParser
 
 import nbformat
+from matplotlib import image
 import pytest
 
 import build_labs
 import make_figures
 from _course import REPO, REPO_SLUG, parse_lab
+from zero2fsd.palette import CHROME
 
 LAB = """\
 # %% [markdown]
@@ -79,6 +81,12 @@ def test_figures_are_byte_identical_across_runs(mini_repo):
     first = png.read_bytes()
     assert first.startswith(b"\x89PNG")
     assert make_figures.main(["--root", str(mini_repo)]) == 0 and png.read_bytes() == first
+
+
+def test_figures_are_drawn_in_the_dark_figure_style(mini_repo):
+    assert make_figures.main(["--root", str(mini_repo)]) == 0
+    corner = image.imread(mini_repo / "course" / "0.1.1-mini" / "figures" / "curve.png")[0, 0, :3]
+    assert tuple(round(float(v) * 255) for v in corner) == tuple(int(CHROME["background"][i:i + 2], 16) for i in (1, 3, 5))
 
 
 def test_a_figures_module_without_make_fails_loudly(mini_repo):

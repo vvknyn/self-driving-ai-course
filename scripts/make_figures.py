@@ -14,7 +14,10 @@ from pathlib import Path
 
 os.environ.setdefault("MPLBACKEND", "Agg")  # before any figures.py imports matplotlib
 
+import matplotlib  # noqa: E402
+
 from _course import REPO  # noqa: E402
+from figstyle import RC  # noqa: E402
 
 
 def make_unit_figures(unit_dir: Path) -> None:
@@ -23,7 +26,8 @@ def make_unit_figures(unit_dir: Path) -> None:
     spec.loader.exec_module(module)
     out_dir = unit_dir / "figures"
     out_dir.mkdir(exist_ok=True)
-    module.make(out_dir=out_dir)
+    with matplotlib.rc_context(RC):  # the one figure style: a figures.py never sets a background or text colour
+        module.make(out_dir=out_dir)
 
 
 def main(argv=None) -> int:

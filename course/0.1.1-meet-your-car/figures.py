@@ -5,6 +5,7 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 
 from zero2fsd.car import Car, provided, run
+from zero2fsd.palette import CHROME, QUANTITY, SCENE, shades
 from zero2fsd.score import OFF_LANE_LAT
 from zero2fsd.sim import BicycleState, Camera, make_scenario, render_topdown
 from zero2fsd.sim.scenarios import TARGET_SPEED
@@ -28,7 +29,7 @@ def _car_and_view(path):
     cam.set_xlabel("pixel column")
     cam.set_ylabel("pixel row")
     render_topdown(road, [np.column_stack([tel.x, tel.y])], ["the provided car"], ax=top)
-    top.plot(*road.offset(VIEW_S, -LANE_WIDTH / 2), "o", color="C3", label="camera position")
+    top.plot(*road.offset(VIEW_S, -LANE_WIDTH / 2), "o", color=QUANTITY["perception"], label="camera position")
     top.legend(loc="center")
     top.set_title("Where the car drove (top-down)")
     fig.tight_layout()
@@ -46,11 +47,11 @@ def _mark_route(ax, scenario):
     """Start dot and direction-of-travel arrow in the ego lane; an open road also gets an end-of-route square."""
     road = scenario.road
     x, y, yaw = road.ego_pose(scenario.start_s)
-    ax.plot(x, y, "o", color="C3", zorder=3)
+    ax.plot(x, y, "o", color=QUANTITY["perception"], zorder=3)
     ax.annotate("", xy=(x + ARROW_LEN * np.cos(yaw), y + ARROW_LEN * np.sin(yaw)), xytext=(x, y),
-                arrowprops={"arrowstyle": "-|>", "color": "C3", "lw": 2})
+                arrowprops={"arrowstyle": "-|>", "color": QUANTITY["perception"], "lw": 2})
     if not road.closed:
-        ax.plot(*road.ego_pose(scenario.start_s + scenario.route_length)[:2], "s", color="0.2", zorder=3)
+        ax.plot(*road.ego_pose(scenario.start_s + scenario.route_length)[:2], "s", color=CHROME["text"], zorder=3)
 
 
 def _test_roads(path):
@@ -74,8 +75,8 @@ def _test_roads(path):
             ax.set_title(f"'{name}': {scenarios[name].route_length:.1f} m")
             x_in += (x1 - x0) / m_per_in + GAP_X
         y_in += h + GAP_Y
-    key = [Line2D([], [], marker="o", color="C3", linestyle="", label="start (arrow: direction of travel)"),
-           Line2D([], [], marker="s", color="0.2", linestyle="",
+    key = [Line2D([], [], marker="o", color=QUANTITY["perception"], linestyle="", label="start (arrow: direction of travel)"),
+           Line2D([], [], marker="s", color=CHROME["text"], linestyle="",
                   label="end of route (a loop ends at its start;\nthe paint of an open road runs on past it)")]
     fig.legend(handles=key, loc="upper right", bbox_to_anchor=(0.98, 1 - MARGIN_T / height), fontsize=9)
     fig.savefig(path, dpi=100)
@@ -85,13 +86,13 @@ def _sign_convention(path):
     fig = Figure(figsize=(8, 3.2))
     ax = fig.subplots()
     half = LANE_WIDTH / 2
-    ax.axhline(half, color="#c9a800", linestyle=(0, (6, 3)), linewidth=3)
-    ax.axhline(-half, color="0.6", linewidth=3)
-    ax.axhline(0.0, color="0.4", linestyle=":", linewidth=1)
+    ax.axhline(half, color=SCENE["yellow"], linestyle=(0, (6, 3)), linewidth=3)
+    ax.axhline(-half, color=SCENE["white"], linewidth=3)
+    ax.axhline(0.0, color=CHROME["text"], linestyle=":", linewidth=1)
     ax.text(0.2, half + 0.12, "yellow centre line (left edge of your lane)", fontsize=9)
     ax.text(0.2, -half - 0.3, "white edge line (right edge of your lane)", fontsize=9)
-    ax.text(0.2, 0.08, "lane centre, e = 0", fontsize=9, color="0.3")
-    for x, e, color in ((4.0, 0.5, "C0"), (8.5, -0.3, "C1")):
+    ax.text(0.2, 0.08, "lane centre, e = 0", fontsize=9)
+    for (x, e), color in zip(((4.0, 0.5), (8.5, -0.3)), shades(QUANTITY["e_off"], 2)):
         ax.add_patch(Rectangle((x - 2.2, e - 0.8), 2.7, 1.6, facecolor=color, alpha=0.35, edgecolor=color))
         ax.annotate("", xy=(x, e), xytext=(x, 0.0), arrowprops={"arrowstyle": "->", "color": color, "lw": 2})
         ax.plot(x, e, "o", color=color)
@@ -113,11 +114,11 @@ def _signed_mean_trap(path):
     fig = Figure(figsize=(11, 4))
     for ax, (tel, name) in zip(fig.subplots(1, 2, sharey=True), runs):
         signed, mean_abs = tel.lat.mean(), np.abs(tel.lat).mean()
-        ax.plot(tel.progress_m, tel.lat, color="0.3", linewidth=1)
-        ax.axhline(signed, color="C3", linewidth=2, label=f"signed mean = {signed:+.2f} m")
-        ax.axhline(mean_abs, color="C0", linewidth=2, linestyle="--", label=f"mean |e| = {mean_abs:.2f} m")
+        ax.plot(tel.progress_m, tel.lat, color=QUANTITY["e_off"], linewidth=1)
+        ax.axhline(signed, color=QUANTITY["perception"], linewidth=2, label=f"signed mean = {signed:+.2f} m")
+        ax.axhline(mean_abs, color=CHROME["text"], linewidth=2, linestyle="--", label=f"mean |e| = {mean_abs:.2f} m")
         for edge in (-OFF_LANE_LAT, OFF_LANE_LAT):
-            ax.axhline(edge, color="0.6", linestyle=":", linewidth=1)
+            ax.axhline(edge, color=CHROME["text"], linestyle=":", linewidth=1)
         ax.set(title=name, xlabel="distance along the route (m)")
         ax.legend(loc="lower left", fontsize=9)
     fig.axes[0].set_ylabel("lateral error e (m)")

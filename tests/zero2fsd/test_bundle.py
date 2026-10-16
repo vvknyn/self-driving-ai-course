@@ -4,7 +4,7 @@ import pytest
 import yaml
 
 import build_course_bundle as bundler
-from _course import REPO, BuildError, heading_slug, unit_slug
+from _course import REPO, BuildError, heading_slug, syllabus_units, unit_slug
 from zero2fsd.preview import PREVIEWS
 
 UNIT = "course/0.1.1-mini"
@@ -170,3 +170,16 @@ def test_the_real_syllabus_builds():
     assert bundle["version"] == 1 and [loop["id"] for loop in bundle["loops"]] == ["0", "1", "2", "3"]
     assert [sum(m["planned_units"] for m in loop["modules"]) for loop in bundle["loops"]] == [4, 48, 52, 40]
     assert set(bundle["units"]) == {unit_slug(u["id"]) for loop in bundle["loops"] for m in loop["modules"] for u in m.get("units", []) if u["status"] == "ready"}
+
+
+READY_WITH_FIGURES = [u for u in syllabus_units(REPO, "ready") if (REPO / "course" / u["folder"] / "figures").is_dir()]
+
+
+@pytest.mark.parametrize("unit", READY_WITH_FIGURES, ids=[u["folder"] for u in READY_WITH_FIGURES])
+def test_the_committed_dist_figures_are_byte_copies_of_the_units_figures(unit):
+    """Part C: after scripts/make_figures.py, run scripts/build_course_bundle.py and commit course/dist."""
+    pngs = sorted((REPO / "course" / unit["folder"] / "figures").glob("*.png"))
+    assert pngs
+    for png in pngs:
+        copy = REPO / "course" / "dist" / "figures" / unit_slug(unit["id"]) / png.name
+        assert copy.is_file() and copy.read_bytes() == png.read_bytes(), copy
