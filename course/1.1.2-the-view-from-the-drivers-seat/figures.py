@@ -450,10 +450,10 @@ def _quads(d, path):
 
 # ---- 9. shape_trap ----
 def _shape_trap(d, path):
-    rows = np.stack([d.centre(10.0), d.centre(20.0)]) - np.array(d.pose[:2])
+    rows = np.stack([d.centre(10.0), d.centre(30.0)]) - np.array(d.pose[:2])
     rot = rotation_matrix(d.pose[2])
     right, wrong = rows @ rot, rot @ rows
-    xlim, ylim = (26, -20), (-7, 28)
+    xlim, ylim = (26, -30), (-12, 36)
     fig, ax = _fig(_panel(xlim, ylim) + 2.2)
     draw_lines(ax, lane_lines(d.gentle, 140, 200, d.pose, n=500), ego=True, box=(xlim, ylim))
     car_dot(ax, (0, 0))
@@ -462,9 +462,9 @@ def _shape_trap(d, path):
         ax.plot(wl, wf, "x", color=GREY, markersize=14, markeredgewidth=3, zorder=5)
     say(ax, (right[0, 1], right[0, 0]), f"rows @ rot:\n({num(right[0, 0])}, {num(right[0, 1])})", dx=-30, dy=-40, ha="right", colour=EGO, badge=True, arrow=True)
     say(ax, (right[1, 1], right[1, 0]), f"({num(right[1, 0])}, {num(right[1, 1])})", dx=26, dy=0, ha="left", colour=EGO, badge=True, arrow=True)
-    say(ax, (wrong[0, 1], wrong[0, 0]), f"rot @ rows:\n({num(wrong[0, 0])}, {num(wrong[0, 1])})", dx=-24, dy=-8, ha="right", colour=GREY, badge=True, arrow=True)
+    say(ax, (wrong[0, 1], wrong[0, 0]), f"rot @ rows:\n({num(wrong[0, 0])}, {num(wrong[0, 1])})", dx=-14, dy=58, ha="left", colour=GREY, badge=True, arrow=True)
     say(ax, (wrong[1, 1], wrong[1, 0]), f"({num(wrong[1, 0])}, {num(wrong[1, 1])})", dy=-36, colour=GREY, badge=True, arrow=True)
-    say(ax, (19.5, 25.5), "no error\nmessage", colour=TEXT, badge=True)
+    say(ax, (19.5, 32), "no error\nmessage", colour=TEXT, badge=True)
     ego_axes(ax, xlim, ylim)
     ax.set_title("the car's own frame")
     _save(fig, path)

@@ -201,7 +201,7 @@ Written the maths way round in code, `rot @ rows` multiplies a (2, 2) by an (N, 
 
 **Guess first:** with exactly 2 points, the shapes are (2, 2) and (2, 2). Does `rot @ rows` raise an error?
 
-![The first two lane-centre points of the opening, 10 and 20 m further along the lane, in the ego frame of the car at the scene, with forward up the page. Purple dots: the rows times R(θ), the right product, at (10.189, 0.453) and (20.158, 2.694), on the lane centre ahead of the car. Grey crosses: R(θ) times the rows, the same two arrays the other way round, read as two points: (−1.745, −2.556) and (17.149, 14.628), off the road, with no error message.](figures/shape_trap.png)
+![Two of the lane-centre points of the opening, 10 and 30 m further along the lane, in the ego frame of the car at the scene, with forward up the page. Purple dots: the rows times R(θ), the right product, at (10.189, 0.453) and (29.771, 6.160), on the lane centre ahead of the car. Grey crosses: R(θ) times the rows, the same two arrays the other way round, read as two points: (−5.119, −7.193) and (22.125, 21.467), off the road, with no error message.](figures/shape_trap.png)
 
 **Answer:** no. Both arrays are 2 by 2, so the product is allowed, and it mixes up the two points' east and north parts without a word. The lab tests `world_to_ego` on many points at once, and on the (K, 4, 2) shape the camera uses, so this mistake cannot hide behind a lucky count.
 

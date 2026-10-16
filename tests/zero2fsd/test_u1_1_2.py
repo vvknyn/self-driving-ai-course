@@ -89,6 +89,18 @@ def shrunk_yaw(pose, p):  # a mistake the grader does not know by name: the yaw 
     return geom.world_to_ego((*pose[:2], 0.9 * pose[2]), p)
 
 
+def forward_flipped(pose, p):
+    return geom.world_to_ego(pose, p) * (-1, 1)
+
+
+def t_swapped(pose, p):
+    return geom.world_to_ego((pose[1], pose[0], pose[2]), p)
+
+
+def constant_shift(pose, p):
+    return geom.world_to_ego(pose, p) + 0.05
+
+
 def from_north(pose, p):  # the yaw taken from north (the y axis) instead of east
     return geom.world_to_ego((*pose[:2], math.pi / 2 - pose[2]), p)
 
@@ -105,10 +117,13 @@ MISTAKES = {  # wrong answer -> the words its message must hold, and the section
     "inverse": (inverse, "this is ego_to_world", "Undo is the transpose"),
     "order": (left_first, "forward and left are in the wrong order", "Two dot products make a frame change"),
     "left flipped": (left_flipped, "left has the wrong sign", "Two dot products make a frame change"),
-    "sin and cos swapped": (sin_cos_swapped, "where R(0) must be the identity", "Two dot products make a frame change"),
-    "yaw measured from north": (from_north, "where R(0) must be the identity", "Two dot products make a frame change"),
-    "yaw offset by 0.3 rad": (offset_yaw, "where R(0) must be the identity", "Two dot products make a frame change"),  # in neither list
-    "yaw scaled by 0.9": (shrunk_yaw, "a rotation mistake: check R(θ)ᵀ, θ in radians", "The rotation matrix"),  # not in the grader's list
+    "forward flipped": (forward_flipped, "forward has the wrong sign", "Two dot products make a frame change"),
+    "position swapped": (t_swapped, "the car's position is swapped", "Two dot products make a frame change"),
+    "constant offset": (constant_shift, "both entries are off by the same 0.05 m", "Two dot products make a frame change"),
+    "sin and cos swapped": (sin_cos_swapped, "off by up to", "Two dot products make a frame change"),  # not in the grader's list: it says only what it saw
+    "yaw measured from north": (from_north, "off by up to", "Two dot products make a frame change"),
+    "yaw offset by 0.3 rad": (offset_yaw, "off by up to", "Two dot products make a frame change"),
+    "yaw scaled by 0.9": (shrunk_yaw, "off by up to", "Two dot products make a frame change"),
 }
 
 
@@ -130,6 +145,22 @@ def test_each_wrong_transform_is_named_for_the_mistake_it_makes_and_points_to_it
 def test_a_failure_at_yaw_zero_never_says_what_a_pass_there_means():
     headline = run_check("1.1.2.a", left_first).details[0]
     assert "yaw 0" in headline and "cannot tell" not in headline and "identity" not in headline
+
+
+@pytest.mark.parametrize("mistake", ["sin and cos swapped", "yaw measured from north", "yaw scaled by 0.9"])
+def test_an_unlisted_wrong_answer_gets_only_what_the_grader_saw(mistake):
+    headline = run_check("1.1.2.a", MISTAKES[mistake][0]).details[0]
+    assert "R(0)" not in headline and "identity" not in headline and "rotation" not in headline
+    assert headline.count("wrong") == 1  # no stutter: "wrong at yaw 0: wrong even at yaw 0"
+
+
+def rounded_yaw(pose, p):  # the yaw typed with 4 decimals: a relative error of 2e-6 at 3.1416 vs pi
+    return geom.world_to_ego((*pose[:2], round(pose[2], 4)), p)
+
+
+def test_a_relative_error_of_a_few_millionths_fails_the_named_poses():
+    result = run_check("1.1.2.a", rounded_yaw)
+    assert not result.passed and "wrong at yaw" in result.details[0], result.details[0]
 
 
 def test_a_pass_says_what_each_named_yaw_proved():

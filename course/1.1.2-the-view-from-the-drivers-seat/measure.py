@@ -177,11 +177,11 @@ try:
 except ValueError as exc:
     trap5 = f"ValueError: {exc}"
 s_scene = road.project(*scene_pose[:2])[0]
-pts2 = np.array([road.offset(s_scene + ahead, world.EGO_LANE_CENTER) for ahead in (10.0, 20.0)]) - np.array(scene_pose[:2])
+pts2 = np.array([road.offset(s_scene + ahead, world.EGO_LANE_CENTER) for ahead in (10.0, 30.0)]) - np.array(scene_pose[:2])
 right2 = pts2 @ Rm
 wrong2 = Rm @ pts2
 say("M08.trap", f"R @ points for 5 points stored as rows: {trap5}")
-say("M08.trap2", f"2 points as rows (the lane-centre points 10 and 20 m further along the lane): rows @ R -> [[{right2[0,0]:+.3f}, {right2[0,1]:+.3f}], [{right2[1,0]:+.3f}, {right2[1,1]:+.3f}]]; "
+say("M08.trap2", f"2 points as rows (the lane-centre points 10 and 30 m further along the lane): rows @ R -> [[{right2[0,0]:+.3f}, {right2[0,1]:+.3f}], [{right2[1,0]:+.3f}, {right2[1,1]:+.3f}]]; "
     f"R @ rows -> [[{wrong2[0,0]:+.3f}, {wrong2[0,1]:+.3f}], [{wrong2[1,0]:+.3f}, {wrong2[1,1]:+.3f}]] with no error")
 
 # ---- M09 40 seeded poses against the renderer's own to_vehicle (lab 1.1.2.a, tolerance 1e-9) ----

@@ -22,9 +22,7 @@ NAMED_YAWS = {  # yaw label -> (yaw, what a pass at that yaw proves)
     "-3pi/4": (-3 * math.pi / 4, "tells R from its transpose, and from no rotation"),
 }
 NAME_TOL = 1e-6  # how close `got` must be to a known wrong answer for the message to name that mistake
-GENERAL = ("a rotation mistake: check R(θ)ᵀ, θ in radians, and that you subtract t before rotating", "The rotation matrix")
-YAW_0 = ("wrong even at yaw 0, where R(0) must be the identity [[1, 0], [0, 1]]: check that rotation_matrix(0) gives it, that you subtract the car's position, and that you return (forward, left)",
-         "Two dot products make a frame change")
+SECTION = "Two dot products make a frame change"  # where the general message points: it names no cause
 
 
 def known_mistakes(pose, point):
@@ -41,16 +39,24 @@ def known_mistakes(pose, point):
         (p @ rot.T + t, ("this is ego_to_world, which goes the other way: world_to_ego is R(θ)ᵀ(p − t)", "Undo is the transpose")),
         (right[::-1], ("forward and left are in the wrong order: return (forward, left)", "Two dot products make a frame change")),
         (right * (1, -1), ("left has the wrong sign: the car's y axis points to its left", "Two dot products make a frame change")),
+        (right * (-1, 1), ("forward has the wrong sign: the car's x axis points ahead", "Two dot products make a frame change")),
+        ((p - t[::-1]) @ rot, ("the car's position is swapped: t is (east, north), as in the pose", "Two dot products make a frame change")),
     ]
 
 
 def name_the_mistake(pose, point, got, label):
-    """The headline for a wrong answer `got`: the mistake it matches, else yaw 0's text (the answer matches no known mistake, so say what yaw 0 must give) or the general rotation hint."""
+    """The headline for a wrong answer `got`: the mistake it matches, else only what the grader saw (how far off, or a constant gap)."""
     for answer, (what, section) in known_mistakes(pose, point):
-        if got.shape == answer.shape and np.allclose(got, answer, atol=NAME_TOL):
+        if got.shape == answer.shape and np.allclose(got, answer, rtol=0, atol=NAME_TOL):
             return f'wrong at yaw {label}: {what}. See the section "{section}"'
-    what, section = YAW_0 if pose[2] == 0.0 else GENERAL
-    return f'wrong at yaw {label}: {what}. See the section "{section}"'
+    right = geom.world_to_ego(pose, point)
+    if got.shape != right.shape:
+        seen = f"returned shape {got.shape}, expected {right.shape}"
+    else:
+        gap = got - right
+        seen = (f"both entries are off by the same {gap[0]:.3g} m: look for a constant added or subtracted"
+                if np.allclose(gap, gap[0], rtol=0, atol=NAME_TOL) else f"off by up to {np.abs(gap).max():.3g} m from (forward, left) = {fmt(right)}")
+    return f'wrong at yaw {label}: {seen}. See the section "{SECTION}"'
 
 
 def renderer_gap(fn) -> float:
@@ -81,17 +87,17 @@ def _world_to_ego(fn, show, on_step):
         point = car + AHEAD * geom.heading_vector(yaw) + LEFT * np.array([-math.sin(yaw), math.cos(yaw)])
         given = f"pose {(*CAR_AT, round(yaw, 4))}, world point {fmt(point)} (yaw {label})"
         got = np.asarray(call(fn, (*CAR_AT, yaw), point.copy(), given=given), dtype=float)
-        if got.shape != (2,) or not np.allclose(got, (AHEAD, LEFT), atol=TOL):
+        if got.shape != (2,) or not np.allclose(got, (AHEAD, LEFT), rtol=0, atol=TOL):
             raise Failure(name_the_mistake((*CAR_AT, yaw), point, got, label), given=given, expected=(AHEAD, LEFT), got=got)
     pose = (31.0, -12.0, 2.2)
     rows = np.array([[40.0, 3.0], [12.0, -20.0]])  # 2 points: the one shape where matrix @ rows runs without an error
     given = f"pose {pose} and 2 points as rows {fmt(rows)}"
     want = geom.world_to_ego(pose, rows)
     got = np.asarray(call(fn, pose, rows.copy(), given=given), dtype=float)
-    if got.shape != want.shape or not np.allclose(got, want, atol=TOL):
+    if got.shape != want.shape or not np.allclose(got, want, rtol=0, atol=TOL):
         matrix_first = geom.rotation_matrix(pose[2]).T @ (rows - np.array(pose[:2]))
         what = ("this is matrix @ rows: with 2 points it runs and mixes the points' parts; points stored as rows go on the left, rows @ R"
-                if got.shape == want.shape and np.allclose(got, matrix_first, atol=NAME_TOL) else "wrong for 2 points stored as rows")
+                if got.shape == want.shape and np.allclose(got, matrix_first, rtol=0, atol=NAME_TOL) else "wrong for 2 points stored as rows")
         raise Failure(f'{what}. See the section "Every point at once"', given=given, expected=want, got=got)
     rng = np.random.default_rng(1103)
     cloud = rng.uniform(-200, 200, (146, 4, 2))

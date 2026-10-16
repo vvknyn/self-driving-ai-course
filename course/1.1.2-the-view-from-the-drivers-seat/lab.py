@@ -216,7 +216,7 @@ for k in (2, 3, 146):
     except ValueError:
         print(f"{k} points: ValueError, the shapes do not line up")
     else:
-        print(f"{k} points: no error, and the answer is {'right' if np.allclose(wrong_way, rows @ rot) else 'wrong'}")
+        print(f"{k} points: no error, and the answer is {'right' if np.allclose(wrong_way, rows @ rot, rtol=0, atol=1e-9) else 'wrong'}")
 print("rows @ rot, for the first two points:", (lane_points[:2] - t) @ rot)
 
 # %% [markdown]
