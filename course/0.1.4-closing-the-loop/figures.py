@@ -478,7 +478,7 @@ def tuning_cells():
     module = types.ModuleType(__name__)
     module.__dict__.update(globals())
     sys.modules[__name__] = module  # a worker unpickles `_cell` by this module name; this load's copy, not a stale earlier one
-    with ProcessPoolExecutor(os.cpu_count(), mp_context=multiprocessing.get_context("fork")) as pool:
+    with ProcessPoolExecutor(__import__("figstyle").render_workers(), mp_context=multiprocessing.get_context("fork")) as pool:
         return dict(pool.map(_cell, specs))
 
 

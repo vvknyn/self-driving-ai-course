@@ -8,6 +8,7 @@ every Artist property whose name contains "color", any kwarg or dict key contain
 string anywhere, and any positional string that matplotlib's own format parser reads as naming a colour ("ro", "C3").
 """
 import ast
+import os
 import re
 from pathlib import Path
 
@@ -263,3 +264,17 @@ def test_no_figure_plots_data_outside_its_axes(source, tmp_path, monkeypatch):
     make_unit_figures(source.parent, tmp_path)
     assert drawn, "no figure was drawn"
     assert {name: found for name, found in drawn.items() if found} == {}
+
+
+def test_render_workers_defaults_to_the_cpu_count_and_reads_the_env_var(monkeypatch):
+    monkeypatch.delenv("ZERO2FSD_FIG_WORKERS", raising=False)
+    assert figstyle.render_workers() == os.cpu_count()
+    monkeypatch.setenv("ZERO2FSD_FIG_WORKERS", "2")
+    assert figstyle.render_workers() == 2
+
+
+@pytest.mark.parametrize("bad", ["0", "-1", "two", "", "2.5"])
+def test_render_workers_rejects_a_bad_value_naming_the_variable_and_the_value(monkeypatch, bad):
+    monkeypatch.setenv("ZERO2FSD_FIG_WORKERS", bad)
+    with pytest.raises(ValueError, match=f"ZERO2FSD_FIG_WORKERS.*{bad!r}"):
+        figstyle.render_workers()

@@ -3,12 +3,27 @@
 
 A figures.py never sets a background, text colour, colour cycle or dpi; it only picks palette entries for what it draws.
 """
+import os
+
 from cycler import cycler
 
 from zero2fsd.palette import CHROME, QUANTITY
 
 FIG_DENSITY = 2  # the site shows a figure PNG at its pixel width / this: a 2x srcset
 FIG_DPI = 100 * FIG_DENSITY  # so one figure inch is 100 CSS px on the page
+
+WORKERS_VAR = "ZERO2FSD_FIG_WORKERS"
+
+
+def render_workers() -> int:
+    """Size of every figure render pool: ZERO2FSD_FIG_WORKERS if set (a positive integer), else the CPU count."""
+    raw = os.environ.get(WORKERS_VAR)
+    if raw is None:
+        return os.cpu_count()
+    if not raw.isascii() or not raw.isdigit() or int(raw) < 1:
+        raise ValueError(f"{WORKERS_VAR} must be a positive integer, got {raw!r}")
+    return int(raw)
+
 
 RC = {
     "savefig.dpi": FIG_DPI,
