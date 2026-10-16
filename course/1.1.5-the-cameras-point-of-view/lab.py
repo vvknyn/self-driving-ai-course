@@ -118,7 +118,7 @@ print("B.T @ camera z axis   =", B.T @ [0, 0, 1], "(ego forward: a level camera 
 #
 # ## 4. Graded exercises
 #
-# ### Exercise A and Exercise B: `T_ego_cam`
+# ### Exercise A: `T_ego_cam` (Exercise B uses it)
 #
 # `T_ego_cam(height_m, pitch_rad)` returns the camera's pose in the ego frame as a 4×4 array: the turn
 # `rot_y(pitch_rad) @ Bᵀ` in the top-left 3×3 block, the lens position (0, 0, `height_m`) in the last column, and
@@ -300,7 +300,7 @@ except NotImplementedError:
 #
 # ![](figures/heading_pitch.png)
 #
-# Now the swap for grading: your `T_ego_cam` goes into the camera and the provided car drives `gentle`. Your pair is checked first, then the
+# Now the swap for grading: your `world_to_ego` and `T_ego_cam` go into the camera and the provided car drives `gentle`. Your pair is checked first, then the
 # car drives. Expect 0.376 m: that is the provided car's own error on `gentle` with the simulator's camera, step for step the
 # same 1778 steps; a correct mount adds nothing to it. The pass line also says no camera pictures differ.
 
@@ -309,6 +309,7 @@ from zero2fsd.geom import world_to_ego  # swap in your own from *The view from t
 
 camera_mount = (world_to_ego, T_ego_cam)  # the pair the simulator draws a camera picture through
 
+# %%
 check("1.1.5.b", camera_mount)
 
 # %% [markdown]

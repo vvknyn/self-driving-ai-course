@@ -7,9 +7,9 @@ outcomes:
   - can: "Write the 3D ego frame and the camera's optical frame, build rotations about x, y and z with the right-hand rule, and say which way a positive pitch tips the camera"
     proof: "Practice problem 1 in the lab, and the quiz questions on the third axis, the pitch sign and the order of the turns"
   - can: "Build the camera mount as one 4 by 4 matrix, move points with w = 1 and directions with w = 0, and project road points into the picture exactly as the simulator does"
-    proof: "Your T_ego_cam passes check(\"1.1.5.a\"), and your swapped mount passes check(\"1.1.5.b\") on gentle"
+    proof: "Your T_ego_cam passes Exercise A, and your camera_mount (your world_to_ego with your mount) passes Exercise B on gentle"
   - can: "Send any pixel's ray to the road, and explain why a camera tipped up instead of down still drives straight but leaves gentle before the bend"
-    proof: "Your ray_to_ground passes check(\"1.1.5.c\"), the break-it sections of the lab, and the quiz question on the mounted-wrong camera"
+    proof: "Your ray_to_ground passes Exercise C, the break-it sections of the lab, and the quiz question on the mounted-wrong camera"
 prerequisites: ["1.1.4"]
 exercises:
   - {id: "1.1.5.a", name: T_ego_cam}

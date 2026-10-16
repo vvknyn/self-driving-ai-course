@@ -17,6 +17,7 @@ HEIGHT_M, PITCH_RAD = 1.4, math.radians(5.0)  # the simulator's own mount: what 
 SPEC_MOUNT = geom.T_ego_cam(HEIGHT_M, PITCH_RAD)
 N_POINTS, N_PICTURES = 200, 18
 AXIS_TOL, PIXEL_TOL, GROUND_TOL = 1e-4, 1e-6, 1e-9
+LOW_LENS_M = 10.0  # the lens height of the probe mount that tells a ray shifted as a point (w = 1) from one never turned
 RIGID_TOL, ENTRY_TOL, MISTAKE_TOL = 1e-9, 1e-8, 1e-6  # a 4×4 is a turn-plus-shift; entries equal the reference; a named mistake's output matches to this
 ENTRY_SETTINGS = ((HEIGHT_M, PITCH_RAD), (HEIGHT_M, PITCH_RAD + math.radians(1.0)), (HEIGHT_M + 0.1, PITCH_RAD))  # the settings the 4×4 is compared at, entry by entry
 ROWS_BELOW, ROWS_ABOVE = (76.0, 179.5), (0.0, 75.0)  # image rows whose rays do, and do not, reach the road (the horizon is row 75.5)
@@ -45,7 +46,7 @@ def not_rigid(T: np.ndarray) -> str | None:
     if not np.isfinite(T).all():
         return "your 4×4 holds nan or inf"
     if not np.allclose(T[3], (0.0, 0.0, 0.0, 1.0), rtol=0.0, atol=RIGID_TOL):
-        return f"the last row of your 4×4 must be 0 0 0 1 (the trailing 1 is what lets a point be shifted); yours is {fmt(T[3])}"
+        return f"the last row of your 4×4 must be 0 0 0 1 (the trailing 1 is what lets a point be shifted); yours is {' '.join(f'{c:g}' for c in T[3])}"
     turn = T[:3, :3]
     if not np.allclose(turn @ turn.T, np.eye(3), rtol=0.0, atol=RIGID_TOL):
         return "the top-left 3×3 block of your 4×4 is not a pure turn: its columns must have length 1 and be at right angles (is it rounded, scaled or skewed?)"
@@ -75,6 +76,8 @@ MISTAKES = (  # (what the learner's 4×4 is, the 4×4 that mistake builds): the 
     ("your camera tips up; a positive pitch must tip the nose down", lambda h, p: geom.T_ego_cam(h, -p)),
     ("your turns are in the wrong order, so the camera looks level and to the right; the pitch goes on the left, rot_y(φ) @ Bᵀ",
      lambda h, p: mount_from(geom.CAM_FROM_EGO_AXES.T @ geom.rot_y(p), h)),
+    ("your turn is about x (a roll), so the camera leans 5° instead of tipping down; the pitch is rot_y(φ)",
+     lambda h, p: mount_from(geom.rot_x(p) @ geom.CAM_FROM_EGO_AXES.T, h)),
     ("the 3×3 block of your 4×4 turns the opposite way (it is transposed)", lambda h, p: mount_from(geom.T_ego_cam(h, p)[:3, :3].T, h)),
     ("your 4×4 is the inverse mount, camera-from-ego; T_ego_cam is ego-from-camera, with the lens position (0, 0, h) in its last column",
      lambda h, p: geom.invert_pose(geom.T_ego_cam(h, p))),
@@ -151,6 +154,12 @@ def mount_pair(target) -> tuple:
     """`(world_to_ego, T_ego_cam)`, the two pieces of the learner's code the simulator draws a camera picture through; a Failure when `target` is not that pair."""
     if not (isinstance(target, tuple) and len(target) == 2 and all(callable(part) for part in target)):
         raise Failure("your answer must be the pair of your two functions, (world_to_ego, T_ego_cam)", given="the lab builds it as camera_mount = (world_to_ego, T_ego_cam)", got=type(target).__name__)
+    try:
+        swapped = np.shape(target[0](HEIGHT_M, PITCH_RAD)) == (4, 4)  # the mount first: world_to_ego called with two numbers raises
+    except Exception:  # noqa: BLE001 - any raise means the first part is not a mount (or is not finished): the check proper reports it
+        swapped = False
+    if swapped:
+        raise Failure("the pair goes (world_to_ego, T_ego_cam), in that order: your first function builds a mount", given="the lab builds it as camera_mount = (world_to_ego, T_ego_cam)")
     return target
 
 
@@ -173,9 +182,9 @@ def _swap_mount(target, show, on_step):
     return f"{drove}; none of {N_PICTURES} sampled pictures differ, so this is the provided car's own error on {GATE_SCENARIO} (it gets the same with the simulator's camera), not your camera's"
 
 
-def ground_point(fn, T: np.ndarray, u: float, v: float, what: str = "return the road point as 3 numbers (forward, left, up)") -> np.ndarray:
+def ground_point(fn, T: np.ndarray, u: float, v: float, what: str = "return the road point as 3 numbers (forward, left, up)", mount_label: str = f"T_ego_cam({HEIGHT_M:g}, 5°)") -> np.ndarray:
     """The learner's `ray_to_ground(T, ray)` for the ray through pixel (u, v), as a 3-vector (ego forward, left, up)."""
-    given = f"ray_to_ground(T_ego_cam(1.4, 5°), the ray through pixel ({u:.1f}, {v:.1f}))"
+    given = f"ray_to_ground({mount_label}, the ray through pixel ({u:.1f}, {v:.1f}))"
     return as_array(call(fn, T, geom.pixel_ray(Camera(), u, v), given=given), (3,), what, given)
 
 
@@ -185,10 +194,14 @@ def pixels_in(rows: tuple[float, float]) -> np.ndarray:
     return np.column_stack([rng.uniform(-0.5, 319.5, N_POINTS), rng.uniform(*rows, N_POINTS)])
 
 
-def ground_answers(fn) -> list[tuple[float, float, np.ndarray, np.ndarray]]:
-    """(u, v, the learner's road point, the simulator's) for 200 seeded pixels below the horizon."""
-    camera = Camera()
-    return [(u, v, ground_point(fn, SPEC_MOUNT, u, v), np.array([*camera.pixel_to_ground(u, v), 0.0])) for u, v in pixels_in(ROWS_BELOW)]
+def mount_label(height_m: float, pitch_rad: float) -> str:
+    return f"T_ego_cam({height_m:g}, {math.degrees(pitch_rad):g}°)"
+
+
+def ground_answers(fn, height_m: float = HEIGHT_M, pitch_rad: float = PITCH_RAD) -> list[tuple[float, float, np.ndarray, np.ndarray]]:
+    """(u, v, the learner's road point, the simulator's) for 200 seeded pixels below the horizon, with the camera mounted at (height_m, pitch_rad)."""
+    camera, T = Camera(height_m=height_m, pitch_deg=math.degrees(pitch_rad)), geom.T_ego_cam(height_m, pitch_rad)
+    return [(u, v, ground_point(fn, T, u, v, mount_label=mount_label(height_m, pitch_rad)), np.array([*camera.pixel_to_ground(u, v), 0.0])) for u, v in pixels_in(ROWS_BELOW)]
 
 
 def ground_gaps(answers) -> list[float]:
@@ -196,32 +209,46 @@ def ground_gaps(answers) -> list[float]:
     return [float(np.max(np.abs(got - want))) for _, _, got, want in answers]
 
 
+def lens_shift_hint(fn, u: float, v: float) -> str:
+    """Why every ray came back nan: name the lens's shift (w = 1) only when the learner's answer, on a mount low enough that the shifted ray still points down, IS the w = 1 answer."""
+    T, ray = geom.T_ego_cam(-LOW_LENS_M, PITCH_RAD), geom.pixel_ray(Camera(), u, v)
+    shifted = geom.transform_points(T, ray)  # what a ray treated as a point turns into
+    w1 = T[:3, 3] + (-T[2, 3] / shifted[2]) * shifted
+    if np.allclose(ground_point(fn, T, u, v, mount_label=mount_label(-LOW_LENS_M, PITCH_RAD)), w1, atol=GROUND_TOL, equal_nan=False):
+        return "; your ray probably picked up the lens's shift (w = 1): a ray is a direction and only turns"
+    return "; every ray points up or level in your ego numbers: turn the ray by the mount's 3×3 block, so that its third number is negative below the horizon"
+
+
 @exercise(
     "1.1.5.c",
-    checked=(f"your ray_to_ground on {N_POINTS} seeded pixels below the horizon: the road point within {GROUND_TOL:g} m of the simulator's own; "
+    checked=(f"your ray_to_ground on {N_POINTS} seeded pixels below the horizon, at the simulator's mount and at two others (pitch +1°, height +0.1 m): the road point within {GROUND_TOL:g} m of the simulator's own; "
              f"and on {N_POINTS} pixels above it: nan"),
     section="Where a pixel's ray meets the road",
 )
 def _ray_to_ground(fn, show, on_step):
-    answers = ground_answers(fn)
-    missing = [a for a in answers if any(bool(np.isnan(c)) is True for c in a[2])]
-    if missing:
-        u, v, got, want = missing[0]
-        hint = "; if all of them are nan, your ray probably picked up the lens's shift (w = 1): a ray is a direction and only turns" if len(missing) == N_POINTS else ""
-        raise Failure(f"{len(missing)} of {N_POINTS} pixels below the horizon came back nan; a ray that points down always meets the road{hint}",
-                      given=f"the first one: pixel ({u:.1f}, {v:.1f})", expected=triple(want), got=triple(got))
-    aloft = max(answers, key=lambda a: abs(a[2][2]))
-    if abs(aloft[2][2]) > GROUND_TOL:
-        raise Failure(f"your point is {aloft[2][2]:.3g} m above the road; a road point has up = 0, which is what λ = −t_z / r_z guarantees",
-                      given=f"pixel ({aloft[0]:.1f}, {aloft[1]:.1f})", expected=triple(aloft[3]), got=triple(aloft[2]))
-    gaps = ground_gaps(answers)
-    worst = int(np.argmax(gaps))
-    if gaps[worst] > GROUND_TOL:
-        u, v, got, want = answers[worst]
-        raise Failure(f"your road points are up to {fmt(gaps[worst])} m from the simulator's own (limit {GROUND_TOL:g} m)",
-                      given=f"the worst one: pixel ({u:.1f}, {v:.1f})", expected=triple(want), got=triple(got))
-    lands = [(u, v) for u, v in pixels_in(ROWS_ABOVE) if not all(bool(np.isnan(c)) is True for c in ground_point(fn, SPEC_MOUNT, u, v, "above the horizon there is no road point: return three nans, np.full(3, np.nan)")[:2])]
+    largest = 0.0
+    for height_m, pitch_rad in ENTRY_SETTINGS:  # the first is the spec mount; the others differ in turn and in height: ray_to_ground must use the T it is given
+        answers, where = ground_answers(fn, height_m, pitch_rad), mount_label(height_m, pitch_rad)
+        missing = [a for a in answers if any(bool(np.isnan(c)) is True for c in a[2])]
+        if missing:
+            u, v, got, want = missing[0]
+            hint = lens_shift_hint(fn, u, v) if len(missing) == N_POINTS else ""
+            raise Failure(f"{len(missing)} of {N_POINTS} pixels below the horizon came back nan with {where}; a ray that points down always meets the road{hint}",
+                          given=f"the first one: pixel ({u:.1f}, {v:.1f})", expected=triple(want), got=triple(got))
+        aloft = max(answers, key=lambda a: abs(a[2][2]))
+        if abs(aloft[2][2]) > GROUND_TOL:
+            raise Failure(f"your point is {aloft[2][2]:.3g} m above the road; a road point has up = 0, which is what λ = −t_z / r_z guarantees",
+                          given=f"pixel ({aloft[0]:.1f}, {aloft[1]:.1f}) with {where}", expected=triple(aloft[3]), got=triple(aloft[2]))
+        gaps = ground_gaps(answers)
+        worst = int(np.argmax(gaps))
+        if gaps[worst] > GROUND_TOL:
+            u, v, got, want = answers[worst]
+            moved = "" if (height_m, pitch_rad) == ENTRY_SETTINGS[0] else f"; it matched with {mount_label(*ENTRY_SETTINGS[0])}, so your road point does not change when the mount changes: use the T you are given"
+            raise Failure(f"your road points are up to {fmt(gaps[worst])} m from the simulator's own with {where} (limit {GROUND_TOL:g} m){moved}",
+                          given=f"the worst one: pixel ({u:.1f}, {v:.1f})", expected=triple(want), got=triple(got))
+        largest = max(largest, max(gaps))
+    lands = [(u, v) for u, v in pixels_in(ROWS_ABOVE) if not all(bool(np.isnan(c)) is True for c in ground_point(fn, SPEC_MOUNT, u, v, "above the horizon there is no road point: return three nans, np.full(3, np.nan)"))]
     if lands:
         raise Failure(f"{len(lands)} of {N_POINTS} pixels above the horizon got a road point; their rays never meet the road, so the answer is nan",
                       given=f"the first one: pixel ({lands[0][0]:.1f}, {lands[0][1]:.1f})", expected="nan", got="a road point")
-    return f"{N_POINTS} pixels below the horizon land within {GROUND_TOL:g} m (largest gap {fmt(max(gaps))} m), and {N_POINTS} above it are nan"
+    return f"{N_POINTS} pixels below the horizon land within {GROUND_TOL:g} m at each of {len(ENTRY_SETTINGS)} mounts (largest gap {fmt(largest)} m), and {N_POINTS} above it are nan"

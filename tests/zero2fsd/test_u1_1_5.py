@@ -57,10 +57,10 @@ def test_the_untouched_skeleton_fails_and_the_solution_passes(exercise_id, solut
 
 
 @pytest.mark.parametrize("exercise_id", ["1.1.5.a", "1.1.5.b"])
-@pytest.mark.parametrize("returned", [None, np.eye(3), [1, 2, 3]])
-def test_a_mount_that_is_not_a_4x4_fails_first_with_what_to_build(exercise_id, returned, capsys):
+@pytest.mark.parametrize("returned, words", [(None, "returned None"), (np.eye(3), "build the 4×4 mount pose"), ([1, 2, 3], "build the 4×4 mount pose")])
+def test_a_mount_that_is_not_a_4x4_fails_first_with_what_to_build(exercise_id, returned, words, capsys):
     passed, text = failure_text(exercise_id, target(exercise_id, lambda height, pitch: returned), capsys)
-    assert not passed and "build the 4×4 mount pose" in text
+    assert not passed and words in text
 
 
 # --- a camera tipped up: the lesson's own mistake, on the mount (a), the drive (b) and a direction treated as a point (c) ---
@@ -180,7 +180,7 @@ def mirror_turn(T):
 
 
 @pytest.mark.parametrize("edit, words", [
-    (zero_last_row, "the last row of your 4×4 must be 0 0 0 1"),
+    (zero_last_row, "the last row of your 4×4 must be 0 0 0 1 (the trailing 1 is what lets a point be shifted); yours is 0 0 0 0"),
     (scale_turn, "is not a pure turn"),
     (mirror_turn, "mirrors instead of turning"),
     (lambda T: T.__setitem__((0, 3), math.nan), "nan or inf"),
@@ -263,8 +263,75 @@ def test_c_names_a_point_above_the_road(capsys):
     assert not passed and "m above the road" in text
 
 
-def test_c_gives_the_w1_hint_only_when_every_pixel_is_nan(capsys):
+def test_c_gives_a_cause_only_when_every_pixel_is_nan(capsys):
     passed, text = failure_text("1.1.5.c", preset("1.1.5.c", "direction_with_w1")["ray_to_ground"], capsys)
     assert not passed and "(w = 1)" in text
-    passed, text = failure_text("1.1.5.c", lambda T, ray: np.full(3, np.nan), capsys)
-    assert not passed and "(w = 1)" in text
+    passed, text = failure_text("1.1.5.c", lambda T, ray: np.full(3, np.nan), capsys)  # all nan, but not the shifted ray's answer
+    assert not passed and "(w = 1)" not in text and "every ray points up or level" in text
+
+
+# --- the mistakes the lecture names, the pair's order, and C at other mounts -------------------------------------------------
+
+@pytest.mark.parametrize("exercise_id", ["1.1.5.a", "1.1.5.b"])
+def test_rot_x_in_place_of_rot_y_is_named_as_a_roll(exercise_id, capsys):
+    build = lambda h, p: u1_1_5.mount_from(geom.rot_x(p) @ geom.CAM_FROM_EGO_AXES.T, h)  # noqa: E731
+    passed, text = failure_text(exercise_id, target(exercise_id, build), capsys)
+    assert not passed and "your turn is about x (a roll)" in text
+
+
+def test_the_pair_in_the_wrong_order_says_so(solution, capsys):
+    passed, text = failure_text("1.1.5.b", (solution.T_ego_cam, geom.world_to_ego), capsys)
+    assert not passed and "the pair goes (world_to_ego, T_ego_cam), in that order" in text and "TypeError" not in text
+
+
+def ignores_the_turn(T, ray):  # the 5° mount's turn written in: right at the spec mount only
+    return _ground(u1_1_5.SPEC_MOUNT[:3, :3], T[:3, 3], ray)
+
+
+def ignores_the_height(T, ray):  # the 1.4 m written in: right at the spec mount only
+    return _ground(T[:3, :3], np.array([0.0, 0.0, HEIGHT]), ray)
+
+
+def _ground(turn, lens, ray):
+    r = turn @ np.asarray(ray, dtype=float)
+    return np.full(3, np.nan) if r[2] >= 0 else lens + (-lens[2] / r[2]) * r
+
+
+@pytest.mark.parametrize("stub", [ignores_the_turn, ignores_the_height])
+def test_c_fails_a_ray_to_ground_that_ignores_part_of_the_mount_it_is_given(stub, capsys):
+    assert max(u1_1_5.ground_gaps(u1_1_5.ground_answers(stub))) < 1e-9  # right at the spec mount: the old grader passed it
+    passed, text = failure_text("1.1.5.c", stub, capsys)
+    assert not passed and "your road point does not change when the mount changes: use the T you are given" in text
+
+
+def test_c_names_the_lens_shift_only_when_the_answer_is_the_shifted_ray(capsys):
+    passed, text = failure_text("1.1.5.c", preset("1.1.5.c", "direction_with_w1")["ray_to_ground"], capsys)
+    assert not passed and "picked up the lens's shift (w = 1)" in text
+
+    def never_turned(T, ray):  # the camera-numbers ray used as it is: its third number is +1
+        return _ground(np.eye(3), T[:3, 3], ray)
+    passed, text = failure_text("1.1.5.c", never_turned, capsys)
+    assert not passed and "w = 1" not in text and "every ray points up or level in your ego numbers" in text
+
+
+def test_c_wants_three_nans_above_the_horizon_not_two(capsys):
+    def two_nans(T, ray):
+        out = geom.ray_to_ground(T, ray)
+        return np.array([np.nan, np.nan, 0.0]) if np.isnan(out[0]) else out
+    passed, text = failure_text("1.1.5.c", two_nans, capsys)
+    assert not passed and "pixels above the horizon got a road point" in text
+
+
+def test_every_starter_runs_after_the_playground_prelude(solution):
+    """The real build path (scripts/build_playground.exercise_records' starter) for each exercise, run the way the page runs it: no check() defined."""
+    import importlib.util
+    from _course import parse_lab, load_yaml
+    spec = importlib.util.spec_from_file_location("playground_shim", REPO / "playground" / "shim.py")
+    shim = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(shim)
+    folder = REPO / "course" / "1.1.5-the-cameras-point-of-view"
+    cells = parse_lab((folder / "lab.py").read_text(encoding="utf-8"))
+    for exercise in load_yaml(folder / "unit.yaml")["exercises"]:
+        starter = "\n\n".join(c.source for c in cells if c.kind == "code" and f"exercise:{exercise['id']}" in c.tags)
+        assert "check(" not in starter, exercise["id"]
+        shim.learner_object(starter, exercise["name"])
