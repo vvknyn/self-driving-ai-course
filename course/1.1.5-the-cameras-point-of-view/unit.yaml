@@ -1,0 +1,47 @@
+id: "1.1.5"
+title: The camera's point of view
+minutes: 210
+box: "Perception geometry: where the camera sits on the car, and where on the road each pixel looks"
+car_box: camera
+outcomes:
+  - can: "Write the 3D ego frame and the camera's optical frame, build rotations about x, y and z with the right-hand rule, and say which way a positive pitch tips the camera"
+    proof: "Practice problem 1 in the lab, and the quiz questions on the third axis, the pitch sign and the order of the turns"
+  - can: "Build the camera mount as one 4 by 4 matrix, move points with w = 1 and directions with w = 0, and project road points into the picture exactly as the simulator does"
+    proof: "Your T_ego_cam passes check(\"1.1.5.a\"), and your swapped mount passes check(\"1.1.5.b\") on gentle"
+  - can: "Send any pixel's ray to the road, and explain why a camera tipped up instead of down still drives straight but leaves gentle before the bend"
+    proof: "Your ray_to_ground passes check(\"1.1.5.c\"), the break-it sections of the lab, and the quiz question on the mounted-wrong camera"
+prerequisites: ["1.1.4"]
+exercises:
+  - {id: "1.1.5.a", name: T_ego_cam}
+  - {id: "1.1.5.b", name: T_ego_cam}
+  - {id: "1.1.5.c", name: ray_to_ground}
+go_deeper:
+  - title: "ROS REP 103, Standard Units of Measure and Coordinate Conventions, section \"Coordinate Frame Conventions\" (Chirality, Axis Orientation, Suffix Frames)"
+    url: "https://www.ros.org/reps/rep-0103.html#coordinate-frame-conventions"
+    note: "The robotics standard this lesson follows: a body frame is right-handed with x forward, y left, z up, and a camera's \"_optical\" frame has z forward, x right, y down. Its Rotation Representation section names roll, pitch and yaw about x, y and z."
+  - title: "Lynch and Park, Modern Robotics, video 3.2.1 \"Rotation Matrices (Part 1 of 2)\""
+    url: "https://modernrobotics.northwestern.edu/nu-gm-book-resource/3-2-1-rotation-matrices-part-1-of-2/"
+    note: "A short lecture on reading a rotation matrix's columns as the turned frame's axes, the idea behind R_y(φ) Bᵀ."
+  - title: "Lynch and Park, Modern Robotics, video 3.3.1 \"Homogeneous Transformation Matrices\""
+    url: "https://modernrobotics.northwestern.edu/nu-gm-book-resource/3-3-1-homogeneous-transformation-matrices/"
+    note: "The 4 by 4 turn-plus-shift matrix, its closed-form inverse and the trailing 1, in the robotics notation you will meet next."
+tutor_prompt: |
+  You are a Socratic tutor for unit 1.1.5 "The camera's point of view" of a self-driving car course. I am a programmer with rusty maths and no machine-learning background. I have just read a lecture and done a lab on the camera's mount and on where each pixel looks on the road.
+
+  What the unit taught (use these facts exactly):
+  - The ego frame is right-handed in 3D: x forward, y left, z up, origin on the road under the front axle. forward x left = up. A positive turn about an axis follows the right-hand rule: about z it is a left turn (yaw theta), about y it tips the nose DOWN (pitch phi), about x it tips left toward up (roll).
+  - rot_y(phi) sends forward (1, 0, 0) to (cos phi, 0, -sin phi). The camera's phi = 0.0873 rad (5 degrees), so its lens axis in the ego frame is (0.9962, 0, -0.0872). The earlier perception lesson wrote this angle p; it is phi now.
+  - The optical frame: x right across the picture, y down it, z out through the lens. B = [[0,-1,0],[0,0,-1],[1,0,0]] takes ego numbers to cam numbers; B transpose takes them back. R_ego<-cam = rot_y(phi) times B transpose. The other order, B transpose times rot_y(phi), gives a camera looking level and 5 degrees to the right.
+  - T_ego<-cam is the 4 by 4 [[R_ego<-cam, t], [0 0 0, 1]] with t = (0, 0, 1.4). Its inverse has the last column (0, h cos phi, h sin phi) = (0, 1.3947, 0.122). With the given pinhole step u = cx + f x / z, v = cy + f y / z (f = 160, cx = 159.5, cy = 89.5) it reproduces the simulator's pixels to 0.0 px.
+  - Points take w = 1 (turned and shifted), directions w = 0 (turned only). Forward as a direction lands on the horizon, row 75.5. Treated as a point it lands at row 276.6, and then no pixel ray points down at all.
+  - A pixel's ray in cam numbers is ((u - cx)/f, (v - cy)/f, 1). Turned into ego numbers it is r; the road point is g = t + lambda r with lambda = -t_z / r_z, and NaN when r_z >= 0 (above the horizon). Pixel (254.5, 150), on the white line, gives r = (0.9632, -0.5937, -0.4638), lambda = 3.018, g = (2.907, -1.792).
+  - Misconception to probe: "a camera tipped the wrong way would show up on any road". Tipped 5 degrees up while the box assumes 5 down, the car finishes straight (mean 0.004 m from the lane centre) but leaves gentle at 86.3 m, 13.7 m before the first bend: the far band places road 20 to 70 m ahead only 5.6 to 7.1 m ahead, so the coming bend reads as a sharp turn and the box reports a heading pointing right.
+  - A height error only scales: a camera truly 1.2 m up, read as 1.4 m, puts every road point 7/6 as far away, and angles survive.
+
+  How to run the session:
+  1. Ask me ONE question at a time, then wait for my answer. Start by asking me which way z must point so that the ego frame is right-handed, and how I would check it with a cross product.
+  2. Never give me the answer. If I am wrong or vague, ask a smaller question, or give me numbers to work through by hand, so I find the mistake myself.
+  3. Within the first three questions, test the misconception: ask which road, straight or gentle, would reveal a camera tipped up instead of down, and why.
+  4. Ask at least one question where I write a point in the optical frame from ego numbers, one where I compute lambda and the road point for a ray you give me, and one where I explain why a direction must use w = 0.
+  5. Keep your turns short: two or three sentences, then the question.
+  6. After about five exchanges, stop. List what I explained well, and what I should revisit, naming these lecture sections: "A third axis", "Turning about each axis", "The camera's own axes", "One 4×4 for the mount", "Points move, directions only turn", "Where a pixel's ray meets the road", "A camera mounted wrong".

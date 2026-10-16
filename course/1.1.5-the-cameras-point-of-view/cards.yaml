@@ -1,0 +1,24 @@
+- id: c1
+  front: "What is the 3D ego frame?"
+  back: "$x$ forward, $y$ left, $z$ up, origin on the road under the front axle. Right-handed: forward $\\times$ left = up."
+- id: c2
+  front: "Which way does a positive pitch tip the camera?"
+  back: "Nose down. $R_y(\\varphi)$ sends forward to $(\\cos\\varphi, 0, -\\sin\\varphi)$; the camera's $\\varphi$ is $0.0873$ rad ($5°$)."
+- id: c3
+  front: "What are the optical frame's axes, and what is $B$?"
+  back: "$x$ right across the picture, $y$ down it, $z$ out of the lens. $B = \\begin{pmatrix}0&-1&0\\\\0&0&-1\\\\1&0&0\\end{pmatrix}$ takes ego numbers to camera numbers; $B^\\top$ takes them back."
+- id: c4
+  front: "What turn does the camera's mount make, and why does the order matter?"
+  back: "$R_{\\text{ego}\\leftarrow\\text{cam}} = R_y(\\varphi)\\,B^\\top$. The other order, $B^\\top R_y(\\varphi)$, makes a camera looking level and $5°$ to the right."
+- id: c5
+  front: "What is the mount $T_{\\text{ego}\\leftarrow\\text{cam}}$, and what is its inverse's last column?"
+  back: "$\\begin{pmatrix}R & \\mathbf{t}\\\\ 0\\ 0\\ 0 & 1\\end{pmatrix}$ with $\\mathbf{t} = (0, 0, 1.4)$. Its inverse's last column is $(0,\\ h\\cos\\varphi,  h\\sin\\varphi) = (0, 1.3947, 0.122)$."
+- id: c6
+  front: "When does a vector take $w = 1$, and when $w = 0$?"
+  back: "$w = 1$ for a point: it is turned and shifted. $w = 0$ for a direction: it is only turned. The lens axis as a point reads $0.92$ rad up, and then no pixel's ray points down."
+- id: c7
+  front: "How does a pixel's ray meet the road?"
+  back: "$\\mathbf{g} = \\mathbf{t} + \\lambda\\mathbf{r}$ with $\\lambda = -t_z / r_z$; it is nan when $r_z \\ge 0$, above the horizon. The white pixel $(254.5, 150)$ gives $(2.907, -1.792)$."
+- id: c8
+  front: "What does a camera tipped up instead of down do to the car, and what does a wrong height do?"
+  back: "The car finishes `straight` (mean $0.004$ m) but leaves `gentle` at $86.3$ m. A wrong height only scales distances by $1.4 / h$, so angles, and the heading, survive."

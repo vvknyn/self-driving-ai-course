@@ -1,0 +1,54 @@
+- id: q1
+  type: mcq
+  prompt: "The ego frame has $x$ forward and $y$ to the left. For a right-handed frame, which way must $z$ point? Check it with the cross product forward $\\times$ left."
+  choices:
+    - "$(0, 0, -1)$, down"
+    - "$(0, 0, 1)$, up"
+    - "$(1, 1, 0)$, forward-left"
+  answer: 1
+  explain: "The $z$ part of $(1, 0) \\times (0, 1)$ is $1 \\times 1 - 0 \\times 0 = 1$, so the cross product is $(0, 0, 1)$: up. In the other order, left $\\times$ forward, it would be $(0, 0, -1)$."
+  section: a-third-axis
+- id: q2
+  type: mcq
+  prompt: "A positive turn about the car's $y$ axis (pointing to its left) follows the right-hand rule. What does it do to the car's nose?"
+  choices:
+    - "Tips it down."
+    - "Tips it up."
+    - "Swings it to the left."
+  answer: 0
+  explain: "The first column of $R_y(\\varphi)$ is where forward goes: $(\\cos\\varphi, 0, -\\sin\\varphi) = (0.9962, 0, -0.0872)$ for $\\varphi = 5°$. Its height part is negative, so the nose is down. A positive turn about $z$ is the one that swings the nose left."
+  section: turning-about-each-axis
+- id: q3
+  type: mcq
+  prompt: "The camera's mount turn is $R_y(\\varphi)\\,B^\\top$. Someone writes the product in the other order, $B^\\top R_y(\\varphi)$. What camera is that?"
+  choices:
+    - "One tipped $5°$ down, the same as before."
+    - "One tipped $5°$ up."
+    - "One looking level, $5°$ to the right."
+  answer: 2
+  explain: "In the other order the pitch is applied in the camera's own axes, where $y$ points down, so the turn is about the vertical: the lens axis ends at $(0.9962, -0.0872, 0)$, level and $5°$ to the right."
+  section: the-cameras-own-axes
+- id: q4
+  type: numeric
+  prompt: "A pixel's ray, in ego numbers, is $(0.9632, -0.5937, -0.4638)$, and the lens is $1.4$ m above the road. How many steps $\\lambda$ down the ray reach the road? (Give a decimal.)"
+  answer: 3.018
+  tolerance: 0.01
+  explain: "The height after $\\lambda$ steps is $1.4 + \\lambda \\times (-0.4638)$, which is zero at $\\lambda = 1.4 / 0.4638 = 3.018$. The road point is then $(2.907, -1.792)$."
+  section: where-a-pixels-ray-meets-the-road
+- id: q5
+  type: numeric
+  prompt: "The car's forward direction, in camera numbers, is $(0, -0.0872, 0.9962)$. In which picture row does it land? Use $v = 89.5 + 160\\,y / z$. (Give a decimal row.)"
+  answer: 75.5
+  tolerance: 0.1
+  explain: "$89.5 + 160 \\times (-0.0872 / 0.9962) = 89.5 - 14.0 = 75.5$: the horizon. A direction lands on the horizon whatever the car's height. Treated as a point ($w = 1$) it would land in row 276.6."
+  section: points-move-directions-only-turn
+- id: q6
+  type: mcq
+  prompt: "The camera is really tipped $5°$ up, but the box assumes $5°$ down. Which roads show it?"
+  choices:
+    - "Both roads: the car leaves `straight` too."
+    - "Only `gentle` shows it: the car leaves at 86.3 m, before the first bend."
+    - "Neither: distances scale but angles survive."
+  answer: 1
+  explain: "On `straight` the car finishes with a mean of $0.004$ m from the lane centre. On `gentle` the far band places road $20$ to $70$ m ahead only $5.6$ to $7.1$ m ahead, so the coming bend reads as a sharp turn and the car leaves the lane at $86.3$ m. A wrong height only scales distances; a wrong pitch changes angles."
+  section: a-camera-mounted-wrong
