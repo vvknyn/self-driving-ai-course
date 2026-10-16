@@ -42,7 +42,7 @@ In this lesson you open neither box. You **instrument** the car instead: you rec
 
 Here is what the camera sees, and the path the car drove:
 
-![Left: the 320 by 180 pixel camera picture, 80 m into the gentle loop, with the first bend coming up ahead. Right: a top-down view of the stretch from 70 m to 110 m, with the car as a dot at the 80 m mark and the path the provided car drove through it, measured from the lane centre.](figures/car_and_view.png)
+![Top: the 320 by 180 pixel camera picture, 80 m into the gentle loop, with the first bend coming up ahead. Bottom: a top-down view of the stretch from 70 m to 110 m, with the car as a dot at the 80 m mark and the path the provided car drove through it, measured from the lane centre.](figures/car_and_view.png)
 
 The car is tested on three roads. `straight` is 200 m of straight road. `gentle` is a stadium-shaped loop: two 100 m straights joined by two wide bends of radius 80 m. `curvy` is a 30 m straight followed by six tight quarter-circle bends of radius 20 m, alternating left and right.
 
@@ -147,7 +147,7 @@ Their plain averages are +0.023 m for the 2× car and +0.024 m for the 4× car. 
 
 **Guess first:** the plain average cannot tell these two cars apart. Did they drive about equally well?
 
-![Both cars on curvy, plotted against the distance along the road, on the same scale. Left: the 2× car swings left of the lane centre and then right of it, by up to 0.82 m. Right: the 4× car stays within 0.35 m of the lane centre the whole way. The dashed line on each panel is that car's average, +0.02 m, and it sits in the same place on both.](figures/signed_mean_trap.png)
+![Both cars on curvy, plotted against the distance along the road, on the same scale. Top: the 2× car swings left of the lane centre and then right of it, by up to 0.82 m. Bottom: the 4× car stays within 0.35 m of the lane centre the whole way. The dashed line on each panel is that car's average, +0.02 m, and it sits in the same place on both panels.](figures/signed_mean_trap.png)
 
 **Answer:** no. The 2× car swings from 0.72 m left of the lane centre to 0.82 m right of it, while the 4× car never goes more than 0.35 m from it. The 2× car's swings to the left and to the right cancel almost exactly, so its average lands right next to the 4× car's. On a fairer measure, which you meet next, the 2× car is 0.50 m from the lane centre on average and the 4× car 0.09 m. One car is nearly six times further off than the other, and the plain average shows no difference at all.
 
@@ -222,7 +222,7 @@ Both have the same mean$|e|$: $1.0 / 5 = 0.2$ m.
 
 **Guess first:** do they have the same RMS? If not, which is bigger, and by roughly how much?
 
-![Drive A and Drive B as squares, side by side. Drive A has five small squares of side 0.2 m. Drive B has nothing for four steps, then one big square of side 1.0 m, with as much area as twenty-five of Drive A's squares. Drive A's RMS is 0.2 m; Drive B's is 0.447 m.](figures/drive_a_b.png)
+![Drive A and Drive B as squares, one above the other. Drive A has five small squares of side 0.2 m. Drive B has nothing for four steps, then one big square of side 1.0 m, with as much area as twenty-five of Drive A's squares. Drive A's RMS is 0.2 m; Drive B's is 0.447 m.](figures/drive_a_b.png)
 
 **Answer:** Drive B's RMS is more than twice Drive A's.
 
