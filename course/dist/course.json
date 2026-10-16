@@ -29,7 +29,7 @@
               "slug": "0-1-2",
               "title": "Images are arrays",
               "status": "ready",
-              "minutes": 210
+              "minutes": 90
             },
             {
               "id": "0.1.3",
@@ -538,20 +538,28 @@
       "id": "0.1.2",
       "slug": "0-1-2",
       "title": "Images are arrays",
-      "minutes": 210,
+      "minutes": 90,
       "box": "Perception, first half: the paint masks that find the yellow and white lines in a camera frame",
       "outcomes": [
         {
-          "can": "Index and slice a camera frame: its shape, its dtype, one pixel by row and column (row 0 is the top), one colour channel",
-          "proof": "Practice problems in the lab, and the quiz questions on frame indexing"
+          "can": "Read a camera frame as a (180, 320, 3) uint8 array, and pick out pixels, channels and blocks of rows by index and slice",
+          "proof": "Problems 1 to 3 in the lab, and the quiz questions on frame shape, indexing and slicing"
         },
         {
-          "can": "Build yellow and white paint masks that survive camera noise, using a colour distance and a threshold",
+          "can": "Measure how alike two colours are with the Euclidean distance between them",
+          "proof": "Problem 4 in the lab, and the quiz questions on colour distance"
+        },
+        {
+          "can": "Find paint with a colour threshold, and choose the threshold from the gap in the distances",
           "proof": "Your paint_masks passes check(\"0.1.2.a\") in the lab"
         },
         {
-          "can": "Explain why exact colour equality fails on noisy images, and why uint8 arithmetic wraps around",
-          "proof": "Quiz questions on exact equality and the uint8 trap, and the break-it exercise in the lab"
+          "can": "Score a mask with IoU, and explain why the share of pixels right misleads",
+          "proof": "Problem 8 in the lab, and the quiz questions on IoU"
+        },
+        {
+          "can": "Avoid uint8 wraparound by converting to float before arithmetic",
+          "proof": "The break-it, fix-it problem in the lab, and the quiz question on the uint8 trap"
         }
       ],
       "prerequisites": [
@@ -563,7 +571,7 @@
           "url": "https://numpy.org/doc/stable/user/absolute_beginners.html"
         },
         {
-          "title": "CS231n Python Numpy Tutorial (sections \"Array indexing\", \"Datatypes\" and, under Matplotlib, \"Images\")",
+          "title": "CS231n Python Numpy Tutorial (sections \"Array indexing\" (read \"Boolean array indexing\"), \"Datatypes\", \"Broadcasting\" and, under Matplotlib, \"Images\")",
           "url": "https://cs231n.github.io/python-numpy-tutorial/"
         },
         {
@@ -572,133 +580,229 @@
         }
       ],
       "paper": null,
-      "tutor_prompt": "You are a Socratic tutor for unit 0.1.2 \"Images are arrays\" of a self-driving car course. I am a programmer with rusty maths and no machine-learning background. I have just read a lecture and done a lab on finding the lane paint in a camera frame.\n\nWhat the unit taught (use these facts exactly):\n- A camera frame is a NumPy array of shape (180, 320, 3), dtype uint8 (whole numbers 0 to 255). frame[row, column, channel]: row 0 is the top, channel 0/1/2 is red/green/blue.\n- The simulator paints five colours: sky (135, 190, 235), grass (70, 130, 60), road (90, 90, 95), yellow paint (230, 200, 40), white paint (240, 240, 240).\n- The distance between two colours is the straight-line distance in red-green-blue space: sqrt of the sum of the squared differences. Road to yellow is 186.3.\n- Camera noise of sigma 6 nudges every channel. A pixel is paint when its distance to the paint colour is below a threshold; 60 works because noise moves paint less than about 28, and the nearest other colour is more than 90 away.\n- A mask is a bool array of shape (180, 320). IoU = (pixels marked in both) / (pixels marked in either). Pixel accuracy is the wrong score because paint is rare.\n- Misconception 1 to probe: \"frame == colour finds the paint\". It does not on noisy frames: all three nudges must round to 0, which with sigma 6 happens with probability about 0.0003.\n- Misconception 2 to probe: \"subtracting two uint8 arrays gives a negative number\". It wraps around instead: 90 - 230 gives 116. The fix is frame.astype(float) before subtracting.\n\nHow to run the session:\n1. Ask me ONE question at a time, then wait for my answer. Start by asking me what frame[0, 319] is, and which way the row index runs.\n2. Never give me the answer. If I am wrong or vague, ask a smaller question, or give me two or three colours to work through by hand, so I find the mistake myself.\n3. Within the first three questions, test misconception 1: ask whether frame == (230, 200, 40) would find the yellow line in a noisy frame, and why.\n4. Ask at least one question where I compute a colour distance by hand, one where I compute an IoU from counts you give me, and one where I predict what a uint8 subtraction prints.\n5. Keep your turns short: two or three sentences, then the question.\n6. After about five exchanges, stop. List what I explained well, and what I should revisit, naming these lecture sections: \"A frame is a grid of numbers\", \"Colour is a point in space\", \"Paint is a colour threshold\", \"Scoring a mask with IoU\", \"Why exact equality fails\", \"The uint8 wraparound trap\".\n",
-      "lecture_md": "# Images are arrays\n\n## A frame is a grid of numbers\n\nA paper from 1988 describes a van that drove itself along a 400 m path through a wooded area of the Carnegie Mellon University campus, steered by a small neural network called ALVINN. The network never saw the camera picture the way you do. It saw numbers:\n\n> \"The first retina, consisting of 30x32 units, receives video camera input from a road scene. The activation level of each unit in this retina is proportional to the intensity in the blue color band of the corresponding patch of the image.\" (Pomerleau, 1988, p. 306)\n\nA grid of 30 by 32 brightness values, 960 numbers, was all the network saw of the camera picture.\n\nYour car's camera gives you more numbers, but they are still just numbers. Every 0.05 s it hands the perception box one **frame**: a NumPy array of shape `(180, 320, 3)`. That is 180 rows, 320 columns, and 3 colour values per pixel, $180 \\times 320 \\times 3 = 172{,}800$ numbers in all.\n\nYou pick one number out with three indices, `frame[row, column, channel]`:\n\n- **row** runs from 0 at the **top** of the picture to 179 at the bottom. Rows near the bottom show the road just in front of the car.\n- **column** runs from 0 at the left edge to 319 at the right edge.\n- **channel** is 0 for red, 1 for green and 2 for blue. Leave it out and you get all three: `frame[0, 0]` is the top-left pixel's colour, `(135, 190, 235)`, which is sky blue.\n\nEvery value is a whole number from 0 to 255. The array's **dtype**, its number type, is `uint8`: an unsigned integer stored in 8 bits, and 8 bits can hold $2^8 = 256$ different values. 0 means none of that colour and 255 means as much as the camera can record.\n\n![Left: the camera frame on the straight road, with a small red box where the road meets the yellow line. Right: the 6 by 6 pixels inside that box, drawn large, each labelled with its red, green and blue values.](/learnfsd-course/figures/0-1-2/frame_grid.png)\n\nZoom in on the red box and the picture dissolves into its numbers. The grey road pixels are all `(90, 90, 95)`; the yellow paint pixels are all `(230, 200, 40)`. The boundary between them is a staircase, because a slanted line drawn on a grid of squares always is.\n\nThis flat-world teaching simulator paints the world in exactly five colours:\n\n| Surface | Red | Green | Blue |\n|---|---|---|---|\n| sky | 135 | 190 | 235 |\n| grass | 70 | 130 | 60 |\n| road | 90 | 90 | 95 |\n| yellow paint | 230 | 200 | 40 |\n| white paint | 240 | 240 | 240 |\n\nIn the frame above, rows 0 to 75 are all sky: the horizon of a flat world sits at row 75.5. The paint the car needs is a thin sliver. Of the frame's $180 \\times 320 = 57{,}600$ pixels, 709 are yellow and 872 are white, 2.7% in all. The job of this unit is to find them.\n\n<details>\n<summary>How we got 2.7%</summary>\n\nThe share of the frame that is paint is the number of paint pixels divided by the number of all pixels. The paint pixels are the yellow and the white ones together, $709 + 872 = 1581$. The frame has $180 \\times 320 = 57{,}600$ pixels, so\n\n$$\\frac{1581}{57{,}600} = 0.02745$$\n\nA fraction becomes a percentage when you multiply by 100: $0.02745 \\times 100 = 2.745$ per cent, which rounds to 2.7%.\n\n</details>\n\n## Colour is a point in space\n\nThree numbers can be read as a position in space. Treat red, green and blue as three axes, like the length, width and height of a room, and every colour becomes a point in a cube whose sides run from 0 to 255. Similar colours are points close together.\n\nThat gives you a way to ask \"how close is this pixel's colour to yellow?\": measure the straight-line distance between the two points. For a pixel colour $p = (p_R, p_G, p_B)$ and a reference colour $c = (c_R, c_G, c_B)$, where the subscripts $R$, $G$ and $B$ name the red, green and blue values,\n\n$$d(p, c) = \\sqrt{(p_R - c_R)^2 + (p_G - c_G)^2 + (p_B - c_B)^2}$$\n\nThis is Pythagoras' theorem with one extra axis. The distance is 0 when the colours are identical, and grows as they differ.\n\n**Worked example.** How far is road grey $p = (90, 90, 95)$ from yellow paint $c = (230, 200, 40)$?\n\n- Differences: $90 - 230 = -140$, $90 - 200 = -110$, $95 - 40 = 55$.\n- Squares: $19{,}600$, $12{,}100$ and $3{,}025$. They add up to $34{,}725$.\n- Square root: $\\sqrt{34{,}725} = 186.3$.\n\nWork out every pair of the five colours the same way and two facts stand out. The colour nearest to yellow is grass, 175.8 away. The colour nearest to white is sky, only 116.4 away. Keep those two numbers in mind.\n\n<details>\n<summary>How we got 175.8 and 116.4</summary>\n\nThese come from the same distance formula as the worked example. Grass is $(70, 130, 60)$ and yellow paint is $(230, 200, 40)$:\n\n- Differences: $70 - 230 = -160$, $130 - 200 = -70$, $60 - 40 = 20$.\n- Squares: $25{,}600$, $4{,}900$ and $400$. They add up to $30{,}900$.\n- Square root: $\\sqrt{30{,}900} = 175.8$.\n\nSky is $(135, 190, 235)$ and white paint is $(240, 240, 240)$:\n\n- Differences: $135 - 240 = -105$, $190 - 240 = -50$, $235 - 240 = -5$.\n- Squares: $11{,}025$, $2{,}500$ and $25$. They add up to $13{,}550$.\n- Square root: $\\sqrt{13{,}550} = 116.4$.\n\nYellow's other distances are larger: road 186.3, white 204.2 and sky 217.1. White's other distances are larger too: yellow 204.2, road 257.0 and grass 270.9. So grass is the nearest colour to yellow, and sky is the nearest to white.\n\n</details>\n\n## Paint is a colour threshold\n\nReal cameras are not perfect. Each value comes back nudged up or down a little by electrical **noise**. The simulator can imitate this: with `noise_sigma=6` it adds a random amount to every channel of every pixel. The symbol $\\sigma$ (sigma) is the typical size of the nudge, its standard deviation: about two thirds of the nudges are smaller than 6, and very few are bigger than 18. The result is rounded and kept within 0 to 255.\n\n![The same 6 by 6 pixels, clean on the left and with noise of sigma 6 on the right. After noise, no two road pixels are identical, and no yellow pixel is exactly (230, 200, 40).](/learnfsd-course/figures/0-1-2/noisy_patch.png)\n\nPixel (150, 60) was `(230, 200, 40)` and is now `(226, 196, 34)`. Its distance from yellow is $\\sqrt{(-4)^2 + (-4)^2 + (-6)^2} = \\sqrt{68} = 8.25$. Not zero, but tiny next to the 186.3 between road and yellow.\n\nSo decide it with a **threshold**, a cut-off distance written $\\tau$ (tau): a pixel counts as yellow paint when\n\n$$d(p, c_{\\text{yellow}}) < \\tau$$\n\nAsking that question of every pixel gives a **mask**: a `bool` array of shape `(180, 320)` holding `True` where the answer is yes. With `yellow` holding the three numbers of yellow paint, NumPy asks all 57,600 questions in two lines:\n\n```python\ndistance = np.linalg.norm(frame.astype(float) - yellow, axis=-1)  # shape (180, 320)\nyellow_mask = distance < tau                                      # shape (180, 320), dtype bool\n```\n\n`frame.astype(float) - yellow` subtracts the three-number `yellow` from every pixel at once, which NumPy calls **broadcasting**. `np.linalg.norm(..., axis=-1)` then takes the square root of the sum of squares along the last axis, the colour axis, leaving one distance per pixel. The `astype(float)` matters, as the last section shows.\n\nHow big should $\\tau$ be? Look at the distance of every pixel in a noisy frame:\n\n![Histograms of the distance from every pixel of a noisy frame to yellow (left) and to white (right), coloured by what each pixel truly is. Paint pixels sit below 30; every other pixel is more than 90 away. A red line marks the threshold of 60.](/learnfsd-course/figures/0-1-2/colour_distance.png)\n\nIn this frame, noise moved no yellow pixel more than 27.8 from yellow and no white pixel more than 24.8 from white. The nearest pixel that is *not* yellow paint is 151.2 away from yellow; the nearest non-white one is a noisy sky pixel 92.2 from white. Any $\\tau$ inside that gap separates paint from everything else. The provided perception box uses $\\tau = 60$.\n\nStray outside the gap and you see why it has to be there. On this frame, $\\tau = 10$ keeps only 55% of the yellow paint. For white, $\\tau = 120$ reaches past the gap into the sky: it marks 18,098 pixels instead of 872.\n\n## Scoring a mask with IoU\n\nHow do you say how good a mask is? The simulator knows which pixels truly are paint, so there is a correct mask $T$ (for \"truth\") to compare your mask $M$ with. The course uses **intersection over union**, IoU:\n\n$$\\text{IoU}(M, T) = \\frac{|M \\cap T|}{|M \\cup T|}$$\n\nHere $M \\cap T$ (the intersection) is the set of pixels marked in both masks, $M \\cup T$ (the union) is the set marked in either, and $|\\cdot|$ means \"how many pixels\". In NumPy, `&` is \"both\" and `|` is \"either\", so the IoU is `(M & T).sum() / (M | T).sum()`.\n\n**Worked example.** The truth has 10 paint pixels. Your mask marks 8 of them, plus 4 pixels that are not paint. The intersection is 8. The union is the 10 true pixels plus your 4 wrong ones, 14. So IoU $= 8 / 14 = 0.571$.\n\nIoU is 1 only when the two masks are identical, and it punishes both kinds of mistake: missed paint shrinks the top, and false paint grows the bottom.\n\nWhy not simply count the fraction of pixels you got right? Because paint is so rare. A mask that marks nothing at all is right about 98.8% of the pixels for yellow, since only 1.2% of the frame is yellow paint. Its IoU is 0. The grader for this unit asks for IoU of at least 0.85 for both masks, on six noisy frames drawn from all three roads.\n\n<details>\n<summary>How we got 98.8%</summary>\n\nYellow paint covers 709 of the 57,600 pixels, a share of $709 / 57{,}600 = 0.0123$, which is 1.2%. A mask that marks nothing is right about every pixel that is not yellow, which is the rest:\n\n$$1 - 0.0123 = 0.9877 \\approx 98.8\\%$$\n\nIts IoU is still 0. The intersection is 0 pixels, because the mask holds none, and the union is just the 709 true pixels, so $0 / 709 = 0$.\n\n</details>\n\n## Why exact equality fails\n\nHere is the tempting shortcut: \"The simulator paints yellow as exactly `(230, 200, 40)`. So find yellow with `frame == yellow`.\"\n\nOn a clean frame this works perfectly: IoU 1.0. On a noisy frame it finds nothing:\n\n![Rows 100 to 179 of the noisy frame; the mask from exact equality, which is empty (0 pixels, IoU 0.00); and the mask from a distance threshold of 60, which finds all 1,581 paint pixels (IoU 1.00).](/learnfsd-course/figures/0-1-2/exact_vs_threshold.png)\n\nTo equal yellow exactly, a noisy pixel needs all three of its nudges to round to 0. One nudge does that only when it lands between $-0.5$ and $+0.5$, which with $\\sigma = 6$ happens with probability 0.066. All three at once: $0.066^3 = 0.0003$. Out of 709 yellow pixels you would expect to find about 0.2, and in this frame you find none.\n\n<details>\n<summary>How we got 0.066, 0.0003 and 0.2</summary>\n\nThe nudge added to one channel is a random number with a bell-shaped spread whose width is $\\sigma = 6$. The result is then rounded to a whole number, so a channel comes back as exactly the paint value only if its nudge lies between $-0.5$ and $+0.5$. That interval is 1 wide, narrow next to the bell, so its probability is about its width times the height of the bell at the middle. The height of a bell with standard deviation $\\sigma$ at its middle is $\\frac{1}{\\sigma\\sqrt{2\\pi}}$:\n\n$$1 \\times \\frac{1}{6\\sqrt{2\\pi}} = \\frac{1}{6 \\times 2.5066} = 0.06649 \\approx 0.066$$\n\nThe three channels get independent nudges, and independent chances multiply:\n\n$$0.066 \\times 0.066 \\times 0.066 = 0.000287 \\approx 0.0003$$\n\nEach of the 709 yellow pixels has that chance, so the number you expect to be exactly yellow is $709 \\times 0.000287 = 0.20 \\approx 0.2$.\n\n</details>\n\nThe lesson reaches far beyond paint. Measured data never lands exactly on its ideal value, so never test it for equality: test whether it is close enough. (There is a second trap in `frame == yellow` too. It compares channel by channel, giving shape `(180, 320, 3)`, so you would need `np.all(..., axis=-1)` just to get one answer per pixel.)\n\n## The uint8 wraparound trap\n\nSuppose you skip `astype(float)` and subtract directly: `frame - yellow`, with both arrays `uint8`. That is easy to do by accident, because the simulator's own colour table, `PALETTE`, is `uint8` too. A `uint8` cannot hold a negative number, so NumPy wraps the result around, silently: it adds 256 until the answer fits.\n\n$$90 - 230 = -140 \\quad\\longrightarrow\\quad -140 + 256 = 116$$\n\nSo road grey minus yellow comes out as `(116, 146, 55)` instead of `(-140, -110, 55)`. Squares overflow the same way: $20^2 = 400$ does not fit either, and $400 - 256 = 144$.\n\nThe damage depends on the noise. A paint pixel keeps a correct, small distance only if no channel dipped below the paint colour. When one did, $-2$ becomes $254$, and the pixel looks nothing like paint. In the noisy frame above that leaves 13.5% of the yellow pixels and 13.9% of the white ones, so the masks score an IoU of 0.14. No error, no warning: just a mask that is mostly empty.\n\nThe fix is one call: convert to a type that can go negative before you subtract, `frame.astype(float)`. Whenever you do arithmetic on image data, convert first.\n\n## Go deeper\n\n- **NumPy: the absolute basics for beginners**, sections \"Array attributes\" (shape, dtype) and \"Indexing and slicing\", which ends with picking out values with a condition and combining conditions with `&` and `|`.\n- **CS231n Python Numpy Tutorial**, sections \"Array indexing\" (read \"Boolean array indexing\"), \"Datatypes\" and, under Matplotlib, \"Images\".\n- **Pomerleau, \"ALVINN: An Autonomous Land Vehicle in a Neural Network\" (1988)**, p. 306, \"Network Architecture\" and Figure 1: the 30 by 32 camera grid and why it used the blue band. This is the module paper; you will read it properly in unit 0.1.4.\n",
+      "tutor_prompt": "You are a Socratic tutor for unit 0.1.2 \"Images are arrays\" of a self-driving car course. I am a programmer with rusty maths and no machine-learning background. I have just read a lecture and done a lab on finding the lane paint in a camera frame.\n\nWhat the unit taught (use these facts exactly):\n- A camera frame is a NumPy array of shape (180, 320, 3), dtype uint8 (whole numbers 0 to 255), 172,800 numbers in all. frame[row, column, channel]: row 0 is the top, column 0 is the left, channel 0/1/2 is red/green/blue. frame[100:180] is rows 100 to 179, shape (80, 320, 3): the stop is left out.\n- The simulator paints five colours: sky (135, 190, 235), grass (70, 130, 60), road (90, 90, 95), yellow paint (230, 200, 40), white paint (240, 240, 240). In the clean frame on the straight road, 20 m along, there are 709 yellow and 872 white pixels.\n- The distance between two colours is the straight-line distance in red-green-blue space: sqrt of the sum of the squared differences. Road to yellow is 186.3; grass to yellow 175.8 is the nearest colour to yellow; sky to white 116.4 is the nearest to white.\n- Camera noise of sigma 6 nudges every value by a random step; 72.1% of the nudges lie between -6 and +6. A pixel is paint when its distance to the paint colour is below a threshold: on a noisy frame the paint is at most 27.8 (yellow) or 24.8 (white) from its colour, and the nearest other pixel is 151.2 (yellow) or 92.2 (white) away, so 60 sits in the gap.\n- A mask is a bool array of shape (180, 320). IoU = (pixels marked in both) / (pixels marked in either). Pixel accuracy is the wrong score because paint is rare: a mask that marks nothing gets 98.8% of the pixels right and an IoU of 0.\n- Misconception 1 to probe: \"frame == colour finds the paint\". It does not on noisy frames: all three channel nudges must round to 0, and with sigma 6 each does so with probability about 0.066, so all three with probability about 0.066 cubed, 0.0003. On the noisy frame it finds none of the 709.\n- Misconception 2 to probe: \"subtracting two uint8 arrays gives a negative number\". It wraps around instead, with no error: 90 - 230 gives 116. The fix is frame.astype(float) before subtracting.\n\nHow to run the session:\n1. Ask me ONE question at a time, then wait for my answer. Start by asking me what frame[0, 319] is, and which way the row index runs.\n2. Never give me the answer. If I am wrong or vague, ask a smaller question, or give me two or three colours to work through by hand, so I find the mistake myself.\n3. Within the first three questions, test misconception 1: ask whether frame == (230, 200, 40) would find the yellow line in a noisy frame, and why.\n4. Ask at least one question where I compute a colour distance by hand, one where I compute an IoU from counts you give me, and one where I predict what a uint8 subtraction prints.\n5. Keep your turns short: two or three sentences, then the question.\n6. After about five exchanges, stop. List what I explained well, and what I should revisit, naming these lecture sections: \"A frame is a grid of numbers\", \"Finding one pixel: row, column, channel\", \"Slicing: taking a block of rows\", \"Colour is a point in space\", \"Noise: no two pixels quite alike\", \"The tempting shortcut: exact equality\", \"Paint is a colour threshold\", \"Scoring a mask with IoU\", \"The uint8 wraparound trap\".\n",
+      "lecture_md": "# Images are arrays\n\nTwenty times a second, the camera on your car hands the perception box a picture of the road ahead. You can see the yellow line in that picture at a glance. The perception box cannot see anything. All it receives is a block of numbers, and somewhere in those numbers is the yellow line. Keeping the car in its lane starts with finding it.\n\nBy the end of this lesson you will write a function, `paint_masks`, that takes one camera picture and marks every pixel of yellow paint and every pixel of white paint. It has to keep working when the camera is noisy, and it is scored on six pictures taken on all three test roads.\n\n![Left: one picture from the car's camera on the straight road. Right: what paint_masks finds in it, the 709 pixels of yellow paint and the 872 pixels of white paint, each drawn in its own colour, with every other pixel dark.](/learnfsd-course/figures/0-1-2/camera_to_masks.png)\n\n## A frame is a grid of numbers\n\nIn 1988, Dean Pomerleau at Carnegie Mellon University taught a small neural network called ALVINN to steer the Navlab, Carnegie Mellon's autonomous test vehicle, a modified Chevy van. The network never saw the camera picture the way you do. It saw numbers:\n\n> \"The first retina, consisting of 30x32 units, receives video camera input from a road scene. The activation level of each unit in this retina is proportional to the intensity in the blue color band of the corresponding patch of the image. The blue band of the color image is used because it provides the highest contrast between the road and the non-road.\" (Pomerleau, 1988, p. 306)\n\nA grid of 30 by 32 brightness values, 960 numbers, was all of the road that ALVINN ever saw.\n\nYour car's camera gives you a bigger grid. Each picture it takes is called a **frame**. A frame is 320 pixels wide and 180 pixels tall, and the colour of each pixel is stored as three numbers: how much red, how much green and how much blue.\n\n**Guess first:** how many numbers make up one frame?\n\nMultiply the three sizes: $180 \\times 320 \\times 3 = 172{,}800$ numbers, every 0.05 seconds. In the lab, a frame is a NumPy array with **shape** `(180, 320, 3)`. The shape lists how long the array is along each of its directions, which NumPy calls **axes**: 180 rows, 320 columns, 3 colour values.\n\n![Left: the camera frame on the straight road, with a small box where the road meets the yellow line. Right: the 6 by 6 pixels inside that box, drawn large, each labelled with its red, green and blue values.](/learnfsd-course/figures/0-1-2/frame_grid.png)\n\nZoom in on the box and the picture dissolves into its numbers. The grey road pixels are all `(90, 90, 95)`. The yellow paint pixels are all `(230, 200, 40)`. The edge between them is a staircase, because a slanted line drawn on a grid of squares always is.\n\n## Finding one pixel: row, column, channel\n\nYou pick out one number with three positions in square brackets, `frame[row, column, channel]`:\n\n- **row** runs from 0 at the **top** of the picture to 179 at the bottom.\n- **column** runs from 0 at the left edge to 319 at the right edge.\n- **channel** is 0 for red, 1 for green and 2 for blue. Leave it out and you get all three.\n\nRow 0 at the top is the opposite of a graph in a maths class, where the vertical axis grows upward. Almost everyone trips on this at first. In an image, rows count down the page, like lines of text.\n\n**Guess first:** `frame[179, 160]` is the pixel in the bottom row, halfway across. Is it sky, road or paint?\n\n![The camera frame with its row numbers down the left side, 0 at the top and 179 at the bottom, and its column numbers along the top, 0 to 319. Three pixels are marked with their positions and colours: `frame[0, 0]` in the sky, `frame[179, 160]` on the road just ahead of the car, and one pixel of the yellow line.](figures/row_col.png)\n\n**Answer:** road, `(90, 90, 95)`. The bottom of the frame is the road just in front of the car, and the car sits in the middle of its lane, so the middle of the bottom row lands between the two painted lines. The top-left pixel, `frame[0, 0]`, is sky: `(135, 190, 235)`.\n\nEach channel on its own is a grid of 180 by 320 numbers, a grey picture that is bright wherever that colour is strong. `frame[:, :, 2]` takes all rows (`:` means \"all of them\"), all columns and channel 2, the blue one.\n\n![The frame split into its three channels, each drawn as a grey picture: red, green and blue. The yellow line is bright in red and in green but dark in blue, darker than the road. The white line is bright in all three. The sky is brighter in blue than in red.](/learnfsd-course/figures/0-1-2/channels.png)\n\nYellow paint is `(230, 200, 40)`: lots of red, lots of green, very little blue. So in the blue channel the yellow line is darker than the road around it, 40 against 95. A colour is only ever a mix of the three numbers, and each channel tells part of the story. ALVINN looked at the blue channel alone, for the reason in the quote above: blue gave the most contrast between road and non-road.\n\nEvery value is a whole number from 0 to 255. The array's **dtype**, the type of number it stores, is `uint8`: an unsigned integer in 8 bits. \"Unsigned\" means it has no minus sign, and 8 bits can hold $2^8 = 256$ different values, 0 to 255. Here 0 means none of that colour and 255 means as much as the camera can record. Hold on to \"no minus sign\"; it comes back at the end of this lesson.\n\nThe simulator is a teaching world. It paints everything in exactly five colours:\n\n| Surface | Red | Green | Blue |\n|---|---|---|---|\n| sky | 135 | 190 | 235 |\n| grass | 70 | 130 | 60 |\n| road | 90 | 90 | 95 |\n| yellow paint | 230 | 200 | 40 |\n| white paint | 240 | 240 | 240 |\n\n## Slicing: taking a block of rows\n\nYou often want a block of the picture rather than one pixel. A **slice** `start:stop` takes every position from `start` up to, but not including, `stop`. So `frame[100:180]` is rows 100 to 179.\n\n**Guess first:** what is the shape of `frame[100:180]`?\n\n![The camera frame with two blocks of rows shaded. The top block, `frame[:76]`, rows 0 to 75, is all sky and has shape (76, 320, 3). The bottom block, `frame[100:180]`, rows 100 to 179, holds the road nearest the car and has shape (80, 320, 3).](figures/slices.png)\n\n**Answer:** `(80, 320, 3)`. A slice from 100 to 180 holds $180 - 100 = 80$ rows. The stop is left out, so the count is simply stop minus start. Leaving `start` out means \"from the beginning\": `frame[:76]` is rows 0 to 75, and in this simulator they are all sky. The horizon of its flat world sits at row 75.5, and the first row that shows any road is row 79.\n\nThe paint the car needs is a thin sliver of all this. Of the frame's $180 \\times 320 = 57{,}600$ pixels, 709 are yellow paint and 872 are white paint, 2.7% in all.\n\nPart of the reason is distance. Both lines are 0.2 m wide all the way along, but the further away a piece of line is, the fewer pixels it covers. The yellow line also has gaps: it is dashed, 3.5 m of paint, then a 1.5 m gap.\n\n![The width of the white line, in pixels, at each row of the frame. In the bottom row, which shows the road about 2 m ahead of the camera, the 0.2 m line is 16 pixels wide. At row 80, about 50 m ahead, it is 3 pixels wide.](/learnfsd-course/figures/0-1-2/line_width.png)\n\nThe rows near the bottom of the frame carry most of the paint, and they show the road the car is about to drive on. The next lesson uses exactly those rows.\n\n<details>\n<summary>How we got 2.7%</summary>\n\nThe share of the frame that is paint is the number of paint pixels divided by the number of all pixels. The paint pixels are the yellow ones and the white ones together, $709 + 872 = 1581$. The frame has $180 \\times 320 = 57{,}600$ pixels, so\n\n$$\\frac{1581}{57{,}600} = 0.02745$$\n\nA fraction becomes a percentage when you multiply it by 100: $0.02745 \\times 100 = 2.745$ per cent, which rounds to 2.7%.\n\n</details>\n\n## Colour is a point in space\n\nTo find paint, you need a way to ask \"how close is this pixel's colour to yellow?\" Three numbers can be read as a position. Treat red, green and blue as three directions, like the length, width and height of a room. Then every colour is a point inside a cube whose sides run from 0 to 255, and similar colours are points close together.\n\n![The five colours of the simulator as points in a cube whose three edges are red, green and blue, each from 0 to 255. Each point is drawn in its own colour and labelled. A line joins road grey to yellow paint.](/learnfsd-course/figures/0-1-2/rgb_cube.png)\n\nHow far apart are road grey, $(90, 90, 95)$, and yellow paint, $(230, 200, 40)$? Start with two of the three directions. In red they differ by $230 - 90 = 140$, and in green by $200 - 90 = 110$. Those two differences are the sides of a right-angled triangle, so Pythagoras' theorem gives the distance across:\n\n$$\\sqrt{140^2 + 110^2} = \\sqrt{19{,}600 + 12{,}100} = \\sqrt{31{,}700} = 178.0$$\n\nNow add the third direction. In blue they differ by $95 - 40 = 55$. Pythagoras works the same way with one more side: square it, add it in, take the square root.\n\n$$\\sqrt{31{,}700 + 55^2} = \\sqrt{31{,}700 + 3{,}025} = \\sqrt{34{,}725} = 186.3$$\n\n![Building the distance from road grey to yellow paint in two steps. Left: in the red-green plane alone, sides of 140 and 110 give a distance of 178.0. Right: a second right-angled triangle, with that 178.0 as one side and the blue difference of 55 as the other, gives 186.3.](/learnfsd-course/figures/0-1-2/distance_build.png)\n\nThat is all there is to it, for any two colours. Write a pixel's colour as $p = (p_R, p_G, p_B)$, read \"p-R, p-G, p-B\", its red, green and blue values. Write the colour you are looking for as $c = (c_R, c_G, c_B)$. Then the distance between them is\n\n$$d(p, c) = \\sqrt{(p_R - c_R)^2 + (p_G - c_G)^2 + (p_B - c_B)^2}$$\n\nread \"d of p and c is the square root of the red difference squared, plus the green difference squared, plus the blue difference squared\". It is 0 when the two colours are identical, and it grows as they differ. Its name is the **Euclidean distance**, the ordinary straight-line distance.\n\n**Guess first:** of the other four colours, which one is closest to yellow paint: road, grass, sky or white?\n\n![Two bar charts of distances between the simulator's colours. Left: the distance from yellow paint to each of the other four colours; the shortest bar is grass, at 175.8. Right: the distance from white paint to each of the other four; the shortest bar is sky, at 116.4.](/learnfsd-course/figures/0-1-2/nearest_bars.png)\n\n**Answer:** grass, 175.8 away, a little closer than road at 186.3. And the colour closest to white paint is sky, only 116.4 away. Keep those two numbers in mind: they are the colours most likely to be mistaken for paint.\n\n<details>\n<summary>How we got 175.8 and 116.4</summary>\n\nThese come from the same distance formula. Grass is $(70, 130, 60)$ and yellow paint is $(230, 200, 40)$:\n\n- Differences: $70 - 230 = -160$, $130 - 200 = -70$, $60 - 40 = 20$.\n- Squares: $25{,}600$, $4{,}900$ and $400$. They add up to $30{,}900$.\n- Square root: $\\sqrt{30{,}900} = 175.8$.\n\nSky is $(135, 190, 235)$ and white paint is $(240, 240, 240)$:\n\n- Differences: $135 - 240 = -105$, $190 - 240 = -50$, $235 - 240 = -5$.\n- Squares: $11{,}025$, $2{,}500$ and $25$. They add up to $13{,}550$.\n- Square root: $\\sqrt{13{,}550} = 116.4$.\n\nA negative difference becomes positive when you square it, so the order of subtraction does not matter. Yellow's other distances are larger: road 186.3, white 204.2 and sky 217.1. White's are larger too: yellow 204.2, road 257.0 and grass 270.9.\n\n</details>\n\n## Noise: no two pixels quite alike\n\nReal cameras are not perfect. Each value comes back nudged up or down a little by electrical **noise**. The simulator imitates this when you ask it to: with `noise_sigma=6` it adds a random nudge to every channel of every pixel, then rounds the result and keeps it within 0 to 255.\n\nThe symbol $\\sigma$, read \"sigma\", is the typical size of a nudge. Most nudges are smaller than $\\sigma$, and nudges three times bigger are very rare.\n\n![A histogram of every nudge the noise added to one frame, with sigma 6. The nudges pile up around 0 in a bell shape. 72.1% of them lie between −6 and +6, and 99.8% lie between −18 and +18.](/learnfsd-course/figures/0-1-2/noise_bell.png)\n\nThe bell shape has a name, the **normal distribution**, and $\\sigma$ is its **standard deviation**. You will meet both again; for now, \"typical size of a nudge\" is all you need.\n\n![The same 6 by 6 pixels as before, clean on the left and with noise of sigma 6 on the right. After noise, no two road pixels are identical, and no yellow pixel is exactly (230, 200, 40).](/learnfsd-course/figures/0-1-2/noisy_patch.png)\n\nPixel `frame[150, 59]` was `(230, 200, 40)` and is now `(234, 199, 42)`. Its distance from yellow is $\\sqrt{(234-230)^2 + (199-200)^2 + (42-40)^2} = \\sqrt{16 + 1 + 4} = 4.6$. Not zero, but tiny next to the 186.3 between road and yellow.\n\n## The tempting shortcut: exact equality\n\nThe simulator paints yellow as exactly `(230, 200, 40)`. So why not find yellow paint by asking which pixels equal it? On a clean frame that works perfectly: it finds all 709 yellow pixels and nothing else.\n\n**Guess first:** on a frame with noise of sigma 6, how many of the 709 yellow pixels does exact equality find?\n\n![Left: the exact-equality yellow mask on a clean frame finds all 709 yellow pixels. Right: the same test on the noisy frame finds none.](/learnfsd-course/figures/0-1-2/exact_fails.png)\n\n**Answer:** None of them. To equal yellow exactly, a noisy pixel needs all three of its nudges to round to 0. One nudge does that only when it lands between $-0.5$ and $+0.5$, and with $\\sigma = 6$ that happens with a probability of about 0.066, roughly one time in fifteen.\n\n![The bell-shaped spread of one nudge, with sigma 6. The thin sliver between −0.5 and +0.5, the only nudges that round to 0, is shaded. It holds about 6.6% of all nudges.](/learnfsd-course/figures/0-1-2/exact_odds.png)\n\nAll three channels at once: $0.066 \\times 0.066 \\times 0.066 = 0.0003$. Out of 709 yellow pixels, you would expect about 0.2 to survive.\n\n<details>\n<summary>How we got 0.066, 0.0003 and 0.2</summary>\n\nA channel comes back as exactly the paint value only if its nudge lies between $-0.5$ and $+0.5$, because anything in that range rounds to 0. That range is 1 wide, which is narrow next to the bell, so its probability is about its width times the height of the bell at its middle. The height of a bell with standard deviation $\\sigma$ at its middle is $\\frac{1}{\\sigma\\sqrt{2\\pi}}$ (an approximation that is very close here):\n\n$$1 \\times \\frac{1}{6\\sqrt{2\\pi}} = \\frac{1}{6 \\times 2.5066} = 0.06649 \\approx 0.066$$\n\nThe three channels get independent nudges, and the chances of independent events multiply:\n\n$$0.066 \\times 0.066 \\times 0.066 = 0.000287 \\approx 0.0003$$\n\nEach of the 709 yellow pixels has that chance, so the number you expect to be exactly yellow is $709 \\times 0.000287 = 0.20 \\approx 0.2$.\n\n</details>\n\nThe lesson reaches far beyond paint. Measured data never lands exactly on its ideal value, so never test it for equality: test whether it is close enough. (`frame == yellow` has a second trap. It compares channel by channel, so its answer has shape `(180, 320, 3)`, three answers per pixel. You would need `np.all(..., axis=-1)` to combine them into one answer per pixel.)\n\n## Paint is a colour threshold\n\n\"Close enough\" needs a number. Choose a cut-off distance, called a **threshold** and written $\\tau$, read \"tau\". Then a pixel counts as yellow paint when its distance from yellow is less than $\\tau$:\n\n$$d(p, c_{\\text{yellow}}) < \\tau$$\n\nAsking that question of every pixel gives a **mask**: an array of shape `(180, 320)` that holds `True` where the answer is yes and `False` where it is no. Its dtype is `bool`, which holds only those two values. With `yellow` holding the three numbers of yellow paint, NumPy asks all 57,600 questions in two lines:\n\n```python\ndistance = np.linalg.norm(frame.astype(float) - yellow, axis=-1)  # shape (180, 320)\nyellow_mask = distance < tau                                      # shape (180, 320), dtype bool\n```\n\nThe first line does three things, and none of them needs a loop.\n\n![How the shapes change, step by step. The frame, (180, 320, 3), minus yellow, (3,), gives (180, 320, 3): the three numbers of yellow are subtracted from every pixel. Taking the length along the last axis, the colour axis, gives (180, 320), one distance per pixel. Comparing with tau gives a (180, 320) mask of True and False.](/learnfsd-course/figures/0-1-2/broadcast_shapes.png)\n\n- `frame.astype(float)` makes a copy of the frame that holds decimal numbers, which can be negative. You will see why that matters at the end of the lesson.\n- `- yellow` subtracts the three numbers of yellow from every one of the 57,600 pixels at once. NumPy stretches the small array across the big one, which it calls **broadcasting**.\n- `np.linalg.norm(..., axis=-1)` squares, adds and square-roots along the last axis, the colour axis. `axis=-1` means \"the last axis\", and that axis disappears, leaving one distance per pixel.\n\nHow big should $\\tau$ be? Look at the distance from yellow, and from white, of every pixel in a noisy frame.\n\n![Histograms of the distance from every pixel of a noisy frame to yellow paint (left) and to white paint (right). Pixels that truly are that paint are drawn in its colour, and every other pixel in grey. The paint sits below 30, and every other pixel is more than 90 away. A dashed line marks the threshold of 60.](/learnfsd-course/figures/0-1-2/colour_distance.png)\n\nIn this frame, noise moved no yellow pixel more than 27.8 from yellow and no white pixel more than 24.8 from white. The nearest pixel that is *not* yellow paint is 151.2 from yellow. The nearest pixel that is not white paint is a noisy sky pixel 92.2 from white, which is no surprise: sky is the colour nearest to white. Any $\\tau$ inside both gaps separates paint from everything else. The provided perception box uses $\\tau = 60$.\n\n**Guess first:** what goes wrong with $\\tau = 10$ for yellow? And with $\\tau = 120$ for white?\n\n![Three masks from the same noisy frame. Left: yellow with tau 10 finds only 55.4% of the yellow paint. Middle: tau 60 finds all of the paint and nothing else. Right: white with tau 120 also marks most of the sky, 18,098 pixels instead of 872.](/learnfsd-course/figures/0-1-2/tau_sweep.png)\n\n**Answer:** $\\tau = 10$ is too strict: noise pushes almost half of the yellow pixels further than 10 away, so the mask keeps only 55.4% of them. $\\tau = 120$ is too loose for white: it reaches past the gap to the sky, 116.4 away, and marks 18,098 pixels instead of 872. A threshold has to sit inside the gap, and the gap is set by the colour that comes closest.\n\n## Scoring a mask with IoU\n\nHow good is a mask? The simulator knows which pixels truly are paint, so there is a correct mask to compare yours with. Call it $T$, for truth, and call yours $M$.\n\nThe obvious score is the share of pixels your mask got right.\n\n**Guess first:** a lazy mask marks nothing at all. What share of the pixels does it get right, for yellow?\n\n![Left: the true yellow mask, 709 pixels. Middle: a mask that marks nothing. Right: two bars for the empty mask, the share of pixels it gets right, 98.8%, and its IoU, 0.](/learnfsd-course/figures/0-1-2/accuracy_trap.png)\n\n**Answer:** 98.8%. Yellow paint is only 1.2% of the frame, so a mask that marks nothing is right about every other pixel. A score that rates a useless mask at nearly 99% is no score at all.\n\nThe fix is to look only at the pixels that matter: the ones that either mask marked. Out of those, what share did both masks mark?\n\n**Worked example.** The truth has 10 paint pixels. Your mask marks 8 of them, and it also marks 4 pixels that are not paint.\n\n- Marked by both: 8.\n- Marked by either: the 10 true pixels plus your 4 wrong ones, 14.\n- Score: $8 / 14 = 0.571$.\n\n![An 8 by 8 grid of pixels for the worked example. The 10 true paint pixels are outlined. The 8 that your mask also marks are filled; the 2 it misses are outlined only; the 4 it marks wrongly are filled with no outline. Both: 8. Either: 14. Score 8/14 = 0.571.](/learnfsd-course/figures/0-1-2/iou_grid.png)\n\nIn symbols:\n\n$$\\text{IoU}(M, T) = \\frac{|M \\cap T|}{|M \\cup T|}$$\n\n$M \\cap T$, read \"M and T\", is the set of pixels marked in both masks: the **intersection**. $M \\cup T$, read \"M or T\", is the set marked in either: the **union**. The bars $|\\cdot|$ mean \"how many pixels\". So the score is the intersection over the union, which gives it its name, **IoU**.\n\nIn NumPy, `&` means \"both\" and `|` means \"either\", and `.sum()` counts the `True` values, because `True` counts as 1:\n\n```python\niou = (M & T).sum() / (M | T).sum()\n```\n\nIoU is 1 only when the two masks are identical. It punishes both kinds of mistake: missed paint shrinks the top, and wrongly marked pixels grow the bottom. The empty mask scores 0, because nothing is marked by both. The grader for this lesson asks for an IoU of at least 0.85 for each of your two masks, on six noisy frames from all three roads.\n\n<details>\n<summary>How we got 1.2% and 98.8%</summary>\n\nYellow paint covers 709 of the 57,600 pixels, a share of $709 / 57{,}600 = 0.0123$, which is 1.2%. A mask that marks nothing is right about every pixel that is not yellow paint, which is all the rest:\n\n$$1 - 0.0123 = 0.9877 \\approx 98.8\\%$$\n\nIts IoU is 0: the intersection is 0 pixels, because the mask holds none, and the union is just the 709 true pixels, so $0 / 709 = 0$.\n\n</details>\n\n## The uint8 wraparound trap\n\nSuppose you leave out `astype(float)` and subtract directly, `frame - yellow`, with both arrays stored as `uint8`. It is an easy slip, because the simulator's own colour table, `PALETTE`, is `uint8` too.\n\n**Guess first:** road grey's red value is 90 and yellow's is 230. Stored as `uint8`, what is $90 - 230$?\n\n**Answer:** 116. A `uint8` has no minus sign, so it cannot hold −140. NumPy wraps the result of an array subtraction around, without any error or warning: it adds 256 until the answer fits.\n\n$$90 - 230 = -140 \\quad\\longrightarrow\\quad -140 + 256 = 116$$\n\nSo road grey minus yellow comes out as `(116, 146, 55)` instead of `(-140, -110, 55)`. If you square the differences yourself with `diff ** 2`, the squares wrap the same way: $20^2 = 400$ does not fit either, and $400 - 256 = 144$.\n\n![The 256 values a uint8 can hold, drawn around a ring like a clock face, 0 to 255. Starting at 90 and counting 230 steps backward goes past 0, wraps around to 255, and stops at 116.](/learnfsd-course/figures/0-1-2/uint8_wrap.png)\n\nThe damage depends on the noise. A paint pixel keeps a small, correct distance only if none of its channels dipped below the paint colour. When one did, a difference of $-2$ becomes $254$, and the pixel looks nothing like paint. In the noisy frame, with the threshold of 60, that leaves 13.5% of the yellow pixels and 13.9% of the white ones, and the masks score an IoU of 0.14. The code runs, prints no error, and hands back a mask that is mostly empty.\n\nThe fix is one call: convert to a type that can go negative, `frame.astype(float)`, before you subtract. Whenever you do arithmetic on image data, convert first.\n\n## Recap\n\n- A frame is a `(180, 320, 3)` array of `uint8`. `frame[row, column, channel]` picks one value, row 0 is at the top, and slices like `frame[100:180]` take blocks.\n- A colour is a point with three coordinates, and the distance between two colours says how alike they are. Noise means paint is never exactly its colour, so you find it with a threshold, $d < \\tau$, not with `==`.\n- Score a mask with IoU, not with the share of pixels right, and convert to float before you subtract.\n\nYou can now find the paint. But a mask is still 57,600 answers of yes or no, and the controller needs one number: how far the car is from the lane centre. How do you get from two masks to that one number?\n\n![The yellow and white masks from a frame on the straight road, taken with the car moved 0.5 m to the left of the lane centre. The bottom-middle of the frame, where the car is, is marked, and a question mark sits between that mark and the two lines: where is the lane centre, and how far is the car from it?](/learnfsd-course/figures/0-1-2/next_lesson.png)\n\nThat is the next lesson, *Your first perception box*.\n\n## Go deeper\n\n- **NumPy: the absolute basics for beginners**, sections \"Array attributes\" (shape, dtype) and \"Indexing and slicing\", which ends with picking out values with a condition and combining conditions with `&` and `|`.\n- **CS231n Python Numpy Tutorial**, sections \"Array indexing\" (read \"Boolean array indexing\"), \"Datatypes\", \"Broadcasting\" and, under Matplotlib, \"Images\".\n- **Pomerleau, \"ALVINN: An Autonomous Land Vehicle in a Neural Network\" (1988)**, p. 306, \"Network Architecture\" and Figure 1: the 30 by 32 camera grid and the blue band. This is the module paper; you will read it properly in *Closing the loop*.\n",
       "colab_url": "https://colab.research.google.com/github/vvknyn/self-driving-ai-course/blob/main/course/0.1.2-images-are-arrays/lab.ipynb",
       "quiz": [
         {
           "id": "q1",
-          "type": "numeric",
-          "prompt": "A camera frame has shape `(180, 320, 3)`. How many numbers does it hold?",
-          "answer": 172800,
-          "tolerance": 0,
-          "explain": "Multiply the sizes of the three axes: $180 \\times 320 \\times 3 = 172{,}800$. That is 57,600 pixels, each with a red, a green and a blue value.",
+          "type": "mcq",
+          "prompt": "A frame has shape `(180, 320, 3)`. How many numbers does it hold?",
+          "choices": [
+            "57,600",
+            "960",
+            "172,800",
+            "503"
+          ],
+          "answer": 2,
+          "explain": "A frame holds $180 \\times 320 \\times 3 = 172{,}800$ numbers: 57,600 pixels, each with three colour values. 57,600 counts the pixels only.",
           "section": "a-frame-is-a-grid-of-numbers"
         },
         {
           "id": "q2",
           "type": "mcq",
-          "prompt": "`frame` has shape `(180, 320, 3)`. What is `frame[0, 319]`?",
+          "prompt": "Which pixel is `frame[0, 319]`?",
           "choices": [
-            "The red, green and blue values of the top-left pixel",
-            "The red, green and blue values of the top-right pixel",
-            "The red, green and blue values of the bottom-right pixel",
-            "An error: index 319 is out of range"
+            "the top-right corner",
+            "the top-left corner",
+            "the bottom-right corner",
+            "the bottom-left corner"
           ],
-          "answer": 1,
-          "explain": "The first index is the row, and row 0 is the **top**. The second is the column, and column 319 is the last one, at the right edge. Leaving out the channel index returns all three colour values of that pixel. The bottom-right pixel would be `frame[179, 319]`.",
-          "section": "a-frame-is-a-grid-of-numbers"
+          "answer": 0,
+          "explain": "The first index is the row and row 0 is the top; the second is the column and column 319 is the last, on the right. So row 0, column 319 is the top-right corner.",
+          "section": "finding-one-pixel-row-column-channel"
         },
         {
           "id": "q3",
-          "type": "numeric",
-          "prompt": "How far is the colour $(100, 100, 100)$ from road grey $(90, 90, 95)$?",
-          "answer": 15,
-          "tolerance": 0.01,
-          "explain": "Differences $(10, 10, 5)$; squares $(100, 100, 25)$, which add up to 225; and $\\sqrt{225} = 15$. Close to road grey, and very far from either paint colour.",
-          "section": "colour-is-a-point-in-space"
+          "type": "mcq",
+          "prompt": "Yellow paint is (230, 200, 40) and road is (90, 90, 95). In the blue-channel image `frame[:, :, 2]`, how does the yellow line look?",
+          "choices": [
+            "brighter than the road",
+            "the same brightness as the road",
+            "brighter than the sky",
+            "darker than the road"
+          ],
+          "answer": 3,
+          "explain": "Blue is the third value: 40 for yellow, 95 for road. A smaller value is darker, so in the blue channel the yellow line is darker than the road, while in red and green it is brighter.",
+          "section": "finding-one-pixel-row-column-channel"
         },
         {
           "id": "q4",
           "type": "mcq",
-          "prompt": "The simulator paints yellow as exactly $(230, 200, 40)$. Why does `np.all(frame == yellow, axis=-1)` find almost no yellow pixels in a frame with camera noise of $\\sigma = 6$?",
+          "prompt": "What is the shape of `frame[100:180]`?",
           "choices": [
-            "Noise changes the paint's colour to a different colour, such as orange.",
-            "A noisy pixel matches only if all three of its nudges round to 0, and with $\\sigma = 6$ that happens for about 3 pixels in 10,000.",
-            "`==` cannot compare arrays of different shapes.",
-            "Noise makes the yellow line thinner, so there are fewer pixels to find."
+            "(100, 320, 3)",
+            "(80, 320, 3)",
+            "(81, 320, 3)",
+            "(180, 320, 3)"
           ],
           "answer": 1,
-          "explain": "One nudge rounds to 0 with probability 0.066 when $\\sigma = 6$, so all three do with probability $0.066^3 = 0.0003$. The pixels still look yellow, and each is within about 30 of yellow; they are just never exactly on it. That is why you test for *close enough* with a distance and a threshold.",
-          "section": "why-exact-equality-fails"
+          "explain": "The stop is left out: rows 100 to 179, which is $180 - 100 = 80$ rows. Columns and colours are untouched.",
+          "section": "slicing-taking-a-block-of-rows"
         },
         {
           "id": "q5",
-          "type": "numeric",
-          "prompt": "The true mask has 20 paint pixels. Your mask marks 15 of them, plus 5 pixels that are not paint. What is the IoU?",
-          "answer": 0.6,
-          "tolerance": 0.001,
-          "explain": "The intersection is the 15 pixels marked in both. The union is the 20 true pixels plus your 5 wrong ones, 25. IoU $= 15 / 25 = 0.6$. Missing 5 true pixels and adding 5 false ones both cost you.",
-          "section": "scoring-a-mask-with-iou"
+          "type": "mcq",
+          "prompt": "What is the distance between the colours (0, 0, 0) and (3, 4, 12)?",
+          "choices": [
+            "19",
+            "169",
+            "13",
+            "12"
+          ],
+          "answer": 2,
+          "explain": "$\\sqrt{3^2 + 4^2 + 12^2} = \\sqrt{9 + 16 + 144} = \\sqrt{169} = 13$. 169 is the sum before the root; 19 adds the differences without squaring.",
+          "section": "colour-is-a-point-in-space"
         },
         {
           "id": "q6",
-          "type": "numeric",
-          "prompt": "Paint covers 1.2% of a frame. What is the IoU of a mask that marks no pixels at all?",
+          "type": "mcq",
+          "prompt": "Which simulator colour is closest to white paint, and so the most likely to be mistaken for it?",
+          "choices": [
+            "sky",
+            "road",
+            "grass",
+            "yellow paint"
+          ],
           "answer": 0,
-          "tolerance": 0,
-          "explain": "Nothing is marked, so the intersection is empty: the IoU is 0 divided by the number of true paint pixels, which is 0. The same mask is *right* about 98.8% of the pixels, which is why pixel accuracy is the wrong score when the thing you look for is rare.",
-          "section": "scoring-a-mask-with-iou"
+          "explain": "White to sky is 116.4; to yellow paint 204.2, to road 257.0 and to grass 270.9. The nearest colour is the one a loose threshold would mistake for white first.",
+          "section": "colour-is-a-point-in-space"
         },
         {
           "id": "q7",
           "type": "mcq",
-          "prompt": "In a noisy frame, no white paint pixel is more than 25 from white, and the nearest pixel that is not white paint is 92 from white. Which threshold $\\tau$ separates white paint from everything else?",
+          "prompt": "With `noise_sigma=6`, about what share of the nudges lie between −6 and +6?",
           "choices": [
-            "$\\tau = 5$",
-            "$\\tau = 60$",
-            "$\\tau = 120$",
-            "$\\tau = 255$"
+            "all of them",
+            "about 7 in 10",
+            "about 1 in 15",
+            "about 1 in 100"
           ],
           "answer": 1,
-          "explain": "$\\tau$ must be bigger than the largest distance noise produces (25), and smaller than the distance to the nearest other colour (92). Only 60 sits in that gap. $\\tau = 5$ misses most of the paint; $\\tau = 120$ reaches into the sky and marks thousands of sky pixels as paint.",
-          "section": "paint-is-a-colour-threshold"
+          "explain": "Measured on a frame, 72.1% of nudges fall within one $\\sigma$ of zero. Almost all (99.8%) fall within $\\pm 18$, but not literally all of them.",
+          "section": "noise-no-two-pixels-quite-alike"
         },
         {
           "id": "q8",
           "type": "mcq",
-          "prompt": "What does `np.array([90], dtype=np.uint8) - np.array([230], dtype=np.uint8)` give?",
+          "prompt": "Why does `frame == yellow` find almost no yellow pixels in a noisy frame?",
           "choices": [
-            "`[-140]`",
-            "`[116]`",
-            "`[0]`",
-            "An `OverflowError`"
+            "noise turns yellow pixels into grass",
+            "`==` only works on float arrays",
+            "the simulator paints yellow differently on each road",
+            "all three channels' nudges must round to exactly 0, and each does so only about 1 time in 15"
+          ],
+          "answer": 3,
+          "explain": "A channel survives only if its nudge rounds to 0, which at $\\sigma = 6$ is about 0.066, or 1 in 15. All three must survive: about $0.066^3 \\approx 0.0003$.",
+          "section": "the-tempting-shortcut-exact-equality"
+        },
+        {
+          "id": "q9",
+          "type": "mcq",
+          "prompt": "Which threshold for white paint would also mark sky pixels in the noisy frame?",
+          "choices": [
+            "40",
+            "60",
+            "120",
+            "80"
+          ],
+          "answer": 2,
+          "explain": "White paint pixels are at most 24.8 from white, and the nearest sky pixel is 92.2 away. Any threshold between those two is safe, which includes 40, 60 and 80; 120 reaches past the sky.",
+          "section": "paint-is-a-colour-threshold"
+        },
+        {
+          "id": "q10",
+          "type": "mcq",
+          "prompt": "`frame` has shape (180, 320, 3) and `yellow` has shape (3,). What is the shape of `np.linalg.norm(frame - yellow, axis=-1)`?",
+          "choices": [
+            "(180, 320)",
+            "(180, 320, 3)",
+            "(3,)",
+            "(57600,)"
+          ],
+          "answer": 0,
+          "explain": "Broadcasting subtracts yellow from every pixel and keeps the shape (180, 320, 3). Taking the length along the last axis, the colour axis, leaves one distance per pixel: (180, 320).",
+          "section": "paint-is-a-colour-threshold"
+        },
+        {
+          "id": "q11",
+          "type": "mcq",
+          "prompt": "A mask marks 6 of the 10 true paint pixels, plus 2 pixels that are not paint. What is its IoU?",
+          "choices": [
+            "0.6",
+            "0.75",
+            "0.8",
+            "0.5"
+          ],
+          "answer": 3,
+          "explain": "Both: 6. Either: $6 + 4 + 2 = 12$ (6 right, 4 missed, 2 wrong). $6 / 12 = 0.5$. 0.6 is the share of the paint found, which ignores the false marks.",
+          "section": "scoring-a-mask-with-iou"
+        },
+        {
+          "id": "q12",
+          "type": "mcq",
+          "prompt": "Both arrays are uint8. A road pixel's red is 90 and yellow's red is 230. What does `frame - yellow` give for that channel?",
+          "choices": [
+            "−140",
+            "116",
+            "0",
+            "an OverflowError"
           ],
           "answer": 1,
-          "explain": "A `uint8` cannot hold a negative number, so NumPy wraps the result around, silently, by adding 256: $-140 + 256 = 116$. No error, no warning. Convert with `.astype(float)` before you subtract image data.",
+          "explain": "uint8 arithmetic wraps around by 256: $90 - 230 = -140$, and $-140 + 256 = 116$. NumPy raises no error for array subtraction, so the bug is silent.",
           "section": "the-uint8-wraparound-trap"
         }
       ],
       "cards": [
         {
           "id": "c1",
-          "front": "What do the three indices of `frame[row, column, channel]` mean, and where is row 0?",
-          "back": "Row (0 is the **top**, 179 the bottom), column (0 is the left edge, 319 the right), channel (0 red, 1 green, 2 blue). A frame has shape `(180, 320, 3)`."
+          "front": "What is the shape of one camera frame, and what does each axis mean?",
+          "back": "(180, 320, 3): 180 rows from top to bottom, 320 columns from left to right, and 3 colour values, red, green and blue."
         },
         {
           "id": "c2",
-          "front": "What is the dtype of a camera frame, and what values can it hold?",
-          "back": "`uint8`: an unsigned 8-bit integer, whole numbers from 0 to 255 and nothing else."
+          "front": "Where is row 0 of an image?",
+          "back": "At the top. Rows count down the picture, like lines of text."
         },
         {
           "id": "c3",
-          "front": "How far apart are two colours $p$ and $c$?",
-          "back": "The straight-line distance in colour space: $\\sqrt{(p_R - c_R)^2 + (p_G - c_G)^2 + (p_B - c_B)^2}$. In NumPy: `np.linalg.norm(frame.astype(float) - c, axis=-1)`."
+          "front": "What does uint8 mean, and what values can it hold?",
+          "back": "An unsigned 8-bit integer: whole numbers from 0 to 255, with no minus sign."
         },
         {
           "id": "c4",
-          "front": "Why do you never find paint with `frame == colour`?",
-          "back": "Measured data never lands exactly on its ideal value. With noise, every channel is nudged, so almost no pixel equals the paint colour. Test whether the distance is below a threshold instead."
+          "front": "What does `frame[100:180]` give?",
+          "back": "Rows 100 to 179, because the stop is left out: shape (80, 320, 3)."
         },
         {
           "id": "c5",
-          "front": "What is IoU, and why not score a mask by the fraction of pixels it gets right?",
-          "back": "Intersection over union: pixels marked in both masks divided by pixels marked in either. Paint is rare, so a mask that marks nothing is 98.8% right but has IoU 0."
+          "front": "How do you measure how alike two colours are?",
+          "back": "Treat them as points in the red-green-blue cube and take the straight-line distance: the square root of the sum of the squared channel differences."
         },
         {
           "id": "c6",
-          "front": "What is `90 - 230` in `uint8`, and how do you avoid it?",
-          "back": "116: the result wraps around by adding 256, silently. Convert first: `frame.astype(float)` before any arithmetic on image data."
+          "front": "Why can't you find paint with `frame == yellow`?",
+          "back": "Noise nudges every channel, so a paint pixel is almost never exactly its colour. Test whether it is close enough instead: distance < τ."
+        },
+        {
+          "id": "c7",
+          "front": "How do you choose the threshold τ?",
+          "back": "Look at the distances. τ must sit in the gap between the furthest paint pixel and the nearest pixel that is not paint. The provided box uses 60."
+        },
+        {
+          "id": "c8",
+          "front": "What is IoU?",
+          "back": "Intersection over union: the pixels marked in both masks, divided by the pixels marked in either. 1 means identical, 0 means no overlap."
+        },
+        {
+          "id": "c9",
+          "front": "Why not score a mask by the share of pixels it gets right?",
+          "back": "Paint is only a sliver of the frame (the yellow line is 1.2% of it), so a mask that marks nothing gets 98.8% right. Its IoU is 0."
+        },
+        {
+          "id": "c10",
+          "front": "What is 90 − 230 in uint8, and how do you avoid it?",
+          "back": "116: the result wraps around by 256, with no error. Convert with `astype(float)` before you subtract."
         }
       ]
     },
@@ -1081,10 +1185,26 @@
     "0-1-1/squares_rms.png",
     "0-1-1/test_roads.png",
     "0-1-1/yardstick.png",
+    "0-1-2/accuracy_trap.png",
+    "0-1-2/broadcast_shapes.png",
+    "0-1-2/camera_to_masks.png",
+    "0-1-2/channels.png",
     "0-1-2/colour_distance.png",
-    "0-1-2/exact_vs_threshold.png",
+    "0-1-2/distance_build.png",
+    "0-1-2/exact_fails.png",
+    "0-1-2/exact_odds.png",
     "0-1-2/frame_grid.png",
+    "0-1-2/iou_grid.png",
+    "0-1-2/line_width.png",
+    "0-1-2/nearest_bars.png",
+    "0-1-2/next_lesson.png",
+    "0-1-2/noise_bell.png",
     "0-1-2/noisy_patch.png",
+    "0-1-2/rgb_cube.png",
+    "0-1-2/row_col.png",
+    "0-1-2/slices.png",
+    "0-1-2/tau_sweep.png",
+    "0-1-2/uint8_wrap.png",
     "0-1-3/chord_bias.png",
     "0-1-3/lane_estimate.png",
     "0-1-3/perspective_grid.png",
