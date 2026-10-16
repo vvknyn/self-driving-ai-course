@@ -236,7 +236,7 @@ def naive_y(path):
     bot.plot(lap.t[keep], lap.e[keep], color=BLUE, lw=2)
     bot.axvline(12.5, color=DIM, ls="--", lw=2)
     _tag(bot, 11.5, 3.9, "first bend")
-    for gap_m, text, where in ((0.01, "0.01 m at 12.70 s", (11.2, 1.1)), (0.1, "0.1 m at 13.05 s", (11.2, 2.0)), (1.0, "1 m at 14.10 s", (13.2, 3.0))):
+    for gap_m, text, where in ((0.01, "0.01 m apart at 12.70 s", (11.1, 1.0)), (0.1, "0.1 m apart at 13.05 s", (11.4, 2.1)), (1.0, "1 m apart at 14.10 s", (13.5, 3.4))):
         k = int(np.argmax(diff > gap_m))
         _dot(bot, lap.t[k], naive[k], TEXT, 9)
         _pointer(bot, text, (lap.t[k], naive[k]), where)
@@ -450,7 +450,9 @@ def step400_foot(path):
     assert i == 1590 and round(t, 4) == 0.0279 and round(float(road._s0[i]), 3) == 158.983
     mid = 0.5 * (car + foot)
     half = 2.0
-    fig, (ax,) = _panels([((mid[0] - half, mid[0] + half), (mid[1] - half, mid[1] + half), None)], bottom=0.9)
+    seg_len = float(road._seg_len[i])  # 0.1 m: far too short to show t on the view of the car, so a second panel shows only the segment
+    fig, (ax, zoom) = _panels([((mid[0] - half, mid[0] + half), (mid[1] - half, mid[1] + half), None),
+                               ((-0.012, seg_len + 0.012), (-0.03, 0.03), None)], bottom=0.9, gap=1.0)
     idx = (np.arange(i - 30, i + 31)) % len(road._a)
     pts = road._a[idx]
     _line(ax, pts[:, 0], pts[:, 1], color=YELLOW, lw=2, zorder=2)
@@ -459,19 +461,29 @@ def step400_foot(path):
     ax.plot(*zip(foot, car), color=BLUE, lw=3, zorder=4)
     _dot(ax, *car, TEXT, 11)
     _dot(ax, *foot, BLUE, 10)
-    n = np.array([-road._u[i][1], road._u[i][0]])
-    _pointer(ax, "segment 1590\nof 7028", road._b[i] + 0.0 * n, (mid[0] + 1.1, mid[1] + 1.45))
-    _pointer(ax, "a: s₀ = 158.983 m", road._a[i], (mid[0] - 1.1, mid[1] + 1.5))
-    _pointer(ax, "t = 0.0279 m\ns = 159.011 m", foot, (mid[0] - 0.4, mid[1] - 1.45))
+    _pointer(ax, "segment 1590\nof 7028", road._b[i], (mid[0] + 1.1, mid[1] + 1.45))
+    _pointer(ax, "the foot,\nzoomed below", foot, (mid[0] - 1.0, mid[1] + 1.3))
     _tag(ax, mid[0] + 1.1, mid[1] - 1.0, "d = −1.2717 m", color=BLUE)
     _xy_axes(ax)
+    zoom.plot([0.0, seg_len], [0.0, 0.0], color=TEXT, lw=5, zorder=3)  # segment 1590, drawn along its own direction
+    zoom.plot([t, t], [0.0, -0.03], color=BLUE, lw=3, zorder=4)  # towards the car, which is off the bottom
+    _dot(zoom, 0.0, 0.0, DIM, 11)
+    _dot(zoom, seg_len, 0.0, DIM, 11)
+    _dot(zoom, t, 0.0, BLUE, 10)
+    _brace(zoom, (0.0, -0.011), (t, -0.011), TEXT)
+    _pointer(zoom, "a: s₀ = 158.983 m", (0.0, 0.0), (0.05, 0.02))
+    _tag(zoom, seg_len, 0.008, "b, the end")
+    _tag(zoom, 0.076, -0.0185, "t = 0.0279 m\ns = 159.011 m")
+    zoom.set_xlabel("along the segment (m)")
+    zoom.set_yticks([])
+    zoom.xaxis.set_major_locator(MaxNLocator(4))
     _save(fig, path)
 
 
 def road_grid(path):
     lap = _lap()
     road = lap.road
-    fig, (ax,) = _panels([((90, 190), (-10, 90), None)], bottom=0.9)
+    fig, (ax,) = _panels([((90, 196), (-14, 90), None)], bottom=0.9)
     _band(ax, road, 100, 225)
     for s in np.arange(100, 226, 10):
         r = road.offset(s, np.array([1.0, -4.6]))
@@ -484,9 +496,9 @@ def road_grid(path):
         ax.plot(p[:, 0], p[:, 1], color=colour, ls=style, lw=lw, zorder=3)
     _dot(ax, *CENTRE, TEXT, 9)
     _tag(ax, 115, 80, "(100, 80)")
-    for s in (120, 160, 200):
-        x, y = road.offset(s, -4.6)
-        _tag(ax, x + 4.0 * math.sin((s - 100) / 80) , y - 4.0 * math.cos((s - 100) / 80) , f"s = {s}", ha="right" if s == 200 else "left")
+    for s in range(100, 221, 20):  # the rungs, numbered every 20 m of s, outside the white line along the rung
+        angle = (s - 100) / GENTLE_RADIUS
+        _tag(ax, CENTRE[0] + 88.0 * math.sin(angle), CENTRE[1] - 88.0 * math.cos(angle), str(s))
     ax.set(xlabel="x (m)", ylabel="y (m)")
     _ticks(ax, 4, 4)
     _save(fig, path)
@@ -553,8 +565,8 @@ def wrap_trap(path):
     ax.plot(lap.t, lap.psi, color=PINK, lw=3)
     ax.set_yticks([0.0, 2 * math.pi])
     ax.set_yticklabels(["0", "6.2832"])
-    _tag(ax, 28, 0.8, "wrap(θ − θ_road)", color=PINK)
-    _tag(ax, 28, 5.4, "θ − θ_road")
+    _tag(ax, 28, 0.8, r"$\mathrm{wrap}(\theta - \theta_{\mathrm{road}})$", color=PINK)
+    _tag(ax, 28, 5.4, r"$\theta - \theta_{\mathrm{road}}$")
     _pointer(ax, "jumps by\n6.2832 rad\nat 56.95 s", (lap.t[jump], 3.2), (28, 3.2))
     ax.set(xlabel="time (s)", ylabel="angle (rad)")
     ax.xaxis.set_major_locator(MaxNLocator(5))
@@ -581,7 +593,7 @@ def reproduced(path):
     for v, colour, lw in zip(diffs, (TEXT, CORAL, BLUE, PINK), (8, 6, 4, 2)):
         bot.plot(lap.t, v, color=colour, lw=lw)
     bot.set_yticks([-1e-9, 0.0, 1e-9])
-    bot.set_yticklabels(["−1e-9", "0", "1e-9"])
+    bot.set_yticklabels([r"$-10^{-9}$", "0", r"$10^{-9}$"])
     _tag(bot, 45, 0.5e-9, "s, d, e and ψ minus the\nsimulator's: all exactly 0")
     bot.set(xlabel="time (s)", ylabel="difference")
     bot.xaxis.set_major_locator(MaxNLocator(5))
@@ -740,7 +752,7 @@ def challenge_setup(path):
     x, y, yaw = road.ego_pose(260.0, 0.3, 0.04)
     centre = (174.108, 113.916)
     assert abs(x - centre[0]) < 0.6 and abs(y - centre[1]) < 0.6
-    half = 6.0
+    half = 3.0
     fig, (ax,) = _panels([((centre[0] - half, centre[0] + half), (centre[1] - half, centre[1] + half), None)], bottom=0.9)
     s = np.arange(240.0, 285.0, 0.1)
     for lateral, colour, style, lw in ((0.0, YELLOW, "-", 4), (EGO_LANE_CENTER, TEXT, "--", 2)):
@@ -750,16 +762,19 @@ def challenge_setup(path):
     lane = road.offset(260.0, EGO_LANE_CENTER)
     ahead = np.array([math.cos(yaw), math.sin(yaw)])
     road_dir = np.array([math.cos(yaw - 0.04), math.sin(yaw - 0.04)])
-    ax.plot(*zip(car, car + 3.4 * road_dir), color=DIM, lw=2, ls="--", zorder=3)
-    theta = np.linspace(yaw - 0.04, yaw, 12)
-    ax.plot(car[0] + 3.0 * np.cos(theta), car[1] + 3.0 * np.sin(theta), color=PINK, lw=4, zorder=5)
-    _brace(ax, lane, car, BLUE)
-    _dot(ax, *car, TEXT, 11)
-    _frame(ax, (x, y, yaw), QUANTITY["ego"], "", length=2.0)
+    stretch = 10.0  # 0.04 rad is invisible at true size: the pink ray and arc are drawn this many times too wide, as in vertex_tie
+    wide = yaw - 0.04 + stretch * 0.04
+    ax.plot(*zip(car, car + 2.6 * road_dir), color=DIM, lw=2, ls="--", zorder=3)
+    ax.plot(*zip(car, car + 2.6 * np.array([math.cos(wide), math.sin(wide)])), color=PINK, lw=2, ls="--", zorder=3)
+    theta = np.linspace(yaw - 0.04, wide, 12)
+    ax.plot(car[0] + 2.0 * np.cos(theta), car[1] + 2.0 * np.sin(theta), color=PINK, lw=3, zorder=5)
+    _brace(ax, lane, car, BLUE, lw=4)
+    _car(ax, (x, y, yaw), length=1.5)  # behind the front axle, so the ego frame's x axis ahead of it does not hide it
+    _frame(ax, (x, y, yaw), QUANTITY["ego"], "", length=1.6)
     left_of = np.array([-ahead[1], ahead[0]])
-    ax.text(*(car + 0.65 * (ahead + left_of)), "ego", color=QUANTITY["ego"], ha="center", va="center")
-    _pointer(ax, "e = +0.3 m", 0.5 * (lane + car), (car[0] + 2.2, car[1] - 2.6), colour=BLUE)
-    _pointer(ax, "ψ = +0.04 rad", car + 3.0 * np.array([math.cos(yaw - 0.02), math.sin(yaw - 0.02)]), (car[0] + 2.4, car[1] + 3.2), colour=PINK)
+    ax.text(*(car + 0.5 * (left_of - ahead)), "ego", color=QUANTITY["ego"], ha="center", va="center")
+    _pointer(ax, "e = +0.3 m", 0.5 * (lane + car), (car[0] + 1.3, car[1] - 1.5), colour=BLUE)
+    _pointer(ax, "ψ = +0.04 rad,\ndrawn 10 times too wide", car + 2.0 * np.array([math.cos(wide - 0.2), math.sin(wide - 0.2)]), (car[0] + 1.3, car[1] + 2.0), colour=PINK)
     _xy_axes(ax)
     _save(fig, path)
 

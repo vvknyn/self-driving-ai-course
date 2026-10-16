@@ -41,6 +41,11 @@ class Road:
         # A closed road holds a whole number of dashes so the pattern is seamless at the start line.
         self.dash_period = self.length / max(1, round(self.length / DASH_PERIOD)) if closed else DASH_PERIOD
 
+    @property
+    def centerline(self) -> np.ndarray:
+        """A copy of the (N, 2) vertices the road was built from (an open road's last end included)."""
+        return (self._a if self.closed else np.vstack([self._a, self._b[-1]])).copy()
+
     def _segment(self, s):
         """(segment index, distance along that segment) for arc length(s) `s`."""
         s = np.asarray(s, dtype=float)

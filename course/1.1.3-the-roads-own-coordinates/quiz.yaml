@@ -43,7 +43,7 @@
   - To round off noise in the telemetry.
   - Only the curvy road needs it; `gentle` never gets there.
   answer: 1
-  explain: 'Angles are the same direction modulo $2\pi$. $\theta$ is the car''s accumulated yaw and can exceed $\pi$; `atan2` always returns a value in $(-\pi, \pi]$. The wrap brings the difference back into $(-\pi, \pi]$: $6.3057 - 2\pi = 0.0225$ rad.'
+  explain: 'Angles are the same direction modulo $2\pi$. $\theta$ is the car''s accumulated yaw and can exceed $\pi$; `atan2` always returns a value in $(-\pi, \pi]$. The wrap brings the difference back into $[-\pi, \pi)$: $6.3057 - 2\pi = 0.0225$ rad.'
   section: the-two-errors-the-controller-needs
 - id: q6
   type: mcq

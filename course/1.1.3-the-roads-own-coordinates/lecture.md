@@ -85,7 +85,7 @@ The forward part, 12 m, is longer than the segment, 10 m.
 
 **Answer:** no. 4.0 m is the distance to (11.6, 8.2), a point on the segment's line 2 m past $\mathbf{b}$, where there is no road. The nearest point that is on the segment is its end $\mathbf{b}$, and $\mathbf{q}$ is $\sqrt{4^2 + 2^2} = \sqrt{20} = 4.472$ m from it. The rule needs one more step: **clamp** $t$, which means cutting it to 0 if it is negative and to the segment's length if it is longer. In NumPy that is `np.clip(t, 0, length)`. For $\mathbf{q}$, $t = 12$ becomes $t = 10$, and the foot becomes $\mathbf{b}$.
 
-A distance is never negative, so it cannot say which side $\mathbf{q}$ is on. The left part can: it is −4.0, so $\mathbf{q}$ is to the right of the segment's line. Your first function, `project_to_segment(a, b, p)`, returns two numbers: $t$, and the distance from the point to its foot, given the sign of the left part. For $\mathbf{p}$ it returns (6.0, +3.0); for $\mathbf{q}$ it returns (10.0, −4.4721). Finding the foot is called **projecting** the point onto the segment.
+A distance is never negative, so it cannot say which side $\mathbf{q}$ is on. The left part can: it is −4.0, so $\mathbf{q}$ is to the right of the segment's line. A helper, `project_to_segment(a, b, p)`, returns two numbers: $t$, and the distance from the point to its foot, with the sign of the left part. For $\mathbf{p}$ it returns (6.0, +3.0); for $\mathbf{q}$ it returns (10.0, −4.4721). Finding the foot is called **projecting** the point onto the segment.
 
 ## Which segment, and which side
 
@@ -119,15 +119,17 @@ In the L, the first segment is 10 m long, so $\mathbf{p} = (8, 3)$, 3 m along th
 
 **Guess first:** at step 400, 20.00 s in, the car has driven 8 m/s × 20.00 s = 160 m. Is its $s$ more than 160 m, or less?
 
-![A few metres of gentle's first bend around the car at step 400, 20.00 s in, with the centreline's vertices as grey dots along the yellow line. The nearest segment, number 1590 of 7028, starts at a, 158.983 m along the road. The foot sits 0.0279 m along that segment, so s is 159.011 m. A blue line at right angles from the foot to the car is labelled d = −1.2717 m: the car is 1.27 m to the right of the yellow line.](figures/step400_foot.png)
+![Two stacked panels at step 400, 20.00 s in. Top: a few metres of gentle's first bend around the car, with the centreline's vertices as grey dots along the yellow line; a blue line at right angles from the foot to the car is labelled d = −1.2717 m, so the car is 1.27 m to the right of the yellow line, and the foot is marked as zoomed below. Bottom: a zoom on the nearest segment, number 1590 of 7028, 0.1 m long, from a, 158.983 m along the road, to b. The foot sits 0.0279 m along it, shown by a grey brace, so s is 159.011 m.](figures/step400_foot.png)
 
-**Answer:** less. The nearest segment is number 1590, which starts at $s_{0} = 158.983$ m, and the foot is $t = 0.0279$ m along it, so $s = 159.011$ m while the car has driven 160.000 m. $s$ is measured along the yellow line. On a left bend your lane is on the outside of the turn, on a bigger circle: at step 400 the car is 81.2717 m from the bend's centre, (100, 80), while the yellow line is 80 m from it. Over the whole lap the car drives 710.80 m while $s$ runs from 0 to 702.65 m, and the lane centre's own loop, two 100 m straights and a full circle of radius 81.8 m, is $200 + 2\pi \times 81.8 = 713.96$ m long.
+**Answer:** less. The nearest segment is number 1590, which starts at $s_{0} = 158.983$ m, and the foot is $t = 0.0279$ m along it, so $s = 159.011$ m while the car has driven 160.000 m. $s$ is measured along the yellow line. On a left bend your lane is on the outside of the turn, on a bigger circle: at step 400 the car is 81.2717 m from the bend's centre, (100, 80), while the yellow line is 80 m from it. Over the whole lap the car drives 710.80 m while $s$ runs from 0 to 702.65 m. The lane centre's own loop, two 100 m straights and a full circle of radius 81.8 m, is $200 + 2\pi \times 81.8 = 713.96$ m long, and the car cuts slightly inside it on the bends.
 
-`gentle` is a loop, so a foot just past its last vertex is also just past its first. On a closed road $s$ is taken as the remainder after dividing by the road's length, `s % 702.65`, where `%` is Python's remainder: it brings $s$ back to 0 at the start line. An open road like `curvy` needs no remainder, because the clamp at its two ends already keeps $s$ between 0 and its length.
+`gentle` is a loop, and its last segment runs from the last vertex back to the first, so $s$ climbs to 702.65 m at the start line and starts again at 0 on segment 0. On a closed road $s$ is taken as the remainder after dividing by the road's length, `s % 702.65`, where `%` is Python's remainder; it only turns a foot exactly on the first vertex, $s$ = 702.65, into 0, and the graders accept either there. An open road like `curvy` needs no remainder, because the clamp at its two ends already keeps $s$ between 0 and its length.
+
+That is your first function, `to_road_frame(centerline, closed, p)`, returning (s, d).
 
 **Guess first:** the world frame's grid lines are straight. Draw the lines of constant $s$ and of constant $d$ over the first bend. What shape are they?
 
-![The road frame drawn over gentle's first bend, from above. Grey rungs cross the road at right angles every 10 m of s, fanning out from the bend's centre at (100, 80). Three lines of constant d run along the road as circles around that centre: d = 0, the yellow line, 80 m from the centre; d = −1.8, the lane centre, dashed grey, 81.8 m out; and d = −3.6, the white line, 83.6 m out.](figures/road_grid.png)
+![The road frame drawn over gentle's first bend, from above. Grey rungs cross the road at right angles every 10 m of s, fanning out from the bend's centre at (100, 80); every second rung is numbered with its s, from 100 to 220. Three lines of constant d run along the road as circles around that centre: d = 0, the yellow line, 80 m from the centre; d = −1.8, the lane centre, dashed grey, 81.8 m out; and d = −3.6, the white line, 83.6 m out.](figures/road_grid.png)
 
 **Answer:** they bend with the road. The rungs of constant $s$ point at the bend's centre, and every line of constant $d$ is a circle around it, 80 m minus $d$ from it: the car at step 400 has $d = -1.2717$, and 80 + 1.2717 = 81.2717 m. In these coordinates your lane is a straight strip, $d$ from −3.6 to 0, all the way round the loop. The pair $(s, d)$ is the **road frame**: coordinates attached to the road, not to the world or to the car.
 
@@ -147,7 +149,7 @@ At step 400, $d = -1.2717$ m, so $e = +0.5283$ m: the car is 0.53 m left of its 
 
 **Answer:** $d > 0$, over the yellow line, or $d < -3.6$, over the white line. Every $d$ maps to its $e$ by the same shift of 1.8 m.
 
-The second error is the heading. *Positions and headings* gave the car's yaw $\theta$, read "theta": where the car points, measured anticlockwise from east. The road has a direction too: the direction of the nearest segment, which is atan2 of its $\hat{u}$. Call it $\theta_{\text{road}}$, read "theta road". θ is where the car points; ψ, the heading, is the yaw minus the road's direction, wrapped:
+The second error is the heading. *Positions and headings* gave the car's yaw $\theta$, read "theta": where the car points, measured anticlockwise from east. The road has a direction too: the direction of the nearest segment, `np.arctan2(dy, dx)` for its arrow $(dx, dy)$. Call it $\theta_{\text{road}}$, read "theta road". θ is where the car points; ψ, the heading of *Your first perception box*, is the yaw minus the road's direction, wrapped with the `wrap_angle` of *Positions and headings*:
 
 $$\begin{aligned}\color{#D147BD}{\psi} &= \text{wrap}(\theta - \theta_{\text{road}})\end{aligned}$$
 
@@ -191,7 +193,7 @@ Second, even the segments miss. A straight segment between two points of a circl
 
 $$\begin{aligned}\text{sagitta} &\approx \frac{c^2}{8R}\end{aligned}$$
 
-![A 5 m chord of gentle's 80 m first bend, with the sideways scale stretched so the gap shows. The yellow arc and the grey chord join two vertices 5 m apart. A blue brace at the chord's middle, labelled 0.0391 m, spans the gap between chord and arc: the chord's middle is 79.9609 m from the bend's centre instead of 80.](figures/sagitta.png)
+![A 5 m chord of gentle's first bend, radius 80 m, with the sideways scale stretched so the gap shows. The yellow arc and the grey chord join two vertices 5 m apart. A blue brace at the chord's middle, labelled 0.0391 m, spans the gap between chord and arc: the chord's middle is 79.9609 m from the bend's centre instead of 80.](figures/sagitta.png)
 
 <details>
 <summary>How we got c² / (8R)</summary>
@@ -216,7 +218,7 @@ For the simulator's own 0.1 m segments the sagitta is $0.1^2 / (8 \times 80) = 1
 
 ![A vertex tie on gentle's first bend at 18.60 s, with the sideways scale stretched so the angle shows. Segments 1479 and 1480 meet at a shared vertex on the yellow line, and that vertex is the nearest point of the road to the car, which is 1.27 m to its right. Both segments' feet are the vertex. Their directions, 0.59920 and 0.60045 rad, differ by one corner angle, 0.00125 rad; the simulator keeps the first, segment 1479.](figures/vertex_tie.png)
 
-One case is left. Sometimes the nearest point of the road is a vertex, shared by two segments, and both segments' feet are that same point. On the lap that happens at 20 of the 1778 steps, 1.1 %. $d$ is the same either way, but $\theta_{\text{road}}$ is the direction of whichever segment you pick, and neighbouring segments on `gentle`'s bends differ by one corner angle, $0.1 / 80 = 0.00125$ rad. The simulator keeps the first of the tied segments. The steps in this lesson, done in the same order, keep the same one, and match it exactly. A different but equally sensible tie-break, measured on the same lap, is 0.00125 rad off on 5 steps.
+One case is left. Sometimes the nearest point of the road is a vertex, shared by two segments, and both segments' feet are that same point. On the lap that happens at 22 of the 1778 steps, 1.2 %; at 20 of them the two segments point in different directions, and the other 2 are on straights. $d$ is the same either way, but $\theta_{\text{road}}$ is the direction of whichever segment you pick, and neighbouring segments on `gentle`'s bends differ by one corner angle, $0.1 / 80 = 0.00125$ rad. The simulator keeps the first of the tied segments. The steps in this lesson, done in the same order, keep the same one, and match it exactly. Keeping the last tied segment instead is 0.00125 rad off on those 20 steps. The graders accept either tied segment.
 
 ## Recap
 
@@ -239,7 +241,7 @@ Optional. The first is hard; all three use only this lesson and the ones before 
    - (a) Show that for small $x$ it is about $-e - \psi x + x^2/(2R)$, where $R$ = 81.8 m is the lane centre's radius. Use the curve-away from *Your first perception box* and a rotation by a small angle from *The view from the driver's seat*.
    - (b) The true values, from `world_to_ego` applied to the simulator's lane centre, are −0.3469, −0.0874, +1.3653 and +4.1277 m at $x$ = 5, 10, 20 and 30 m. Compute the quadratic and the straight line $-e - \psi x$ at each $x$. Roughly where is each first 0.1 m out?
 
-![The setup for the first challenge problem: gentle's first bend from above around s = 260 m, with the yellow line, the dashed grey lane centre on its 81.8 m circle, and the car drawn as an arrow 0.3 m left of the lane centre, turned 0.04 rad to the left of the road. The ego frame's x and y axes are drawn in purple at the car's front axle.](figures/challenge_setup.png)
+![The setup for the first challenge problem: gentle's first bend from above around s = 260 m, with the yellow line, the dashed grey lane centre on its 81.8 m circle, and the car drawn as an arrow 0.3 m left of the lane centre, turned 0.04 rad to the left of the road, drawn with its angle ψ ten times too wide so that it shows. The ego frame's x and y axes are drawn in purple at the car's front axle.](figures/challenge_setup.png)
 
 2. **Progress across the start line.** The last two steps of the lap have $s$ = 702.306 m and then $s$ = 0.045 m.
    - (a) What does the plain difference say the car moved in that step?

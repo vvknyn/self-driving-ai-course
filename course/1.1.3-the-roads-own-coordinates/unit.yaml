@@ -22,7 +22,7 @@ go_deeper:
     note: "Section 2.3 measures Stanley's cross-track error from the front axle to the nearest path point, and its heading term θe = θ − θp. Those are this lesson's e and ψ. Section 3.1.1 sets up the path coordinates the controllers use. Module 1.3 comes back to this report."
   - title: "Werling, Ziegler, Kammel and Thrun, Optimal Trajectory Generation for Dynamic Street Scenarios in a Frenét Frame (ICRA 2010)"
     url: "https://doi.org/10.1109/ROBOT.2010.5509799"
-    note: "Section III, Eq. (1), writes a point as x(s, d) = r(s) + d·n_r(s): arc length along a reference line plus a signed sideways distance, this lesson's road frame. Section VI finds s as an argmin, and Appendix I, Eq. (4), gives d = [x − r(s)]ᵀ n_r. The DOI page is paywalled; the authors' copy is on ResearchGate (publication 224156269)."
+    note: "Section III, Eq. (1), writes a point as x(s, d) = r(s) + d·n_r(s): arc length along a reference line plus a signed sideways distance, this lesson's road frame. Section VI finds s as an argmin, and Appendix I, Eq. (4), gives d = [x − r(s)]ᵀ n_r. The DOI page is paywalled."
 tutor_prompt: |
   You are a Socratic tutor for unit 1.1.3 "The road's own coordinates" of a self-driving car course. I am a programmer with rusty maths and no machine-learning background. I have just read a lecture and done a lab on turning a car's world position into the road's own coordinates.
 

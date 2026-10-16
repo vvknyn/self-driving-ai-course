@@ -22,25 +22,27 @@ import numpy as np
 
 from zero2fsd.car import Car, run
 from zero2fsd.grade import check, practice
+from zero2fsd.grade.units.u1_1_3 import psi_misfit  # how far a heading ψ is from the truth, counting either tied segment as right
 from zero2fsd.sim import make_scenario
 
 # %% [markdown]
-# `wrap_angle` and `world_to_ego` are the provided ones. To build on your own from the lessons *Angles, and the wrap*
-# and *The view from the driver's seat*, replace the import with your functions (they must keep their names).
+# `wrap_angle` and `world_to_ego` are the provided ones. To build on your own from the lessons *Positions and headings*
+# (`wrap_angle`) and *The view from the driver's seat* (`world_to_ego`), replace the import with your functions (they must
+# keep their names).
 
 # %%
 from zero2fsd.geom import world_to_ego, wrap_angle
 
 # %% [markdown]
 # The next cell drives the provided car once round `gentle` (the lap of the lecture) and keeps its telemetry: `tel.x`,
-# `tel.y`, `tel.yaw`, and the simulator's own answers `tel.lat` (the lateral error) and `tel.head_err` (the heading
-# error). The road is a closed polyline; `centerline` is its 7028 vertices, one row each, and `L_ROAD` is the small
+# `tel.y`, `tel.yaw`, and the simulator's own answers `tel.lat` (the lateral error) and `tel.head_err` (the heading ψ).
+# The road is a closed polyline; `centerline` is its 7028 vertices, one row each, and `L_ROAD` is the small
 # open road of the lecture's corner examples: (0, 0), then (10, 0), then (10, 10).
 
 # %%
 road = make_scenario("gentle").road
 tel = run(Car(), "gentle", seed=0)
-centerline = road._a  # the vertices of the yellow line, shape (7028, 2); the road is closed: the last one joins the first
+centerline = road.centerline  # a copy of the vertices of the yellow line, shape (7028, 2); the road is closed: the last one joins the first
 L_ROAD = np.array([[0.0, 0.0], [10.0, 0.0], [10.0, 10.0]])
 print(f"{len(tel.t)} steps over {tel.t[-1]:.2f} s; {len(centerline)} vertices; the road is {road.length:.2f} m long")
 
@@ -63,8 +65,8 @@ practice("first time it is 0.01 m out (s)", first_out, 12.70, tol=0.051)
 # %% [markdown]
 # On the first straight the guess is exact. It leaves the true value at 12.70 s, in the first bend, and on the far
 # straight it is 163.6 m wrong: the road there runs west at `y` of about 160, and `y + 1.8` measures from a line the
-# car left long ago. The cleverer guess, `y` minus the `y` of the nearest centreline point, is wrong too, by half a
-# metre in the bend.
+# car left long ago. The cleverer guess, `y` minus the `y` of the nearest lane-centre point, gets the sign wrong where the road runs west: −0.528 m
+# against +0.531 m at 43.30 s.
 #
 # ![](figures/naive_y.png)
 #
@@ -91,6 +93,8 @@ practice("t (m)", t_hand, 6.0, tol=1e-9)
 practice("d (m)", d_hand, 3.0, tol=1e-9)
 
 # %% [markdown]
+# `t` is 6.0 and `d` is +3.0: `p` is on the left of the segment, where the left part is positive.
+#
 # Now the function, for any segment. It must work on many segments at once: `a` and `b` may be arrays of shape
 # `(N, 2)` (one row per segment) with `p` a single point, and then `t` and `d` are arrays of length `N`. Plain numpy
 # arithmetic on whole arrays does that without a loop. For the sign use `np.copysign(distance, left_part)`: it keeps
@@ -146,13 +150,16 @@ practice("s (m)", s_hand, 13.0, tol=1e-9)
 practice("d (m)", d_hand, 2.0, tol=1e-9)
 
 # %% [markdown]
+# The second segment wins: its foot, (10, 3), is 2.0 m from (8, 3) against 3.0 m for the first segment's foot, (8, 0). So
+# `s` = 10 + 3 = 13 m and `d` = +2.0 m.
+#
 # Now `to_road_frame`, which is Exercise A. `centerline` is an `(N, 2)` array of vertices. The segments start at
 # `a = centerline` and end at `b = np.roll(centerline, -1, axis=0)` when the road is `closed` (the last vertex joins
 # the first), or at `a = centerline[:-1]`, `b = centerline[1:]` when it is open. Call your `project_to_segment` once with
 # all segments, pick the winner, and add the forward part to the length of the segments before it.
 #
-# Loop over segments in Python and a lap of `gentle` takes minutes; the whole-array version takes well under a
-# millisecond per position (a measured range on one machine: 0.2 to 1 ms), so broadcast.
+# Loop over segments in Python and a lap of `gentle` takes minutes; the whole-array version takes under a
+# millisecond per position (0.2 to 1 ms on one machine), so broadcast.
 
 # %% tags=["exercise:1.1.3.a"]
 def to_road_frame(centerline, closed, p):
@@ -166,8 +173,9 @@ def to_road_frame(centerline, closed, p):
     raise NotImplementedError
 
 # %% [markdown]
-# **Guess first (Exercise A):** which of the lecture's four named cases will be easiest to get wrong: past the open
-# end, inside the corner, to the right of the line, or exactly on it?
+# **Guess first (Exercise A):** the grader's named cases on the corner road are past the open end, (12, 13); on the line
+# past the open end, (10, 13); inside the corner, (8, 3); to the right of the line, (5, −1); and exactly on it, (5, 0). Which
+# will be easiest to get wrong?
 
 # %%
 try:
@@ -181,8 +189,11 @@ except NotImplementedError:
 check("1.1.3.a", to_road_frame)
 
 # %% [markdown]
-# A correct function passes all four named cases on the corner road, with `d` of (12, 13), past the end, equal to
-# -3.606 and `s` equal to 20, then 40 seeded points on `gentle` and `curvy` against the simulator's own `Road.project`.
+# A correct function passes the five named cases on the corner road, with `d` of (12, 13), past the end, equal to
+# -3.606 and `s` equal to 20, then points either side of `gentle`'s start line and on a coarse copy of it, and 40 seeded
+# points each on `gentle` and `curvy`, against the simulator's own `Road.project`. The two cases past the end are the
+# ones a missing clamp or `np.sign(left) * distance` gets wrong: on the line past the end the left part is exactly 0, so
+# `np.sign` gives `d` = 0 where the true distance is 3.0 m. `np.copysign` keeps a sign even then.
 #
 # **Break it, fix it.** A teammate wrote the shortcut "the nearest point of the road is the nearest vertex". Run it.
 #
@@ -207,7 +218,7 @@ print("on the corner road at (8, 3), the teammate says (s, d) =", to_road_frame_
 check("1.1.3.a", to_road_frame_teammate)
 
 # %% [markdown]
-# On `gentle` the shortcut is off by under a millimetre (9.82e-4 m), because the vertices are close. On the corner it
+# On `gentle` the shortcut is off by under a millimetre ($9.82 \times 10^{-4}$ m), because the vertices are close. On the corner it
 # says `d` = +3.606 where the truth is +2.000: the nearest vertex of (8, 3) is the corner (10, 0), 3.606 m away,
 # while the second segment passes 2.000 m from it. A vertex is the nearest point of the road only when the
 # vertices are very close together. The fix is the one you already wrote: project onto segments.
@@ -221,19 +232,16 @@ check("1.1.3.a", to_road_frame_teammate)
 # `s` is the length of the segments before the winning one, plus `t` (lecture: "How far along: arc length").
 #
 # **Guess first:** at step 400, 20.00 s into the lap at 8 m/s, the car has driven 160 m. Is its `s` more or less than
-# 160? (The road bends left, and the car drives in the right lane, the outside.)
+# 160?
 
 # %%
 s_400 = None  # your code: the s of the car at step 400, from to_road_frame(centerline, True, (tel.x[400], tel.y[400]))
 practice("s at step 400 (m)", s_400, 159.011, tol=1e-3)
-progress = None  # your code: how far the car moved along the road in the last step of the lap (m); mind the start line
-practice("progress in the last step (m)", progress, 0.3936, tol=1e-4)
 
 # %% [markdown]
-# The car is on the outside of the bend, so its wheels cover more ground than the yellow line below it: `s` is 159.011
-# m, a little less than 160. In the last step of the lap `s` goes from 702.306 m to 0.045 m, so the plain difference
-# is -702.261 m, a whole lap backwards. Adding the road's length, 702.655 m, gives +0.394 m, the true move
-# (challenge problem 2 asks why it is under 0.40 m).
+# The road bends left and the car drives in the right lane, which is the outside of the bend, so its wheels cover more
+# ground than the yellow line inside it: `s` is 159.011 m, a little less than 160. In the last step of the lap `s` goes from 702.306 m to 0.045 m, so the plain difference
+# is -702.261 m, a whole lap backwards. Challenge problem 2, in the stretch section at the end, fixes that with the road's length.
 #
 # ![](figures/arc_length_l.png)
 #
@@ -266,7 +274,7 @@ practice("share wrong by > 1 rad (%)", pct, 35.9, tol=0.1)
 # ![](figures/wrap_trap.png)
 #
 # Now `lane_errors`, which is Exercise B. Use the same nearest-segment search as in `to_road_frame`, and keep the winning segment: its `d` gives
-# `e`, and its direction `atan2(b - a)` is `theta_road`. Use the one segment for both.
+# `e`, and its direction, `np.arctan2(dy, dx)` for the segment's arrow `(dx, dy)`, is `theta_road`. Use the one segment for both.
 
 # %% tags=["exercise:1.1.3.b"]
 def lane_errors(centerline, closed, pose):
@@ -281,13 +289,14 @@ def lane_errors(centerline, closed, pose):
 
 # %% [markdown]
 # **Guess first (Exercise B):** with the same simulator numbers in front of you, how far off will your `e` and `psi` be
-# over the whole lap: about 0.01, about 1e-6, or exactly 0.0?
+# over the whole lap: about 0.01, about $10^{-6}$, or exactly 0.0?
 
 # %%
 try:
     mine = np.array([lane_errors(centerline, True, (x, y, th)) for x, y, th in zip(tel.x, tel.y, tel.yaw)])
     practice("max |e − lat| (m)", float(np.abs(mine[:, 0] - tel.lat).max()), 0.0, tol=1e-9)
-    practice("max |ψ − head_err| (rad)", float(np.abs(mine[:, 1] - tel.head_err).max()), 0.0, tol=1e-9)
+    misfit = max(psi_misfit(road, pose, psi) for pose, psi in zip(zip(tel.x, tel.y, tel.yaw), mine[:, 1]))  # 0 for either tied segment's heading
+    practice("max |ψ − head_err| (rad)", misfit, 0.0, tol=1e-9)
 except NotImplementedError:
     print("Write lane_errors above first, then run this cell again.")
 
@@ -297,7 +306,7 @@ check("1.1.3.b", lane_errors)
 # %% [markdown]
 # Written this way the two functions reproduce the simulator's `lat` and `head_err` exactly, with a difference of 0.0 at
 # all 1778 steps. If `psi` is 0.00125 rad out at a few steps, your search picked the other segment at a vertex tie; section 6
-# explains it, and the grader accepts either.
+# explains it, and the grader accepts either. (The ψ line above counts either as right too.)
 #
 # ![](figures/reproduced.png)
 #
@@ -329,7 +338,7 @@ check("1.1.3.b", lane_errors_teammate)
 #
 # ## 6. Corners in the polyline
 #
-# A learner's road may not have a vertex every 0.1 m. The next cell keeps `gentle`'s yellow line but only a vertex every
+# A road you are handed may not have a vertex every 0.1 m. The next cell keeps `gentle`'s yellow line but only a vertex every
 # 5 m (lecture: "Corners in the polyline"), and measures each method against the dense road's truth along the lap.
 #
 # **Guess first:** which is worse on the 80 m bend, the nearest-vertex shortcut or projecting onto segments, and
@@ -347,7 +356,7 @@ practice("segments, worst |d| error (m)", p, 0.0391, tol=1e-4)
 
 # %% [markdown]
 # The shortcut is 1.550 m out and the segments 0.0391 m. A straight chord `c` long misses an arc of radius `R` by the
-# sagitta `c² / (8R)`: 25 / 640 = 0.0391 m for 5 m on 80 m. The simulator's own 0.1 m gives 1.563e-5 m.
+# sagitta `c² / (8R)`: 25 / 640 = 0.0391 m for 5 m on 80 m. The simulator's own 0.1 m gives $1.563 \times 10^{-5}$ m.
 #
 # ![](figures/sparse_vertex.png)
 #
@@ -361,12 +370,14 @@ practice("segments, worst |d| error (m)", p, 0.0391, tol=1e-4)
 #
 # ![](figures/vertex_tie.png)
 #
-# You now have the road frame: `s` and `d`, and from them `e` and `psi`, the two numbers the controller steers on. The next
-# lesson gives the car a way to know where it is when nothing outside tells it.
+# ## What's next
+#
+# You can now turn a position and a heading into `s`, `d`, `e` and `psi`, the two numbers the controller steers on. In the
+# next lesson, *Poses you can chain*, the car loses the outside world and has to find out where it is from how it moved.
 #
 # ![](figures/next_lesson.png)
 #
-# ## 7. Stretch (optional, not graded): the challenge problems
+# ## Stretch (optional, not graded): the challenge problems
 #
 # The lecture's three challenge problems, each with a cell that checks your numbers.
 #
@@ -398,19 +409,26 @@ practice("straight line first 0.1 m out at x (m)", x_line, 4.05, tol=0.05)
 # %% [markdown]
 # The line ignores the bend, whose `x² / (2R)` grows fast, so it is 0.1 m out at 4.05 m; the quadratic holds to 28.49 m.
 #
-# **Problem 2.** Progress across the start line, and when it breaks. The wrap puts a difference of `s` in
-# `[-L/2, L/2)`, so the car can move at most half the road's length per step.
+# **Problem 2.** Progress across the start line, and when it breaks. In the last step of the lap `s` goes from
+# 702.306 m to 0.045 m. Wrap the difference the way `wrap_angle` wraps an angle, but into `[-L/2, L/2)` with `L` the road's
+# length: `(ds + L/2) % L - L/2`. The wrap puts a difference of `s` in that range, so the car can move at most half the
+# road's length per step.
 #
-# **Guess first:** how fast would the car have to go for that to give the wrong answer, at 20 steps a second?
+# **Guess first:** how far did the car move in that step, and how fast would it have to go for the wrap to give the wrong
+# answer, at 20 steps a second?
 
 # %%
+s_last = np.array([road.project(x, y)[0] for x, y in zip(tel.x[-2:], tel.y[-2:])])  # the simulator's s at the last two steps: 702.306 m, then 0.045 m
+progress = None  # your code: the wrapped difference of s over the last step of the lap (m), with L = road.length
+practice("progress in the last step (m)", progress, 0.3936, tol=1e-4)
 step_limit = None  # your code: the largest move per step (m) the wrapped difference can tell from a jump back
 speed_limit = None  # your code: the speed (m/s) at which one 0.05 s step moves that far
 practice("largest safe move per step (m)", step_limit, 351.3, tol=0.1)
 practice("speed at which it breaks (m/s)", speed_limit, 7027, tol=1.0)
 
 # %% [markdown]
-# Half the road, 351.3 m per step, which is 7027 m/s: never on this road.
+# Wrapped, the move is +0.394 m, less than the 0.40 m of a step at 8 m/s because the car is on the outside of the bend and `s`
+# is measured along the shorter yellow line. The wrap breaks only above half the road, 351.3 m per step, which is 7027 m/s: never on this road.
 #
 # **Problem 3.** Why the shortcut is worst near the line. With vertices every 5 m, a point midway between two vertices
 # and `|d|` from the line is `sqrt(d² + 2.5²)` from either, so the shortcut is out by that minus `|d|`.
@@ -425,8 +443,3 @@ practice("shortcut error at |d| = 3.6, 1.8, 1.0, 0.5 (m)", shortcut_error, [0.78
 # %% [markdown]
 # The closer to the line, the more the shortcut loses: the error tends to 2.5 m at `d = 0`, the largest it can be on
 # this road. A car in its lane centre (`|d|` = 1.8 m) is out by 1.281 m.
-#
-# ## What's next
-#
-# You can now turn a position and a heading into `s`, `d`, `e` and `psi`. In the next lesson, *Poses you can chain*, the
-# car loses the outside world and has to find out where it is from how it moved.
