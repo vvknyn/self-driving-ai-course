@@ -48,7 +48,7 @@ However, if you want the thrill of seeing your code steer physical hardware in t
 - **What you need**: Just your computer (Mac or PC).
 - **How it works**:
   - We synthesize 3 camera feeds (Front, Left, Right) mathematically using camera projection matrices.
-  - You can also plug in free open-source real-world driving datasets like **nuScenes Mini** (10 scenes with 6 cameras each, 4GB free download) or **Comma2k19**.
+  - You can also plug in freely available real-world driving datasets like **nuScenes Mini** (10 scenes with 6 cameras each, 4GB free download) or **Comma2k19**.
   - All closed-loop vehicle physics, steering angles, and collision checks run in our interactive canvas and Python simulators.
 - **Electronics needed**: **Zero.**
 
@@ -89,7 +89,7 @@ If you want a vehicle that actually drives across your floor following your neur
 ---
 
 ### Tier 3: Real Car Autopilot via Comma.ai / Openpilot
-If you ever want to run open-source vision-based driving in your actual passenger car (Toyota, Honda, Hyundai, Kia, etc.):
+If you ever want to run community-built vision-based driving software in your actual passenger car (Toyota, Honda, Hyundai, Kia, etc.):
 - **Hardware**: Comma 3X device.
 - **Installation**:
   1. Stick the magnetic mount to your windshield behind the rearview mirror.

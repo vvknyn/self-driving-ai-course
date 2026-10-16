@@ -8,7 +8,7 @@ import json
 import os
 from pathlib import Path
 
-NOTEBOOKS_DIR = Path("/Users/vivek/Downloads/Self Driving Course/notebooks")
+NOTEBOOKS_DIR = Path(__file__).resolve().parent.parent / "notebooks"
 NOTEBOOKS_DIR.mkdir(parents=True, exist_ok=True)
 
 REPO_URL = "https://github.com/vvknyn/self-driving-ai-course"

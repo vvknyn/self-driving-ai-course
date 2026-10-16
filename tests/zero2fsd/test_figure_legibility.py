@@ -1,7 +1,7 @@
 # tests/zero2fsd/test_figure_legibility.py
 """Gate G8: every text label of every course figure is legible on a phone.
 
-The rule (Ruling F): any digit is at least 9 px tall when the saved PNG is shown on a phone.  The site shows a PNG at
+The rule (phone legibility): any digit is at least 9 px tall when the saved PNG is shown on a phone.  The site shows a PNG at
 min(330, its pixel width / FIG_DENSITY) CSS px.  A text's digit height comes from its own font properties (the glyph "0"
 of its FontProperties), in points, converted to pixels at the dpi the PNG was saved at (savefig.dpi under figstyle.RC), then
 scaled by (displayed width / the saved PNG's real width: bbox_inches can change it).  Same mechanism as gate G7: render
