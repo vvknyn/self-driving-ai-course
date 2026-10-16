@@ -27,8 +27,8 @@ def test_scene_holds_one_colour_per_camera_palette_entry_and_equals_it():
         assert rgb(SCENE[name]) == tuple(int(c) for c in PALETTE[index]), name
 
 
-def test_the_four_quantities_are_told_apart_by_colour():
-    assert set(QUANTITY) == {"e_off", "psi", "delta", "perception"}
+def test_the_quantities_are_told_apart_by_colour():
+    assert set(QUANTITY) == {"e_off", "psi", "delta", "perception", "ego", "camera", "theta"}
     assert len(set(QUANTITY.values())) == len(QUANTITY)
 
 
