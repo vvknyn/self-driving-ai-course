@@ -1,186 +1,45 @@
-# Vision-First Autonomous Driving: Building a Mini-FSD Stack from Scratch
+# Zero2FSD
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-ee4c2c.svg)](https://pytorch.org/)
-[![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
-[![Interactive Visuals](https://img.shields.io/badge/Visual_Explainers-Interactive_HTML%2FSVG-green.svg)](visual_explainers/index.html)
+Zero2FSD is a hands-on course on how a self-driving car works. You drive a simulated car that ships with a working perception box and controller, then replace those parts with your own code, one lab at a time. Each unit has a lecture, figures, a graded Python lab, a quiz and review cards.
 
-## v2 course (start here)
+Take the course at **[zero2fsd.com](https://zero2fsd.com)**. This repository holds the source of the course: lectures, labs, the simulator and the grader.
 
-Zero2FSD v2 is the current course. You drive a simulated car that ships with a working perception box and controller, then replace them with your own code, one lab at a time.
+Zero2FSD is an independent educational project. Not affiliated with Tesla, Inc.
 
-- **Take the course:** [vivekn.xyz/learnfsd](https://vivekn.xyz/learnfsd)
-- **Course sources:** [`course/`](course/). The syllabus, [`course/syllabus.yaml`](course/syllabus.yaml), lists every loop, module and unit; a unit is marked `ready` when it ships.
-- **Code behind the labs:** [`zero2fsd/`](zero2fsd/) (simulator, car, grader). Run its tests with `pip install -e ".[dev]"` then `python -m pytest tests/zero2fsd`.
+## Run it locally
 
-## v1 reference library
+Needs Python 3.10 or newer.
 
-Everything below this section is the v1 course. It stays in place so existing Colab links keep working:
-[`notebooks/`](notebooks/) (Colab notebooks), [`modules/`](modules/) (standalone projects) and [`docs/`](docs/) (deep-dive articles) are the **v1 reference library**.
-
----
-
-A hands-on, production-grade course and open-source codebase for mastering modern, **vision-centric autonomous driving** — modeled directly after **Tesla's Full Self-Driving (FSD) architecture** (multi-camera geometry, HydraNet multi-task perception, Lift-Splat-Shoot Bird's-Eye-View projection, 3D occupancy networks, vector space tracking, and learned trajectory planning).
-
----
-
-## 🎯 Pedagogical Lineage: 5 Teaching Styles Unified
-
-This course marries the educational principles from the greatest minds in AI and robotics:
-
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                  THE PEDAGOGICAL LINEAGE                                    │
-├─────────────────────────┬───────────────────────────────────────────────────────────────────┤
-│ 📐 Andrew Ng            │ Intuition first, diagnostic trees, bias/variance error analysis.  │
-├─────────────────────────┼───────────────────────────────────────────────────────────────────┤
-│ 🛠️ Andrej Karpathy      │ "Code from scratch", inspect every tensor, demystify the black box│
-├─────────────────────────┼───────────────────────────────────────────────────────────────────┤
-│ 🏎️ Sebastian Thrun      │ Probabilistic robotics, kinematic bicycle models, Stanley control.│
-├─────────────────────────┼───────────────────────────────────────────────────────────────────┤
-│ 🦆 MIT Duckietown       │ Tactile real-world robotics, low-cost hardware, camera calibration│
-├─────────────────────────┼───────────────────────────────────────────────────────────────────┤
-│ 🎓 OpenDriveLab (UniAD) │ Planning-oriented paradigm: perception exists only to serve control│
-└─────────────────────────┴───────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 🧭 Just-In-Time (JIT) Multi-Depth Learning
-
-Whether you are a college student with basic calculus, an engineer wanting to build a physical robot, or an aspiring researcher applying for a top-tier PhD, **you choose your depth Just-In-Time**:
-
-- 🟢 **Tier 1: Intuition & Diagnostics (Andrew Ng Style)**: 30,000-ft mental models, analogies, failure mode tables.
-- 🟡 **Tier 2: Code From Scratch (Andrej Karpathy Style)**: Pure PyTorch/NumPy, explicit tensor shape tracing `(B, N, C, H, W) -> (B, X, Y, Z)`, zero black boxes.
-- 🔴 **Tier 3: Mathematical Derivations & Proofs (Sebastian Thrun / MITx 6.041x)**: First-principles proofs from probability axioms, Bayes' rule, Lyapunov stability theorems.
-- 🎓 **Tier 4: Cutting-Edge Research & PhD Track (CVPR 2023–2026)**: UniAD, VAD, Tesla FSD v12 End-to-End foundation models, 3D Gaussian Splatting, open PhD research problems.
-- 🟣 **Tier 5: Real-World Hardware & Robotics (Duckietown / Comma AI)**: Zero-electronics hardware roadmap, $30 USB webcam calibration, 80 Hz embedded latency budgeting.
-
-> 📖 Read the full guide: [**Just-In-Time Depth Learning Guide (`docs/00_jit_depth_learning_guide.md`)**](docs/00_jit_depth_learning_guide.md)  
-> 🔬 Research frontier: [**Cutting-Edge Research & PhD Roadmap (`docs/09_cutting_edge_research_and_phd_roadmap.md`)**](docs/09_cutting_edge_research_and_phd_roadmap.md)
-
----
-
-## 🗺️ Curriculum & Architecture Roadmap
-
-The course is structured into 9 modules (Module 0 through 8). Each module is a **fully functional, standalone project**, yet all modules chain together to form the unified end-to-end Mini-FSD pipeline.
-
-| Module | Title | Key Concepts & JIT Tiers | Hands-On Project | Interactive Visual Explainer |
-|---|---|---|---|---|
-| **00** | **The Driving ML Gym** | Tensors, autograd, backpropagation, focal loss, transfer learning, data loaders | Fine-tune a real-time driving scene classifier on multi-class road crops | [`00_ml_gym`](modules/00_ml_gym/) |
-| **01** | **Camera Rig & Multi-View Geometry** | Pinhole model, intrinsics $K$, extrinsics $[R \mid T]$, lens distortion, Inverse Perspective Mapping (IPM) | Calibrate a 3-camera rig (Front, Left, Right) & warp road to metric ground plane | [`01_camera_geometry_ipm.html`](visual_explainers/01_camera_geometry_ipm.html) |
-| **02** | **Semantic Perception (HydraNet)** | Shared backbone, branched multi-task heads, homoscedastic uncertainty loss weighting (MLE) | Build a 4-head driving network (lanes, vehicles, freespace, depth) | [`02_hydranet_architecture.html`](visual_explainers/02_hydranet_architecture.html) |
-| **03** | **Bird's-Eye View (BEV) Transformation** | Monocular depth ambiguity, Lift-Splat-Shoot (LSS), frustum voxelization, vertical pooling | Lift 2D multi-camera features into a top-down metric BEV feature map | [`03_lift_splat_shoot_bev.html`](visual_explainers/03_lift_splat_shoot_bev.html) |
-| **04** | **3D Occupancy & Temporal Dynamics** | 3D voxel grids, Spatiotemporal GRU fusion, dynamic motion flow vectors $(\Delta x, \Delta y, \Delta z)$ | Train a temporal occupancy network to track visible and occluded obstacles | [`04_occupancy_network_3d.html`](visual_explainers/04_occupancy_network_3d.html) |
-| **05** | **Vector Space Tracking & HD Maps** | Kalman filtering, Hungarian bipartite matching, cubic spline lane graph extraction | Build an online HD-map-free vector scene graph with persistent object IDs | [`05_vector_space_tracker.html`](visual_explainers/05_vector_space_tracker.html) |
-| **06** | **Learned Trajectory Planning** | Quintic polynomial sampling, lattice planners, multi-objective cost evaluation (UniAD) | Generate candidate path fanouts and select optimal collision-free trajectories | [`06_trajectory_planner.html`](visual_explainers/06_trajectory_planner.html) |
-| **07** | **Closed-Loop Control & Kinematics** | Bicycle vehicle dynamics, Pure Pursuit, Stanley lateral control, Lyapunov stability | Drive through complex obstacle courses and highway merges in closed-loop sim | [`07_closed_loop_simulator.html`](visual_explainers/07_closed_loop_simulator.html) |
-| **08** | **Capstone: Full Mini-FSD Integration** | End-to-end pipeline wiring, sensor-to-actuation streaming, failure diagnostics | Run the complete multi-cam → BEV → Occupancy → Planner → Controller pipeline | [`08_fsd_dashboard.html`](visual_explainers/08_fsd_dashboard.html) |
-
----
-
-## ⚡ Quick Start
-
-### 1. Clone & Set Up Environment
 ```bash
-git clone https://github.com/vvknyn/self-driving-ai-course.git
-cd self-driving-ai-course
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
 
-# Create or activate your virtual environment (conda or venv)
-conda create -n fsd-course python=3.11 -y
-conda activate fsd-course
-
-# Install dependencies
-pip install -r requirements.txt
+python scripts/build_labs.py --check          # lab.ipynb files are up to date with each lab.py
+python scripts/verify_units.py                # every starter fails its grader, every reference solution passes
+python -m pytest tests/zero2fsd/test_car.py   # run one test file; drop the path to run the whole suite
 ```
 
-### 2. Run the Entire Test Suite
-Verify that all math, tensor operations, geometry projections, and planners pass their unit tests:
-```bash
-python scripts/run_all_tests.py
-```
+Open a unit's `lab.ipynb` in Jupyter, or in Colab through the badge inside the notebook. After editing a `lab.py`, rebuild its notebook with `python scripts/build_labs.py` (no `--check`).
 
-### 3. Launch the Interactive Visual Explainer Portal
-Open the web-based interactive visual portal in your browser:
-```bash
-python scripts/launch_portal.py
-# Opens http://localhost:8000/visual_explainers/index.html
-```
+## What is where
 
----
+- `course/`: the maintained course. One folder per unit (`lecture.md`, `lab.py`, `lab.ipynb`, `quiz.yaml`, `cards.yaml`, `figures/`), plus `syllabus.yaml`. `course/dist/` is generated output.
+- `zero2fsd/`: the simulator, the car, the provided boxes and the grader behind the labs.
+- `playground/`: the in-browser Python playground (Pyodide).
+- `scripts/`, `tests/`, `solutions/`, `data/`: build tools, tests, reference solutions and small synthetic datasets.
 
-## 🚀 How Each Session Works (FastAI Style)
+Legacy v1 material (not reviewed) lives in `modules/`, `notebooks/`, `docs/` and `visual_explainers/`; the maintained course is `course/`.
 
-Each module is self-contained under `modules/XX_name/` with four essential files:
-1. `run_*.py` / `train.py`: **Run this first.** Produces visual output and metrics immediately.
-2. `break_it_fix_it.py`: **The core intuition drill.** An intentional defect is introduced; your job is to run it, diagnose the symptom, and apply the fix.
-3. `tests/test_*.py`: **Andrew Ng verification.** Run `pytest` to verify mathematical and dimensional correctness.
-4. `README.md`: **Deep dive.** Contains geometric diagrams, equations with labeled dimensions, and the *"Why Tesla Does It This Way"* design rationale.
+## Licence
 
----
+Free for non-commercial use (source-available).
 
-## 🛠️ Course Architecture & Synthesis Blueprint
+- Lessons, figures, quizzes, flashcards and lab text: [CC BY-NC-SA 4.0](LICENSE-content). Code: [PolyForm Noncommercial 1.0.0](LICENSE).
+- Free for personal study, teaching, research and nonprofit use.
+- Commercial use (selling it, paywalls, paid courses or training, commercial products) needs a licence: licensing@zero2fsd.com
+- Attribution: "Zero2FSD by Vivek Narayanan (https://zero2fsd.com), CC BY-NC-SA 4.0"
+- Details: https://zero2fsd.com/license. Third-party software the course loads is listed in [NOTICE](NOTICE).
 
-Want to create a similar world-class, production-grade course for another scientific or engineering domain (e.g., **Computational Biology**, **Quantum Computing**, **Robotics**, **Quantitative Finance**)?
+## Contributing
 
-Read the **[Generalized Course Generation Master Prompt](docs/COURSE_GENERATION_PROMPT_TEMPLATE.md)** — a field-agnostic meta-prompt encoding the 5 Titans Pedagogy, JIT Multi-Depth tiers, strict anti-hallucination protocols, and mobile interactive visual explainers.
-
----
-
-## 📂 Repository Structure
-
-```
-self-driving-ai-course/
-├── README.md                          # Master curriculum & setup guide
-├── requirements.txt                   # Tested package versions
-├── docs/                              # Deep-dive theory articles & mathematical proofs
-│   ├── 00_foundations_ml.md           # Autograd, Loss Landscapes & Focal Loss
-│   ├── 01_geometry_and_cameras.md     # Pinhole Camera Models & IPM Geometry
-│   ├── 02_hydranet_multitask.md       # Multi-Task Learning & GradNorm
-│   ├── 03_bev_transformation.md       # Lift-Splat-Shoot & Spatial Cross-Attention
-│   ├── 04_occupancy_networks.md       # 3D Voxel Occupancy & Temporal Dynamics
-│   ├── 05_vector_space_tracking.md    # Kalman Filtering & Vector Lane Graphs
-│   ├── 06_trajectory_planning.md      # Quintic Splines & Cost-Map Optimization
-│   ├── 07_control_and_kinematics.md   # Stanley, Pure Pursuit, and MPC Formulations
-│   ├── 08_fsd_system_architecture.md  # End-to-End System Integration & FSD V12
-│   ├── 09_cutting_edge_research_and_phd_roadmap.md # SOTA Literature & PhD Horizons
-│   └── COURSE_GENERATION_PROMPT_TEMPLATE.md # Generalized Master Meta-Prompt for Any Course
-├── modules/                           # Standalone executable projects
-│   ├── 00_ml_gym/                     # FastAI ML Primer for Autonomous Driving
-│   ├── 01_camera_geometry/            # Multi-Camera Rig Calibration & IPM
-│   ├── 02_hydranet/                   # Shared Backbone Multi-Task Perception
-│   ├── 03_bev_transform/              # Lift-Splat-Shoot 2D-to-BEV Network
-│   ├── 04_occupancy_network/          # 3D Spatiotemporal Occupancy Network
-│   ├── 05_vector_space/               # Multi-Object Tracker & Vector Map Builder
-│   ├── 06_trajectory_planner/         # Multi-Modal Trajectory Sampler & Scorer
-│   ├── 07_control_sim/                # Closed-Loop Vehicle Sim (Stanley & MPC)
-│   └── 08_capstone_fsd/               # Unified End-to-End Mini-FSD Stack
-├── visual_explainers/                 # Zero-dependency interactive web apps
-│   ├── index.html                     # Visual Portal & Curriculum Hub
-│   ├── 01_camera_geometry_ipm.html    # 3D Camera Ray & IPM Distortion Visualizer
-│   ├── 02_hydranet_architecture.html  # Animated Multi-Task Feature Flow
-│   ├── 03_lift_splat_shoot_bev.html   # 3D Frustum-to-BEV Splatting Animation
-│   ├── 04_occupancy_network_3d.html   # Interactive 3D Voxel Grid & Flow Field
-│   ├── 05_vector_space_tracker.html   # Vector Map & Kalman Bipartite Matching
-│   ├── 06_trajectory_planner.html     # Interactive Cost-Map & Trajectory Tuner
-│   ├── 07_closed_loop_simulator.html  # Dynamic Canvas Vehicle Simulator
-│   └── 08_fsd_dashboard.html          # Mission Control Multi-Camera FSD Dashboard
-└── scripts/
-    ├── run_all_tests.py               # One-click test runner across all modules
-    └── launch_portal.py               # Local server for visual explainers
-```
-
----
-
-## 🔬 Citations & Recommended Reading
-- Philion, J., & Fidler, S. (2020). *Lift, Splat, Shoot: Encoding Images From Arbitrary Camera Rigs by Implicitly Unprojecting to 3D.* ECCV 2020.
-- Li, Z., et al. (2022). *BEVFormer: Learning Bird's-Eye-View Representation from Multi-Camera Images via Spatiotemporal Transformers.* ECCV 2022.
-- Kendall, A., Gal, Y., & Cipolla, R. (2018). *Multi-Task Learning Using Uncertainty to Weigh Losses for Scene Geometry and Semantics.* CVPR 2018.
-- Hoffmann, G. M., Tomlin, C. J., Montemerlo, M., & Thrun, S. (2007). *Autonomous Automobile Trajectory Tracking for Off-Road Driving: Controller Design, Experimental Validation and Issues.* IEEE Transactions on Control Systems Technology.
-- Tesla AI Day 2021 & 2022 Presentations (Andrei Karpathy, Ashok Elluswamy, Milan Kovac).
-- Hu, Y., et al. (2023). *Planning-oriented Autonomous Driving (UniAD).* CVPR 2023 Best Paper.
-
----
-
-## 📜 License
-MIT License. Built for students, engineers, and researchers passionate about autonomous robotics and vision-first AI.
+Found an error, a broken lab or an unclear explanation? Open an issue. Fixes are welcome as pull requests. See [CONTRIBUTING.md](CONTRIBUTING.md).
