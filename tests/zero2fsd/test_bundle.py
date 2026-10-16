@@ -1,4 +1,5 @@
 import json
+import shutil
 
 import pytest
 import yaml
@@ -120,6 +121,21 @@ def test_main_fails_on_a_lecture_link_to_an_exercise_that_does_not_exist(built_r
     edit(built_repo, f"{UNIT}/lecture.md", "# Mini unit\n", "# Mini unit\n\n[Try it](playground/index.html?exercise=9.9.9.z)\n")
     assert bundler.main(["--root", str(built_repo)]) == 1
     assert "9.9.9.z" in capsys.readouterr().err
+
+
+def test_a_planned_unit_with_a_folder_is_checked_like_a_ready_one_but_ships_nothing(built_repo):
+    folder = built_repo / "course" / "0.1.2-not-written"
+    folder.mkdir()
+    with pytest.raises(BuildError, match=r"0\.1\.2: planned unit is missing 0\.1\.2-not-written/unit\.yaml"):
+        bundler.build_bundle(built_repo)
+    shutil.rmtree(folder)
+    shutil.copytree(built_repo / UNIT, folder)
+    edit(built_repo, "course/0.1.2-not-written/unit.yaml", 'id: "0.1.1"', 'id: "0.1.2"')
+    bundle, copies = bundler.build_bundle(built_repo)
+    assert list(bundle["units"]) == ["0-1-1"] and not [dest for _, dest in copies if dest.startswith("0-1-2/")]
+    (folder / "quiz.yaml").unlink()
+    with pytest.raises(BuildError, match=r"0\.1\.2: planned unit is missing 0\.1\.2-not-written/quiz\.yaml"):
+        bundler.build_bundle(built_repo)
 
 
 @pytest.mark.parametrize("name", bundler.REQUIRED_FILES)

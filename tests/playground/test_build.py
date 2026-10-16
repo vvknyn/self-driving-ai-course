@@ -237,6 +237,21 @@ def test_a_planned_units_exercises_are_not_records_even_when_its_folder_exists(m
     assert [r["id"] for r in bp.exercise_records(mini_repo)] == ["0.1.1.a", "0.1.1.b"]
 
 
+def test_a_planned_unit_with_a_stray_presets_dir_fails_naming_it(mini_repo):
+    stray = add_planned_unit(mini_repo) / "presets" / "9.9.9.z"
+    stray.mkdir(parents=True)
+    (stray / "x.py").write_text("later = 1\n")
+    with pytest.raises(bp.BuildError, match=r"0\.1\.2-not-written/presets/9\.9\.9\.z: unit\.yaml declares no such exercise"):
+        bp.exercise_records(mini_repo)
+
+
+def test_a_planned_unit_with_no_folder_is_skipped_and_a_ready_one_with_none_raises(mini_repo):
+    assert [unit["id"] for _, unit, _, _ in bp.validated_units(mini_repo)] == ["0.1.1"]
+    shutil.rmtree(mini_repo / "course" / "0.1.1-mini")
+    with pytest.raises(FileNotFoundError):
+        bp.validated_units(mini_repo)
+
+
 # --- validate_lecture_links ----------------------------------------------------------------------------------
 
 
@@ -262,11 +277,21 @@ def test_the_link_pattern_stops_the_id_and_the_preset_at_a_delimiter_or_trailing
 ])
 def test_lecture_links_that_resolve_pass(mini_repo, link):
     link_in_lecture(mini_repo, "0.1.1-mini", link)
-    bp.validate_lecture_links(mini_repo, bp.exercise_records(mini_repo))
+    bp.validate_lecture_links(mini_repo)
 
 
-def test_every_lecture_link_in_the_repo_resolves(records):
-    bp.validate_lecture_links(REPO, records)
+def test_a_planned_units_lecture_may_link_to_its_own_exercise_but_a_ready_lecture_may_not(mini_repo):
+    add_planned_unit(mini_repo)
+    link = "[Try it](playground/index.html?exercise=0.1.2.a&preset=starter)"
+    link_in_lecture(mini_repo, "0.1.2-not-written", link)
+    bp.validate_lecture_links(mini_repo)
+    link_in_lecture(mini_repo, "0.1.1-mini", link)
+    with pytest.raises(bp.BuildError, match=r"course/0\.1\.1-mini/lecture\.md: .*exercise=0\.1\.2\.a.*not ready"):
+        bp.validate_lecture_links(mini_repo)
+
+
+def test_every_lecture_link_in_the_repo_resolves():
+    bp.validate_lecture_links(REPO)
 
 
 @pytest.mark.parametrize(("link", "bad_link", "why"), [
@@ -277,7 +302,7 @@ def test_every_lecture_link_in_the_repo_resolves(records):
 def test_a_lecture_link_to_a_missing_exercise_or_preset_names_the_lecture_the_link_and_why(mini_repo, link, bad_link, why):
     link_in_lecture(mini_repo, "0.1.1-mini", link)
     with pytest.raises(bp.BuildError) as caught:
-        bp.validate_lecture_links(mini_repo, bp.exercise_records(mini_repo))
+        bp.validate_lecture_links(mini_repo)
     assert f"course/0.1.1-mini/lecture.md: {bad_link} ({why}" in str(caught.value)
 
 
@@ -289,7 +314,7 @@ def test_a_lecture_link_to_a_missing_exercise_or_preset_names_the_lecture_the_li
 def test_a_link_in_a_form_the_site_does_not_serve_fails_even_when_the_exercise_exists(mini_repo, link):
     link_in_lecture(mini_repo, "0.1.1-mini", link)
     with pytest.raises(bp.BuildError, match=re.escape("use playground/index.html?exercise=<id>")):
-        bp.validate_lecture_links(mini_repo, bp.exercise_records(mini_repo))
+        bp.validate_lecture_links(mini_repo)
 
 
 def test_every_bad_link_of_every_lecture_is_listed_at_once(mini_repo):
@@ -297,7 +322,7 @@ def test_every_bad_link_of_every_lecture_is_listed_at_once(mini_repo):
     (mini_repo / "course" / "0.9.9-other" / "lecture.md").write_text("[x](playground/index.html?exercise=8.8.8.y)\n")
     link_in_lecture(mini_repo, "0.1.1-mini", "[x](playground/index.html?exercise=9.9.9.z)")
     with pytest.raises(bp.BuildError) as caught:
-        bp.validate_lecture_links(mini_repo, bp.exercise_records(mini_repo))
+        bp.validate_lecture_links(mini_repo)
     message = str(caught.value)
     assert "course/0.9.9-other/lecture.md" in message and "8.8.8.y" in message
     assert "course/0.1.1-mini/lecture.md" in message and "9.9.9.z" in message
@@ -486,7 +511,7 @@ def test_a_preset_for_an_undeclared_exercise_named_starter_or_empty_fails_the_bu
 def test_a_lecture_link_resolves_to_a_shipped_preset_and_fails_for_a_missing_one(mini_repo):
     add_preset(mini_repo, "0.1.1.a", "alpha")
     link_in_lecture(mini_repo, "0.1.1-mini", "[Try it](playground/index.html?exercise=0.1.1.a&preset=alpha)")
-    bp.validate_lecture_links(mini_repo, bp.exercise_records(mini_repo))
+    bp.validate_lecture_links(mini_repo)
     link_in_lecture(mini_repo, "0.1.1-mini", "[Try it](playground/index.html?exercise=0.1.1.a&preset=beta)")
     with pytest.raises(bp.BuildError, match="preset=beta"):
-        bp.validate_lecture_links(mini_repo, bp.exercise_records(mini_repo))
+        bp.validate_lecture_links(mini_repo)

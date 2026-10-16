@@ -51,19 +51,30 @@ def unit_presets(folder: Path, exercise_ids: list[str]) -> dict[str, dict[str, s
     return found
 
 
-def exercise_records(repo_root: Path) -> list[dict]:
-    """One record per exercise of every ready unit, in syllabus order: everything the page needs to open it."""
-    records = []
-    for week, unit in enumerate(syllabus_units(repo_root), start=1):  # the week counts every listed unit, ready or not
-        if unit["status"] != "ready":
-            continue
+def validated_units(repo_root: Path) -> list[tuple[int, dict, dict, dict]]:
+    """(week, syllabus entry, unit.yaml, presets) for every ready unit and every other listed unit whose folder exists, in syllabus order.
+    A planned unit with no folder is a placeholder and is skipped; a ready unit with no folder raises. The week counts every listed unit."""
+    units = []
+    for week, unit in enumerate(syllabus_units(repo_root), start=1):
         folder = repo_root / "course" / unit["folder"]
+        if unit["status"] != "ready" and not folder.is_dir():
+            continue
         meta = load_yaml(folder / "unit.yaml")
         if not isinstance(meta.get("exercises"), list):
             raise BuildError(f"{unit['id']}: unit.yaml has no `exercises` list")
         if meta["exercises"] and not meta.get("car_box"):
             raise BuildError(f"{unit['id']}: unit.yaml has exercises but no `car_box` (the part of the car they build)")
-        presets = unit_presets(folder, [e["id"] for e in meta["exercises"]])
+        units.append((week, unit, meta, unit_presets(folder, [e["id"] for e in meta["exercises"]])))
+    return units
+
+
+def exercise_records(repo_root: Path) -> list[dict]:
+    """One record per exercise of every ready unit, in syllabus order: everything the page needs to open it."""
+    records = []
+    for week, unit, meta, presets in validated_units(repo_root):
+        if unit["status"] != "ready":
+            continue  # checked above like a ready unit, but it ships nothing
+        folder = repo_root / "course" / unit["folder"]
         lab = folder / "lab.py"
         if not lab.is_file():
             raise BuildError(f"{unit['id']}: course/{unit['folder']}/lab.py is missing")
@@ -87,19 +98,23 @@ def exercise_records(repo_root: Path) -> list[dict]:
     return records
 
 
-def validate_lecture_links(repo_root: Path, records: list[dict]) -> None:
-    """Raise BuildError naming every lecture link to a playground exercise or preset that does not exist."""
-    presets = {r["id"]: r["presets"] for r in records}
+def validate_lecture_links(repo_root: Path) -> None:
+    """Raise BuildError naming every lecture link to a playground exercise or preset that does not exist, or (from a ready
+    unit's lecture) to an exercise of a unit that is not ready: that page is not on prod."""
+    known = {e["id"]: (unit["status"], {"starter", *presets.get(e["id"], {})}) for _, unit, meta, presets in validated_units(repo_root) for e in meta["exercises"]}
+    status = {unit["folder"]: unit["status"] for unit in syllabus_units(repo_root)}
     bad = []
     for lecture in sorted((repo_root / "course").glob("*/lecture.md")):
         text, where = lecture.read_text(encoding="utf-8"), lecture.relative_to(repo_root).as_posix()
         bad += [f"{where}: {m[0]} (use playground/index.html?exercise=<id>)" for m in WRONG_FORM_LINK.finditer(text)]
         for link in PLAYGROUND_LINK.finditer(text):
             exercise, preset = link.groups()
-            if exercise not in presets:
+            if exercise not in known:
                 bad.append(f"{where}: {link[0]} (no such exercise)")
-            elif preset and preset not in presets[exercise]:
-                bad.append(f"{where}: {link[0]} (exercise {exercise} has presets {sorted(presets[exercise])})")
+            elif status.get(lecture.parent.name) == "ready" and known[exercise][0] != "ready":
+                bad.append(f"{where}: {link[0]} (exercise {exercise} belongs to a unit that is not ready, so it is not on the site)")
+            elif preset and preset not in known[exercise][1]:
+                bad.append(f"{where}: {link[0]} (exercise {exercise} has presets {sorted(known[exercise][1])})")
     if bad:
         raise BuildError("lecture links to the playground that do not resolve:\n  " + "\n  ".join(bad))
 
@@ -138,7 +153,7 @@ def write_playground(repo_root: Path, out_dir: Path) -> None:
     """Replace `out_dir` with the build: the playground/ files, bundle.zip, three data files and manifest.json.
     The build lands in a sibling first and replaces `out_dir` only once it is complete, so a failed build leaves the previous one."""
     records = exercise_records(repo_root)
-    validate_lecture_links(repo_root, records)
+    validate_lecture_links(repo_root)
     building = out_dir.with_name(out_dir.name + ".building")
     shutil.rmtree(building, ignore_errors=True)  # only present after an interrupted build
     building.mkdir(parents=True)
