@@ -1,18 +1,27 @@
 - id: c1
-  front: "What is the difference between open-loop and closed-loop control?"
-  back: "Open loop fixes its commands in advance and never measures the result, so errors add up. Closed loop computes each command from the latest measurement, so an error is corrected as soon as it shows. A 0.002 rad wheel error crashes a replayed lap of `gentle`; the closed-loop car barely notices."
+  front: What is the difference between open-loop and closed-loop control?
+  back: Open loop fixes its commands in advance and never measures the result, so errors add up. Closed loop computes each command from the latest measurement, so an error is corrected as soon as it shows. A 0.002 rad wheel error leaves `gentle` after 8.40 s in a replayed lap; the closed-loop car never strays more than 0.0074 m over those seconds.
 - id: c2
-  front: "Write the car's P steering law, with its signs and guards."
-  back: "$\\delta = -(k_{\\text{off}}\\, e_{\\text{off}} + k_{\\text{head}}\\, \\psi)$, left positive, clipped to $\\pm 0.5$ rad; 0.0 when the estimate is not valid. The minus sign steers against the error: negative feedback."
+  front: What makes feedback negative, and what goes wrong if you flip a sign?
+  back: 'The law steers against the error. Flipping the heading sign makes positive feedback: on `gentle` the car leaves the road after 21.1 m, 2.70 s. Flipping the whole law leaves after 8.2 m, 1.10 s.'
 - id: c3
-  front: "Why does the controller use the heading as well as the offset?"
-  back: "A heading error is an offset in the making: 0.05 rad at 8 m/s is 0.40 m sideways per second. The heading term eases off when the car is already returning, which brakes the swing: $k_{\\text{head}} = 0$ overshoots by 0.30 m, 1 settles in 1.15 s, 2.7 creeps (3.10 s)."
+  front: Write the car's P steering law, with its guards.
+  back: $\delta = -(k_{\text{off}}\, e + k_{\text{head}}\, \psi)$, left positive, clipped to $\pm 0.5$ rad; 0.0 when the estimate is not valid. The provided gains are 0.35 and 2.7.
 - id: c4
-  front: "Does more gain always mean tighter tracking?"
-  back: "No. On `gentle`, `k_off` 1.5 gives 0.017 m, 3.0 gives 0.042 m, and 6 leaves the road: the wheel turns at most 1 rad/s, so a high-gain command arrives late and each swing is wider. There is a best range of gains."
+  front: What does a heading gain of 1 do?
+  back: The wheels point $-k_{\text{off}}$ times the offset away from the lane's direction ($\psi + \delta = -k_{\text{off}}\, e$), so the car returns with no swing.
 - id: c5
-  front: "Where does a P-steered car settle in a steady bend of radius $R$?"
-  back: "It must hold $\\delta \\approx \\arctan(L/R)$, with its body pointing $\\delta$ outside ($\\psi = -\\delta$), so $e_{\\text{off}} = (k_{\\text{head}} - 1)\\,\\delta / k_{\\text{off}}$: 0.160 m on `gentle` with the provided gains. Zero when $k_{\\text{head}} = 1$, as in Stanley's law."
+  front: What wheel angle holds a bend of radius R?
+  back: $\delta = \arcsin(L/R)$, with $L = 2.7$ m. On `gentle` (R = 81.8 m) that is 0.0330 rad.
 - id: c6
-  front: "Why does the car with the two-point box leave `curvy`?"
-  back: "On a left bend the box's straight line reports a heading far to the right of the truth, and $k_{\\text{head}} = 2.7$ turns that bias into steering left, so the car cuts inside and leaves at 48.3 m. With perfect lane values the same law completes `curvy`."
+  front: What offset does a P-steered car carry in a steady bend?
+  back: $e = (k_{\text{head}} - 1)\,\delta / k_{\text{off}}$. On `gentle` at 0.35 and 2.7 that is +0.160 m; with $k_{\text{head}} = 1$ it is zero.
+- id: c7
+  front: How do the box's biases move the car in a bend?
+  back: $e = (k_{\text{head}}-1)\delta/k_{\text{off}} - b_{\text{off}} - (k_{\text{head}}/k_{\text{off}})\,b_{\text{head}}$. The heading bias counts $k_{\text{head}}/k_{\text{off}} = 7.71$ m per radian, so it dominates; on `curvy` the car leaves at 48.3 m.
+- id: c8
+  front: Which gains cancel the provided box's biases, and is that a fix?
+  back: A heading gain of about twice the offset gain (the biases' ratio is 1.995 m); 0.5 and 1.0 gives 0.003 m on `gentle` and 0.083 m on `curvy`. It is a patch for this box, not a fix.
+- id: c9
+  front: What happens with too much gain?
+  back: 'On `gentle` $k_{\text{off}} = 6.0$ leaves the road after 4.30 s: the wheel turns at most 0.05 rad per step, so corrections arrive late and each swing is wider.'

@@ -17,10 +17,13 @@ exercises:
 go_deeper:
   - title: "NumPy: the absolute basics for beginners (sections \"Array fundamentals\" and \"Basic array operations\")"
     url: "https://numpy.org/doc/stable/user/absolute_beginners.html"
+    note: "The official guide to everything this lesson used: making arrays, abs, mean, max and comparisons."
   - title: "CS231n Python Numpy Tutorial (sections \"Arrays\" and \"Array math\")"
     url: "https://cs231n.github.io/python-numpy-tutorial/"
+    note: "A compact tour from Stanford's computer-vision course. Its \"Boolean array indexing\" part prepares you for Images are arrays."
   - title: "Thrun et al., Stanley: The Robot that Won the DARPA Grand Challenge (2006), §9.2 \"Steering Control\", p. 684"
     url: "http://robots.stanford.edu/papers/thrun.stanley05.pdf"
+    note: "How the winning car of the 2005 desert race defined its cross-track error and steered to shrink it. Read the definition now, and come back for the steering law after Closing the loop."
 tutor_prompt: |
   You are a Socratic tutor for the lesson "Meet your car" of a self-driving car course. I am a programmer with rusty maths and no machine-learning background. I have just read a lecture and done a lab on measuring how well a car keeps its lane.
 

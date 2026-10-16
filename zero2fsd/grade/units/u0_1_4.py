@@ -1,4 +1,4 @@
-"""0.1.4 Closing the loop: a P steering controller and the all-yours car."""
+"""0.1.4 Closing the loop: a P steering controller and your own car."""
 from __future__ import annotations
 
 import math
@@ -36,7 +36,7 @@ def _cases():
 @exercise(
     "0.1.4.a",
     checked=f"p_steer against -(k_off*offset + k_head*heading) clipped to +-{MAX_STEER}: signs, clipping, invalid estimate, 30 random cases",
-    section="The P controller",
+    section="Steering in proportion to the error",
 )
 def _p_steer(fn, show, on_step):
     cases = _cases()
@@ -52,12 +52,12 @@ def _p_steer(fn, show, on_step):
 
 @exercise(
     "0.1.4.b",
-    checked=f"my_car (your perception and your controller) on `{GATE_SCENARIO}`: it must complete with mean |lat| < {GATE_MEAN_LAT} m; then `curvy` is shown, not graded",
-    section="Closing the loop",
+    checked=f"my_car (your perception and your controller) on `{GATE_SCENARIO}`: it must complete with mean |e| < {GATE_MEAN_LAT} m; then `curvy` is shown, not graded",
+    section="Your whole car",
 )
 def _my_car(car, show, on_step):
     require_car(car)
     require_own(car)
     passed = gate(car, show, on_step)
-    curvy = drive(car, "curvy", "your cliffhanger on curvy", show)
-    return f"{passed}; cliffhanger (not graded): {outcome(curvy)}"
+    curvy = drive(car, "curvy", "curvy (not graded)", show)
+    return f"{passed}; curvy (not graded): {outcome(curvy)}"

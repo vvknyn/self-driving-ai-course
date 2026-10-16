@@ -106,6 +106,8 @@ def build_unit(root: Path, entry: dict, known_ids: set[str]) -> tuple[dict, list
     _need(all(p in known_ids for p in meta["prerequisites"]), f"{unit_id}: a prerequisite is not a unit in the syllabus: {meta['prerequisites']}")
     _need(all(isinstance(o, dict) and _text(o.get("can")) and _text(o.get("proof")) for o in meta["outcomes"]) and meta["outcomes"],
           f"{unit_id}: outcomes need a can and a proof each")
+    _need(all(isinstance(g, dict) and _text(g.get("title")) and _text(g.get("url")) and ("note" not in g or _text(g["note"])) for g in meta["go_deeper"]),
+          f"{unit_id}: every go_deeper item needs a title and url, and a note, when present, must be non-empty text")
     paper = meta.get("paper")
     _need(paper is None or all(k in paper for k in ("title", "url", "questions")), f"{unit_id}: paper needs title, url and questions")
 

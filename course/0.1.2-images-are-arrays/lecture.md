@@ -4,7 +4,7 @@ Twenty times a second, the camera on your car hands the perception box a picture
 
 By the end of this lesson you will write a function, `paint_masks`, that takes one camera picture and marks every pixel of yellow paint and every pixel of white paint. It has to keep working when the camera is noisy, and it is scored on six pictures taken on all three test roads.
 
-![Left: one picture from the car's camera on the straight road. Right: what paint_masks finds in it, the 709 pixels of yellow paint and the 872 pixels of white paint, each drawn in its own colour, with every other pixel dark.](figures/camera_to_masks.png)
+![Top: one picture from the car's camera on the straight road. Bottom: what paint_masks finds in it, the 709 pixels of yellow paint and the 872 pixels of white paint, each drawn in its own colour, with every other pixel dark.](figures/camera_to_masks.png)
 
 ## A frame is a grid of numbers
 
@@ -12,7 +12,7 @@ In 1988, Dean Pomerleau at Carnegie Mellon University taught a small neural netw
 
 > "The first retina, consisting of 30x32 units, receives video camera input from a road scene. The activation level of each unit in this retina is proportional to the intensity in the blue color band of the corresponding patch of the image. The blue band of the color image is used because it provides the highest contrast between the road and the non-road." (Pomerleau, 1988, p. 306)
 
-A grid of 30 by 32 brightness values, 960 numbers, was all ALVINN ever saw of the camera picture. (The "first retina" has a partner: a smaller grid of distances from a laser range finder.)
+A grid of 30 by 32 brightness values, 960 numbers, was all ALVINN ever saw of the camera picture. (The "first retina" has a partner: a smaller 8 by 32 grid from a laser range finder, each unit's activation proportional to how close that patch is.)
 
 Your car's camera gives you a bigger grid. Each picture it takes is called a **frame**. A frame is 320 pixels wide and 180 pixels tall, and the colour of each pixel is stored as three numbers: how much red, how much green and how much blue.
 
@@ -20,7 +20,7 @@ Your car's camera gives you a bigger grid. Each picture it takes is called a **f
 
 Multiply the three sizes: $180 \times 320 \times 3 = 172{,}800$ numbers, every 0.05 seconds. In the lab, a frame is a NumPy array with **shape** `(180, 320, 3)`. The shape lists how long the array is along each of its directions, which NumPy calls **axes**: 180 rows, 320 columns, 3 colour values.
 
-![Left: the camera frame on the straight road, with a small box where the road meets the yellow line. Right: the box, rows 148–153 and columns 55–60, drawn large, each of its 6 by 6 pixels labelled with its red, green and blue values.](figures/frame_grid.png)
+![Top: the camera frame on the straight road, with a small box where the road meets the yellow line. Bottom: the box, rows 148–153 and columns 55–60, drawn large, each of its 6 by 6 pixels labelled with its red, green and blue values, in that order from top to bottom, as the key beside the first row says.](figures/frame_grid.png)
 
 Zoom in on the box and the picture dissolves into its numbers. The grey road pixels are all `(90, 90, 95)`. The yellow paint pixels are all `(230, 200, 40)`. The edge between them is a staircase, because a slanted line drawn on a grid of squares always is.
 
@@ -93,7 +93,7 @@ A fraction becomes a percentage when you multiply it by 100: $0.02745 \times 100
 
 To find paint, you need a way to ask "how close is this pixel's colour to yellow?" Three numbers can be read as a position. Treat red, green and blue as three directions, like the length, width and height of a room. Then every colour is a point inside a cube whose sides run from 0 to 255, and similar colours are points close together.
 
-![The five colours of the simulator as points in a cube whose three edges are red, green and blue, each from 0 to 255. Each point is drawn in its own colour and labelled. A line joins road grey to yellow paint.](figures/rgb_cube.png)
+![The five colours of the simulator as points in a cube whose three edges are red, green and blue, each from 0 to 255. Each point is drawn in its own colour and labelled. A line joins road grey to yellow paint. Road grey and grass sit almost on top of each other in this view; they are different points, and the numbers beside them tell them apart.](figures/rgb_cube.png)
 
 How far apart are road grey, $(90, 90, 95)$, and yellow paint, $(230, 200, 40)$? Start with two of the three directions. In red they differ by $230 - 90 = 140$, and in green by $200 - 90 = 110$. Those two differences are the sides of a right-angled triangle, because the red and green directions meet at a right angle, like two walls of a room meeting in a corner. So Pythagoras' theorem gives the distance across:
 
@@ -103,7 +103,7 @@ Now add the third direction. In blue they differ by $95 - 40 = 55$. The blue dir
 
 $$\begin{aligned}\sqrt{31{,}700+55^2} &= \sqrt{31{,}700+3{,}025}\\ &= \sqrt{34{,}725}\\ &= 186.3\end{aligned}$$
 
-![Building the distance from road grey to yellow paint in two steps. Left: in the red-green plane alone, sides of 140 and 110 give a distance of 178.0. Right: a second right-angled triangle, with that 178.0 as one side and the blue difference of 55 as the other, gives 186.3.](figures/distance_build.png)
+![Building the distance from road grey to yellow paint in two steps. Top: in the red-green plane alone, sides of 140 and 110 give a distance of 178.0. Bottom: a second right-angled triangle, with that 178.0 as one side and the blue difference of 55 as the other, gives 186.3.](figures/distance_build.png)
 
 That is all there is to it, for any two colours. Write a pixel's colour as $p = (p_R, p_G, p_B)$, read "p-R, p-G, p-B", its red, green and blue values. Write the colour you are looking for as $c = (c_R, c_G, c_B)$. Name the three differences $\Delta_R = p_R - c_R$, read "delta R, the red difference", and likewise $\Delta_G$ and $\Delta_B$. Then the distance between them is
 
@@ -113,7 +113,7 @@ read "d of p and c is the square root of delta R squared, plus delta G squared, 
 
 **Guess first:** of the other four colours, which one is closest to yellow paint: road, grass, sky or white?
 
-![Two bar charts of distances between the simulator's colours. Left: the distance from yellow paint to each of the other four colours; the shortest bar is grass, at 175.8. Right: the distance from white paint to each of the other four; the shortest bar is sky, at 116.4.](figures/nearest_bars.png)
+![Two bar charts of distances between the simulator's colours. Top: the distance from yellow paint to each of the other four colours; the shortest bar is grass, at 175.8. Bottom: the distance from white paint to each of the other four; the shortest bar is sky, at 116.4.](figures/nearest_bars.png)
 
 **Answer:** grass, 175.8 away, a little closer than road at 186.3. And the colour closest to white paint is sky, only 116.4 away. Keep those two colours in mind: grass and sky are the ones most likely to be mistaken for paint.
 
@@ -146,7 +146,7 @@ The symbol $\sigma$, read "sigma", is the typical size of a nudge. Most nudges a
 
 The bell shape has a name, the **normal distribution**, and $\sigma$ is its **standard deviation**. You will meet both again; for now, "typical size of a nudge" is all you need.
 
-![The same 6 by 6 pixels as before, clean on the left and with noise of sigma 6 on the right. After noise, no two road pixels are identical, and no yellow pixel is exactly (230, 200, 40).](figures/noisy_patch.png)
+![The same 6 by 6 pixels as before, clean on top and with noise of sigma 6 below. After noise, no two road pixels are identical, and no yellow pixel is exactly (230, 200, 40).](figures/noisy_patch.png)
 
 Pixel `frame[150, 59]` was `(230, 200, 40)` and is now `(234, 199, 42)`. Its differences from yellow are 4, −1 and 2, so its distance from yellow is
 
@@ -160,7 +160,7 @@ The simulator paints yellow as exactly `(230, 200, 40)`. So why not find yellow 
 
 **Guess first:** on a frame with noise of sigma 6, how many of the 709 yellow pixels does exact equality find?
 
-![Left: testing every pixel of a clean frame for exact equality with yellow finds all 709 yellow pixels. Right: the same test on the noisy frame finds none.](figures/exact_fails.png)
+![Top: testing every pixel of a clean frame for exact equality with yellow finds all 709 yellow pixels. Bottom: the same test on the noisy frame finds none.](figures/exact_fails.png)
 
 **Answer:** None of them. To equal yellow exactly, a noisy pixel needs all three of its nudges to round to 0. One nudge does that only when it lands between $-0.5$ and $+0.5$, and with $\sigma = 6$ that happens with a probability of about 0.066, roughly one time in fifteen.
 
@@ -212,7 +212,7 @@ How big should $\tau$ be? Look at the distance from yellow, and from white, of e
 
 **Guess first:** paint sits within about 30 of its colour. How far away is the nearest pixel that is not paint?
 
-![Histograms (bar charts of how many pixels sit at each distance) of the distance from every pixel of a noisy frame to yellow paint (left) and to white paint (right). Pixels that truly are that paint are drawn in its colour, and every other pixel in grey. The paint sits below 30, and every other pixel is more than 90 away. A dashed line marks the threshold of 60.](figures/colour_distance.png)
+![Histograms (bar charts of how many pixels sit at each distance) of the distance from every pixel of a noisy frame to yellow paint (top) and to white paint (bottom). Pixels that truly are that paint are drawn in its colour, and every other pixel in grey. The paint sits below 30, and every other pixel is more than 90 away. A dashed line marks the threshold of 60.](figures/colour_distance.png)
 
 The count axis is stretched so that each step up is ten times more pixels; without that, the few hundred paint pixels would be invisible next to tens of thousands of others.
 
@@ -220,7 +220,7 @@ In this frame, noise moved no yellow pixel more than 27.8 from yellow and no whi
 
 **Guess first:** what goes wrong with $\tau = 10$ for yellow? And with $\tau = 120$ for white?
 
-![Three masks from the same noisy frame. Left: yellow with tau 10 finds only 55.4% of the yellow paint. Middle: tau 60 finds all of the paint and nothing else. Right: white with tau 120 also marks most of the sky, 18,098 pixels instead of 872.](figures/tau_sweep.png)
+![Three masks from the same noisy frame. Top: yellow with tau 10 finds only 55.4% of the yellow paint. Middle: tau 60 finds all of the paint and nothing else. Bottom: white with tau 120 also marks most of the sky, 18,098 pixels instead of 872.](figures/tau_sweep.png)
 
 **Answer:** $\tau = 10$ is too strict: noise pushes almost half of the yellow pixels further than 10 away, so the mask keeps only 55.4% of them. $\tau = 120$ is too loose for white: it reaches past the gap to the sky, 116.4 away, and marks 18,098 pixels instead of 872. A threshold has to sit inside the gap, and the gap is set by the colour that comes closest.
 
@@ -232,7 +232,7 @@ The obvious score is the share of pixels your mask got right.
 
 **Guess first:** a lazy mask marks nothing at all. What share of the pixels does it get right, for yellow?
 
-![Left: the true yellow mask, 709 pixels. Middle: a mask that marks nothing. Right: two bars for the empty mask, the share of pixels it gets right, 98.8%, and the score this section builds, 0.](figures/accuracy_trap.png)
+![Top: the true yellow mask, 709 pixels. Middle: a mask that marks nothing. Bottom: two scores for the empty mask. The share of pixels it gets right is a tall bar, 98.8%; the score this section builds is 0, an empty bar.](figures/accuracy_trap.png)
 
 **Answer:** 98.8%. Yellow paint is only 1.2% of the frame, so a mask that marks nothing is right about every other pixel. A score that rates a useless mask at nearly 99% is no score at all.
 
@@ -300,9 +300,3 @@ The fix is one call: convert to a type that can go negative, `frame.astype(float
 You can now find the paint. But a mask is still 57,600 answers of yes or no, and the controller needs two numbers: how far the car is from the lane centre, and which way it points along the lane. How do you get from two masks to those two numbers?
 
 That is the next lesson, *Your first perception box*.
-
-## Go deeper
-
-- **NumPy: the absolute basics for beginners**, sections "Array attributes" (shape, dtype) and "Indexing and slicing", which ends with picking out values with a condition and combining conditions with `&` and `|`.
-- **CS231n Python Numpy Tutorial**, sections "Array indexing" (read "Boolean array indexing"), "Datatypes", "Broadcasting" and, under Matplotlib, "Images".
-- **Pomerleau, "ALVINN: An Autonomous Land Vehicle in a Neural Network" (1988)**, p. 306, "Network Architecture" and Figure 1: the 30 by 32 camera grid and the blue band. This is the module paper; you will read it properly in *Closing the loop*.

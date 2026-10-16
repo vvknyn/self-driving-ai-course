@@ -1,13 +1,17 @@
 # scripts/figstyle.py
 """The one figure style: dark page colours from the palette, applied by make_figures.py with `matplotlib.rc_context(RC)`.
 
-A figures.py never sets a background, text colour or colour cycle; it only picks palette entries for what it draws.
+A figures.py never sets a background, text colour, colour cycle or dpi; it only picks palette entries for what it draws.
 """
 from cycler import cycler
 
 from zero2fsd.palette import CHROME, QUANTITY
 
+FIG_DENSITY = 2  # the site shows a figure PNG at its pixel width / this: a 2x srcset
+FIG_DPI = 100 * FIG_DENSITY  # so one figure inch is 100 CSS px on the page
+
 RC = {
+    "savefig.dpi": FIG_DPI,
     "figure.facecolor": CHROME["background"],
     "axes.facecolor": CHROME["panel"],
     "axes.edgecolor": CHROME["border"],

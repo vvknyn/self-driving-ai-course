@@ -38,6 +38,7 @@ import numpy as np
 from zero2fsd.car import Action, Car, LaneEstimate, Observation, provided, run
 from zero2fsd.car.provided import (FAR_ROWS, K_HEAD, K_OFF, MIN_PIXELS, NEAR_ROWS, estimate_lane, hold_speed,
                                    lane_point, paint_masks, steer_p)
+from zero2fsd.palette import CHROME, QUANTITY, SCENE
 from zero2fsd.score import metrics, metrics_table
 from zero2fsd.sim import BicycleState, Camera, make_scenario
 from zero2fsd.sim.camera import GRASS, PALETTE, ROAD, SKY, WHITE, YELLOW
