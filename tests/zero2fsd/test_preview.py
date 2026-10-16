@@ -23,6 +23,7 @@ from zero2fsd.sim.scenarios import SCENARIOS
 KINDS = {
     "0.1.1.a": "stats", "0.1.1.b": "stats", "0.1.2.a": "image",
     "0.1.3.a": "drive", "0.1.3.b": "drive", "0.1.4.a": "drive", "0.1.4.b": "drive",
+    "1.1.1.a": "stats", "1.1.1.b": "stats",
 }
 STEPS = 100  # enough steps to tell one car from another without driving a whole lap
 STILL_PROVIDED = {"0.1.3.a": ["controller"], "0.1.3.b": ["controller"], "0.1.4.a": ["perception"], "0.1.4.b": ["perception", "controller"]}
