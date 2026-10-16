@@ -178,7 +178,7 @@ GATE_EXERCISES = pytest.mark.parametrize("exercise_id, subject", [
 )
 def test_both_gate_exercises_print_the_gate_limit_and_margin_and_flag_a_thin_one(
         monkeypatch, make_tel, exercise_id, subject, completed, mean_lat, passed, near, says):
-    monkeypatch.setattr(_drive, "run", lambda car, scenario, on_step=None: tel_that(make_tel, completed=completed, mean_lat=mean_lat))
+    monkeypatch.setattr(_drive, "run", lambda car, scenario, on_step=None, camera=None: tel_that(make_tel, completed=completed, mean_lat=mean_lat))
     result = check(exercise_id, subject, show=False)
     assert result.passed is passed, text(result)
     assert says in text(result), text(result)
@@ -189,6 +189,6 @@ def test_both_gate_exercises_print_the_gate_limit_and_margin_and_flag_a_thin_one
 @pytest.mark.parametrize("mean_lat, near", [(98.0, False), (98.01, True), (102.0, False), (101.99, True)])
 def test_the_borderline_sentence_needs_a_margin_under_two_percent_not_at_it(monkeypatch, make_tel, exercise_id, subject, mean_lat, near):
     monkeypatch.setattr(_drive, "GATE_MEAN_LAT", 100.0)  # a 2 % margin is exact in floating point at 100 and is not at 0.5
-    monkeypatch.setattr(_drive, "run", lambda car, scenario, on_step=None: tel_that(make_tel, completed=True, mean_lat=mean_lat))
+    monkeypatch.setattr(_drive, "run", lambda car, scenario, on_step=None, camera=None: tel_that(make_tel, completed=True, mean_lat=mean_lat))
     result = check(exercise_id, subject, show=False)
     assert (BORDERLINE_NOTE in text(result)) is near, text(result)

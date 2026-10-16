@@ -16,6 +16,7 @@ BROWSER_MODULES = (
     "zero2fsd", "zero2fsd.sim", "zero2fsd.car", "zero2fsd.grade", "zero2fsd.score", "zero2fsd.dashboard",
     "zero2fsd.export",
     "zero2fsd.palette",
+    "zero2fsd.geom",
     "zero2fsd.preview",
 )
 SCRIPT = """

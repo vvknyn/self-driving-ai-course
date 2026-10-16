@@ -34,6 +34,23 @@ def _text(where: str, key: str, value) -> str:
     return value
 
 
+def unit_presets(folder: Path, exercise_ids: list[str]) -> dict[str, dict[str, str]]:
+    """{exercise id: {name: source}} from `<folder>/presets/<exercise id>/<name>.py`; BuildError on a stray, `starter`-named or empty one."""
+    found = {}
+    for exercise_dir in sorted((folder / "presets").glob("*/")):
+        if exercise_dir.name not in exercise_ids:
+            raise BuildError(f"{folder.name}/presets/{exercise_dir.name}: unit.yaml declares no such exercise (has {exercise_ids})")
+        found[exercise_dir.name] = {}
+        for file in sorted(exercise_dir.glob("*.py")):
+            if file.stem == "starter":
+                raise BuildError(f"{file.relative_to(folder.parent)}: `starter` is the lab's own cell, not a preset name")
+            source = file.read_text(encoding="utf-8")
+            if not source.strip():
+                raise BuildError(f"{file.relative_to(folder.parent)} is empty")
+            found[exercise_dir.name][file.stem] = source
+    return found
+
+
 def exercise_records(repo_root: Path) -> list[dict]:
     """One record per exercise of every ready unit, in syllabus order: everything the page needs to open it."""
     records = []
@@ -46,6 +63,7 @@ def exercise_records(repo_root: Path) -> list[dict]:
             raise BuildError(f"{unit['id']}: unit.yaml has no `exercises` list")
         if meta["exercises"] and not meta.get("car_box"):
             raise BuildError(f"{unit['id']}: unit.yaml has exercises but no `car_box` (the part of the car they build)")
+        presets = unit_presets(folder, [e["id"] for e in meta["exercises"]])
         lab = folder / "lab.py"
         if not lab.is_file():
             raise BuildError(f"{unit['id']}: course/{unit['folder']}/lab.py is missing")
@@ -64,7 +82,7 @@ def exercise_records(repo_root: Path) -> list[dict]:
                 "unit_title": meta["title"], "label": f"Week {week} · {meta['title']} · Exercise {exercise['id'].rsplit('.', 1)[-1].upper()}",
                 "name": _text(exercise["id"], "name", exercise.get("name")), "task": _text(exercise["id"], "task", exercise.get("task", "")),
                 "car_box": _text(unit["id"], "car_box", meta["car_box"]),
-                "kind": preview.kind, "road": preview.road, "presets": {"starter": starter}, "colab_url": colab_url(unit["folder"]),
+                "kind": preview.kind, "road": preview.road, "presets": {"starter": starter, **presets.get(exercise["id"], {})}, "colab_url": colab_url(unit["folder"]),
             })
     return records
 

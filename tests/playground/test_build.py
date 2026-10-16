@@ -440,3 +440,38 @@ def test_a_tracked_file_deleted_from_disk_is_named_as_stale_not_a_file_not_found
     (copy / deleted).unlink()
     stale = stale_files(copy, names, built_fingerprints(dist))
     assert stale and all(name == deleted or name.startswith(f"{deleted}::") for name in stale)
+
+
+def add_preset(root, exercise_id, name, source="x = 1\n"):
+    folder = root / "course" / "0.1.1-mini" / "presets" / exercise_id
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / f"{name}.py").write_text(source, encoding="utf-8")
+
+
+def test_a_units_preset_files_ship_beside_the_starter_under_their_file_names(mini_repo):
+    add_preset(mini_repo, "0.1.1.a", "alpha", "a = 1\n")
+    add_preset(mini_repo, "0.1.1.a", "beta", "b = 2\n")
+    add_preset(mini_repo, "0.1.1.b", "gamma", "c = 3\n")
+    by_id = {r["id"]: r["presets"] for r in bp.exercise_records(mini_repo)}
+    assert {k: v for k, v in by_id["0.1.1.a"].items() if k != "starter"} == {"alpha": "a = 1\n", "beta": "b = 2\n"}
+    assert set(by_id["0.1.1.b"]) == {"starter", "gamma"}
+
+
+@pytest.mark.parametrize(("exercise", "name", "source", "message"), [
+    ("9.9.9.z", "alpha", "x = 1\n", "unit.yaml declares no such exercise"),
+    ("0.1.1.a", "starter", "x = 1\n", "`starter` is the lab's own cell"),
+    ("0.1.1.b", "alpha", "  \n", "is empty"),
+])
+def test_a_preset_for_an_undeclared_exercise_named_starter_or_empty_fails_the_build(mini_repo, exercise, name, source, message):
+    add_preset(mini_repo, exercise, name, source)
+    with pytest.raises(bp.BuildError, match=re.escape(message)):
+        bp.exercise_records(mini_repo)
+
+
+def test_a_lecture_link_resolves_to_a_shipped_preset_and_fails_for_a_missing_one(mini_repo):
+    add_preset(mini_repo, "0.1.1.a", "alpha")
+    link_in_lecture(mini_repo, "0.1.1-mini", "[Try it](playground/index.html?exercise=0.1.1.a&preset=alpha)")
+    bp.validate_lecture_links(mini_repo, bp.exercise_records(mini_repo))
+    link_in_lecture(mini_repo, "0.1.1-mini", "[Try it](playground/index.html?exercise=0.1.1.a&preset=beta)")
+    with pytest.raises(bp.BuildError, match="preset=beta"):
+        bp.validate_lecture_links(mini_repo, bp.exercise_records(mini_repo))
