@@ -82,13 +82,15 @@ def _m(v, fmt):
 def _note(ax, xy, text, colour=TEXT, **kw):
     kw.setdefault("ha", "center")
     kw.setdefault("va", "center")
-    return ax.text(*xy, text, color=colour, bbox=BOX if ax.axison else None, **kw)
+    kw.setdefault("bbox", BOX if ax.axison else None)  # bbox=None where the text would mask data
+    return ax.text(*xy, text, color=colour, **kw)
 
 
 def _label(ax, point, xy, text, colour, **kw):
     """Text at `xy` joined by a thin line to `point`."""
     kw.setdefault("ha", "center")
-    ax.annotate(text, xy=point, xytext=xy, color=colour, va="center", bbox=BOX if ax.axison else None,
+    kw.setdefault("bbox", BOX if ax.axison else None)
+    ax.annotate(text, xy=point, xytext=xy, color=colour, va="center",
                 arrowprops={"arrowstyle": "-", "color": colour, "lw": 1.5, "shrinkA": 0, "shrinkB": 4}, **kw)
 
 
@@ -101,15 +103,18 @@ def _dot(ax, xy, colour, size=9):
 
 
 def _frame(ax, pose, colour, length, name=""):
-    n, m = len(ax.texts), len(ax.patches)
+    n = len(ax.texts)
     draw_frame(ax, pose, colour, name, length_m=length)
-    for arrow in list(ax.patches)[m:]:  # redraw each arrow as an annotation: a patch arrow's path is not in data coordinates, so the data-in-axes gate misreads it
-        (x0, y0), (x1, y1) = arrow._posA_posB
-        arrow.remove()
-        _arrow(ax, (x0, y0), (x1, y1), colour, lw=matplotlib.rcParams["patch.linewidth"], scale=matplotlib.rcParams["font.size"])
     for t in ax.texts[n:]:
-        if t.get_text():  # the arrows above are empty annotations
+        if t.get_text():  # an arrow annotation has empty text
             t.set_bbox(BOX if ax.axison else None)
+
+
+def _nudge(ax, label, dx, dy):
+    """Move the most recent text reading `label` by (dx, dy) data units: a frame's own x label when something else is drawn over it."""
+    t = [t for t in ax.texts if t.get_text() == label][-1]
+    x, y = t.get_position()
+    t.set_position((x + dx, y + dy))
 
 
 def _panels(specs, footer=0.0, gap=0.2, title_h=0.55):
@@ -187,6 +192,7 @@ def pose_frame(path):
     _dot(top, (x, y), EGO)
     _note(top, (x - 12, y + 19), f"({x:.2f}, {y:.2f})")
     _frame(bottom, (0, 0, th), EGO, 4, "ego")
+    _nudge(bottom, "x", 0.9 * math.sin(th), -0.9 * math.cos(th))  # clear of the 10 m arrow drawn along the same line
     mid, tip = 10 * f, 10 * f + 2 * n
     _arrow(bottom, (0, 0), tuple(mid), EGO, lw=3.5)
     _arrow(bottom, tuple(mid), tuple(tip), EGO, lw=3.5)
@@ -195,6 +201,7 @@ def pose_frame(path):
     _dot(bottom, tuple(tip), TEXT, size=11)
     _note(bottom, (tip[0] - 3.2, tip[1] + 3.2), f"cone\n({cone[0]:.2f}, {cone[1]:.2f})")
     bottom.plot([0, 9], [0, 0], color=GREY, lw=1.5, ls="--")
+    _note(bottom, (11.6, 0), "east", GREY)
     bottom.add_patch(Arc((0, 0), 10, 10, theta1=0, theta2=math.degrees(th), color=GREY, lw=1.5))
     _note(bottom, (7.6, 1.6), f"{math.degrees(th):.2f}\u00b0", GREY)
     _save(fig, path)
@@ -246,7 +253,7 @@ def arrow_vs_point(path):
     T = _lap().Tw[K_EX]
     f = _vec(th)
     fig, (ax,) = _panels([((-3, 3), (-2.5, 3.5), False, AXW)], footer=1.35)
-    _frame(ax, (0, 0, th), EGO, 1.4)
+    _frame(ax, (0, 0, th), EGO, 1.4, "ego")
     _dot(ax, tuple(f), EGO, size=12)
     for start in ((-2.0, 1.6), (1.9, -1.2)):
         _arrow(ax, start, tuple(np.array(start) + f), EGO, lw=3)
@@ -271,7 +278,7 @@ def wrap_trap(path):
     ax = fig.subplots()
     ax.plot(L.t, L.TH, color=GREY, lw=3)
     ax.plot(L.t, drawn, color=THETA, lw=3)
-    ax.set(xlim=(0, 98), ylim=(-4.4, 7.3), xlabel="time (s)", ylabel="heading (rad)")
+    ax.set(xlim=(0, 98), ylim=(-4.4, 7.3), xlabel="time (s)", ylabel="yaw (rad)")
     ax.yaxis.set_major_locator(FixedLocator([-math.pi, 0, math.pi, 2 * math.pi]))
     ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: {-3: "\u2212\u03c0", 0: "0", 3: "\u03c0", 6: "2\u03c0"}[round(v)]))
     ax.xaxis.set_major_locator(MaxNLocator(4))
@@ -296,6 +303,7 @@ def rear_frame(path):
     ax.plot([rear[0], front[0]], [rear[1], front[1]], color=GREY, lw=5, solid_capstyle="round", zorder=0.5)
     _frame(ax, (*front, th), EGO, 1.6)
     _frame(ax, (*rear, th), REAR, 1.6)
+    _nudge(ax, "x", -0.55 * right[0], -0.55 * right[1])  # the rear frame's x label, clear of the body line (the last "x" drawn)
     _note(ax, tuple(front + 2.6 * right + 0.3 * f), "ego\n(front axle)", EGO)
     _note(ax, tuple(rear + np.array([-1.75, -0.6])), "rear", REAR)
     _note(ax, tuple(0.9 * right), "2.7 m", TEXT, rotation=math.degrees(th))
@@ -336,7 +344,7 @@ def _row(ax, renderer, inv, y, pieces, x0):
         box = t.get_window_extent(renderer)
         x1d = inv.transform((box.x1, box.y1))[0]
         if struck:
-            ax.plot([x, x1d], [y, y], color=CORAL, lw=2.5)
+            ax.plot([x, x1d], [y, y], color=GREY, lw=3)  # grey: coral is for what the car believes
         x = x1d + 0.12
     return x
 
@@ -368,8 +376,9 @@ def undo_steps(path):
     cone = (L.Tw[K_EX] @ np.array([10.0, 2.0, 1.0]))[:2]
     d = cone - np.array([x, y])
     fig, (top, bottom) = _panels([((-2.5, 12.5), (-2.2, 10.4), True, AXW), ((-2.5, 13.5), (-1.8, 4.6), True, AXW)])
-    top.set_title(f"\u2212 position \u2192 ({d[0]:.2f}, {d[1]:.2f})")
+    top.set_title(f"take away the position \u2192 ({d[0]:.2f}, {d[1]:.2f})")
     _frame(top, (0, 0, 0), GREY, 3)
+    _nudge(top, "x", 0, 0.8)  # off the dashed line
     top.plot([0, d[0], d[0]], [0, 0, d[1]], color=GREY, lw=2, ls="--")
     _arrow(top, (0, 0), (d[0] - 0.12, d[1] - 0.12), GREY, lw=3)
     _dot(top, (0, 0), EGO)
@@ -380,6 +389,7 @@ def undo_steps(path):
     _note(top, (d[0] + 0.5, d[1] / 2), f"{d[1]:.2f}\nnorth", GREY, ha="left")
     bottom.set_title(f"turn back {math.degrees(th):.2f}\u00b0 \u2192 (10, 2)")
     _frame(bottom, (0, 0, 0), EGO, 3)
+    _nudge(bottom, "x", 0, 1.8)  # above the arrow, which rises from the dashed line
     bottom.plot([0, 10, 10], [0, 0, 2], color=EGO, lw=2, ls="--")
     _arrow(bottom, (0, 0), (9.9, 1.95), EGO, lw=3)
     _dot(bottom, (0, 0), EGO)
@@ -448,8 +458,10 @@ def one_step(path):
     _arrow(ax, (0, 0), tuple(tip), TEXT, lw=3)
     _frame(ax, (0, 0, a0), EGO, 0.25)
     _frame(ax, (*tip, a1), REAR, 0.25)
-    ax.add_patch(Arc(tuple(tip), 0.7, 0.7, theta1=math.degrees(a0), theta2=math.degrees(a1), color=THETA, lw=2.5))
-    _label(ax, tuple(tip + 0.35 * _vec((a0 + a1) / 2)), (1.45, 0.75), f"{dth:.5f} rad", THETA)
+    for a in (a0, a1):  # the two x axes, extended, with the angle between them as an arc
+        ax.plot(*zip(tip, tip + 0.7 * _vec(a)), color=THETA, lw=1.2)
+    ax.add_patch(Arc(tuple(tip), 1.4, 1.4, theta1=math.degrees(a0), theta2=math.degrees(a1), color=THETA, lw=2.5))
+    _label(ax, tuple(tip + 0.7 * _vec((a0 + a1) / 2)), (1.45, 0.75), f"{dth:.5f} rad", THETA)
     _note(ax, (0.46, -0.16), f"{fwd:.4f} m forward", EGO)
     _note(ax, (tip[0] + 0.07, tip[1] / 2 - 0.12), f"{left:.5f} m left", EGO, ha="left")
     _note(ax, (0.3, tip[1] + 0.2), f"{math.floor(dx * 1e5) / 1e5:.5f} m east", GREY)
@@ -471,9 +483,9 @@ def step_turns(path):
     ax.xaxis.set_major_locator(MaxNLocator(4))
     ax.yaxis.set_major_locator(FixedLocator([0, 0.002, 0.004, 0.006]))
     ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
-    _note(ax, (29, 0.0017), "\u2248 0 on\nthe straights", TEXT)
+    _note(ax, (29, 0.0017), "\u2248 0 on\nthe straights", TEXT, bbox=None)
     _note(ax, (44, 0.0077), f"bend 1: {L.dth[bend1].mean():.5f} average\n{L.dth.max():.5f} max", THETA)
-    _note(ax, (76, 0.0017), f"sum:\n{L.dth.sum():.4f} rad", TEXT)
+    _note(ax, (76, 0.0017), f"sum:\n{L.dth.sum():.4f} rad", TEXT, bbox=None)
     fig.tight_layout()
     _save(fig, path)
 
@@ -491,13 +503,13 @@ def naive_add(path):
     ax.plot(nx, ny, color=CORAL, lw=3)
     ax.set(xlim=(-100, 770), ylim=(-135, 185))
     ax.set_xticks([0, 250, 500, 750])
-    ax.set_yticks([])
-    ax.set_xlabel("east (m)")
+    ax.set_yticks([0, 100])
+    ax.set(xlabel="east (m)", ylabel="north (m)")
     _note(ax, (50, 100), "true lap", GREY)
     _note(ax, (480, 75), "add the parts to x, y, \u03b8", CORAL)
-    _note(ax, (590, -22), f"({nx[-1]:.2f}, {ny[-1]:.2f})", CORAL)
+    _note(ax, (590, -22), f"({nx[-1]:.2f}, {ny[-1]:.2f})", CORAL, bbox=None)
     _arrow(ax, (L.X[-1], -75), (nx[-1], -75), TEXT, lw=2, style="<|-|>")
-    _note(ax, (360, -106), f"{end_gap:.2f} m", TEXT)
+    _note(ax, (360, -112), f"{end_gap:.2f} m", TEXT, bbox=None)
     fig.tight_layout()
     _save(fig, path)
 
@@ -526,10 +538,10 @@ def wrong_order(path):
     ax.plot([L.X[k], wx[k]], [L.Y[k], wy[k]], color=TEXT, lw=2, ls="--")
     _dot(ax, (L.X[k], L.Y[k]), GREY, size=11)
     _dot(ax, (wx[k], wy[k]), CORAL, size=11)
-    _label(ax, (wx[k], wy[k]), (-30, 237), f"({_m(wx[k], '.2f')}, {wy[k]:.2f})", CORAL)
-    _label(ax, (L.X[k], L.Y[k]), (138, 128), f"({L.X[k]:.2f}, {L.Y[k]:.2f})", GREY)
-    _note(ax, (40, 190), f"step {k}, {k * DT:.2f} s:\n{err[k]:.2f} m apart", TEXT)
-    _label(ax, (L.X[-1], L.Y[-1]), (150, 25), f"end: {err[-1]:.2f} m off", CORAL)
+    _label(ax, (wx[k], wy[k]), (-120, 233), f"({_m(wx[k], '.2f')}, {wy[k]:.2f})", CORAL, ha="left", bbox=None)
+    _label(ax, (L.X[k], L.Y[k]), (30, 133), f"({L.X[k]:.2f}, {L.Y[k]:.2f})", GREY, bbox=None)
+    _note(ax, (20, 88), f"step {k}, {k * DT:.2f} s:\n{err[k]:.2f} m apart", TEXT, bbox=None)
+    _label(ax, (L.X[-1], L.Y[-1]), (30, 30), f"end: {err[-1]:.2f} m off", CORAL, bbox=None)
     fig.tight_layout()
     _save(fig, path)
 
@@ -546,10 +558,10 @@ def wrong_order_error(path):
     ax.set(xlim=(0, 98), ylim=(-12, 232), xlabel="time (s)", ylabel="position error (m)")
     ax.xaxis.set_major_locator(MaxNLocator(4))
     ax.yaxis.set_major_locator(MaxNLocator(4))
-    _label(ax, (first * DT, 2.0), (first * DT + 17, 75), f"{first * DT:.2f} s: 1 m", CORAL)
-    _note(ax, (k * DT + 28, 212), f"{err[k]:.2f} m at {k * DT:.2f} s", CORAL)
-    _label(ax, (L.t[-1], err[-1]), (80, 112), f"{err[-1]:.2f} m\nat the end", CORAL)
-    _note(ax, (72, 30), "a 2 m end-only check", GREY)
+    _label(ax, (first * DT, 2.0), (1, 100), f"{first * DT:.2f} s:\n1 m", CORAL, ha="left", bbox=None)
+    _note(ax, (k * DT + 3, 212), f"{err[k]:.2f} m at {k * DT:.2f} s", CORAL, ha="left", bbox=None)
+    _label(ax, (L.t[-1], err[-1]), (90, 118), f"{err[-1]:.2f} m\nat the end", CORAL, bbox=None)
+    _note(ax, (72, 45), "a 2 m\nend-only\ncheck", GREY, bbox=None)
     fig.tight_layout()
     _save(fig, path)
 
@@ -572,6 +584,8 @@ def drift_end(path):
         ax.add_patch(Circle((ex, ey), float(ends.max()), fill=False, edgecolor=TEXT, lw=1.5, ls="--"))
         ax.set_title(f"\u03c3 = {float(s):g} rad per step")
         _note(ax, (ex + 14, ey - 13), words, TEXT, ha="right")
+        ax.plot([ex - 13.5, ex - 3.5], [ey - 13, ey - 13], color=TEXT, lw=3, solid_capstyle="butt")
+        _note(ax, (ex - 8.5, ey - 11.3), "10 m", TEXT)
     _save(fig, path)
 
 
@@ -619,7 +633,7 @@ def drift_laps(path):
     ax.yaxis.set_major_locator(MaxNLocator(4))
     for n, v in zip(laps, rms):
         _note(ax, (n * 1.05, v + 0.34), f"{v:.3f}", CORAL, ha="right")
-    _note(ax, (2.6, 3.05), "\u03c3 = 0.0001, 200 seeds", TEXT)
+    _note(ax, (2.6, 3.05), "\u03c3 = 0.0001, 500 seeds", TEXT)
     fig.tight_layout()
     _save(fig, path)
 
@@ -635,25 +649,28 @@ def _rear():
 
 def rear_axle_paths(path):
     d, s_rear = _rear()
-    MAG = 20  # the bend is straightened out and sideways distances are drawn this many times larger
-    sel = slice(330, 471)
+    MAG = 20  # sideways distances are drawn this many times larger; the car is not
     k = K_EX
-    fig = _fig(4.3)
+    near = slice(k - 40, k + 41)  # about 25 m of the bend, so the two paths are far enough apart to see on equal axes
+    fig = _fig(3.9)
     ax = fig.subplots()
     ax.axhline(0, color=GREY, lw=3)
-    ax.plot(d["s"][sel], MAG * d["lat_f"][sel], color=EGO, lw=3)
-    ax.plot(s_rear[sel], MAG * d["lat_r"][sel], color=REAR, lw=3)
-    ax.plot([s_rear[k], d["s"][k]], [MAG * d["lat_r"][k], MAG * d["lat_f"][k]], color=TEXT, lw=6, solid_capstyle="round")
-    x0 = float(s_rear[sel].min()) - 1
-    ax.set(xlabel="distance along the lane (m)", ylabel=f"sideways \u00d7{MAG}", xlim=(x0, float(d["s"][sel].max()) + 1), ylim=(-3.5, 18))
+    ax.plot(d["s"][near], MAG * d["lat_f"][near], color=EGO, lw=3)
+    ax.plot(s_rear[near], MAG * d["lat_r"][near], color=REAR, lw=3)
+    car = np.array([d["s"][k] - s_rear[k], d["lat_f"][k] - d["lat_r"][k]])  # rear axle to front axle, real size and angle
+    start = np.array([s_rear[k], MAG * d["lat_r"][k]])
+    ax.plot(*zip(start, start + car), color=TEXT, lw=6, solid_capstyle="round")
+    x0, x1 = float(s_rear[near].min()) - 1, float(d["s"][near].max()) + 1
+    ax.set(xlabel="distance along the lane (m)", xlim=(x0, x1), ylim=(-2.5, 15.5))
+    ax.set_aspect("equal")
     ax.set_yticks([])
     ax.xaxis.set_major_locator(MaxNLocator(4))
-    _note(ax, (x0 + 14, 1.5), "lane centre", GREY)
-    _note(ax, (x0 + 14, 14.3), "rear axle", REAR)
-    _note(ax, (x0 + 50, 7.6), "front axle", EGO)
-    _note(ax, (float(d["s"][k]) - 13, 7.6), "car, 2.7 m", TEXT)
-    _arrow(ax, (x0 + 3, 4), (x0 + 3, 9), TEXT, lw=1.5)
-    _note(ax, (x0 + 24, 16.2), "toward the bend's centre", TEXT, fontsize=FS)
+    _note(ax, (x0 + 5, 1.8), "lane centre", GREY)
+    _note(ax, (x0 + 4, 13.4), "rear axle", REAR)
+    _note(ax, (x1 - 5, 8.4), "front axle", EGO)
+    _note(ax, (start[0] + 1.5, 14.6), "car, 2.7 m", TEXT)
+    _arrow(ax, (x0 + 1.5, 4.2), (x0 + 1.5, 8.6), TEXT, lw=1.5)
+    _note(ax, (x0 + 14.5, 6.0), "toward the bend's centre", TEXT, fontsize=FS)
     fig.tight_layout()
     _save(fig, path)
 
@@ -672,9 +689,10 @@ def rear_axle_error(path):
     ax.set(xlim=(0, 74), ylim=(-0.1, 0.85), xlabel="time (s)", ylabel="e (m)")
     ax.xaxis.set_major_locator(MaxNLocator(4))
     ax.yaxis.set_major_locator(MaxNLocator(4))
-    _note(ax, (66.5, d["lat_r"][n - 1] + 0.1), "rear", BLUE_REAR)
-    _note(ax, (66.5, d["lat_f"][n - 1] - 0.1), "front", BLUE)
-    _arrow(ax, (t[kg], d["lat_f"][kg]), (t[kg], d["lat_r"][kg]), TEXT, lw=2, style="<|-|>")
+    _note(ax, (t[n - 1] + 1.2, d["lat_r"][n - 1] + 0.06), "rear", BLUE_REAR, ha="left")
+    _note(ax, (t[n - 1] + 1.2, d["lat_f"][n - 1] - 0.06), "front", BLUE, ha="left")
+    _dot(ax, (t[kg], d["lat_f"][kg]), BLUE, size=10)  # the two ends of the gap
+    _dot(ax, (t[kg], d["lat_r"][kg]), BLUE_REAR, size=10)
     _label(ax, (t[kg], (d["lat_f"][kg] + d["lat_r"][kg]) / 2), (30, 0.74), f"{abs(gap[kg]):.3f} m at {t[kg]:.2f} s", TEXT)
     fig.tight_layout()
     _save(fig, path)
@@ -744,12 +762,15 @@ def next_lesson(path):
     ray /= np.hypot(*ray)
     _arrow(ax, tuple(lens), tuple(lens + np.array(inches(*(0.7 * ray)))), CAMERA, lw=2.5, scale=10)
     _arrow(ax, tuple(lens), tuple(lens + np.array(inches(*(0.4 * np.array([-ray[1], ray[0]]) * -1)))), CAMERA, lw=2.5, scale=10)
-    _note(ax, (-3.6, 2.9), "car axes", EGO)
-    _note(ax, (6.0, 2.95), "camera axes", CAMERA)
+    _label(ax, (0.05, 0.45), (-4.2, 2.2), "car axes", EGO)
+    _label(ax, (0.3, height + 0.1), (5.2, 3.1), "camera axes", CAMERA)
     ax.plot([0, 12], [height, height], color=GREY, lw=1.5, ls=":")
     ax.plot([0, reach], [height, 0], color=CORAL, lw=2.5, ls="--")
     _note(ax, (reach, 0.65), "?", CORAL, fontsize=TITLE)
-    _note(ax, (9.0, 1.85), f"{pitch_deg:g}\u00b0 down", THETA)
+    r = 2.4  # the angle's arc, radius in inches
+    arc = [lens + np.array(inches(r * math.cos(a), -r * math.sin(a))) for a in np.linspace(0, pitch, 20)]
+    ax.plot(*zip(*arc), color=THETA, lw=2.5)
+    _label(ax, tuple(arc[-1]), (11.0, 2.7), f"{pitch_deg:g}\u00b0 down", THETA)
     _arrow(ax, (2.2, 0), (2.2, height), TEXT, lw=1.8, style="<|-|>", scale=10)
     _note(ax, (3.9, 0.55), f"{height:g} m", TEXT)
     _save(fig, path)

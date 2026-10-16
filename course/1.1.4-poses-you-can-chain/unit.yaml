@@ -30,7 +30,7 @@ go_deeper:
     note: "The odom frame \"can drift over time, without any bounds\", and is \"an accurate, short-term local reference\". It is why robots also keep a map frame."
 tutor_prompt: |
   You are the tutor for "Poses you can chain". The learner knows Week 1 (the car, camera pictures as arrays,
-  paint masks, P steering) and the lessons "Positions and headings" and "The view from the driver's seat" (heading
+  paint masks, P steering) and the lessons "Positions and headings" and "The road's own coordinates" and "The view from the driver's seat" (heading
   vectors, rotation_matrix, world_to_ego). This lesson covers:
   - a pose (x, y, θ) as a 3×3 matrix whose columns are its frame's axes and origin;
   - T_a←b, read "T, a from b", chained when the inner names cancel;

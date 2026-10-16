@@ -18,7 +18,7 @@
   back: "The right: $T_{\\text{world}\\leftarrow k+1} = T_{\\text{world}\\leftarrow k} \\cdot T_{k\\leftarrow k+1}$. On the left, the end is 1.11 m off but step 866 is 204.88 m off, so check every pose."
 - id: c7
   front: "What is drift?"
-  back: "Error that grows because each estimate is built on the one before. At $\\sigma = 0.0001$ rad per step: 0.608 m RMS after one lap and 2.506 m after 16."
+  back: "Error that grows because each estimate is built on the one before. At $\\sigma = 0.0001$ rad per step: 0.608 m RMS after one lap and 2.454 m after 16 (500 seeds)."
 - id: c8
   front: "Why does $\\theta$ from `matrix_to_pose` jump at step 1021?"
   back: "`atan2` returns an angle from $-\\pi$ to $\\pi$, but the record's yaw keeps climbing to 6.2264. Wrap the difference before comparing."

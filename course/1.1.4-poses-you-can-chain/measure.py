@@ -280,8 +280,8 @@ np.savez_compressed(Path(__file__).with_name("drift_fig7.npz"),
                     **{f"rms_{sg:g}": drift[sg]["rms"] for sg in SIGMAS})
 
 # many laps: does the end-of-lap error keep growing?  Drive the same 1777 steps L times, sigma 1e-4.
-print("\n-- repeated laps, sigma 1e-4, 200 seeds --")
-L_MAX, S_L = 16, 200
+print("\n-- repeated laps, sigma 1e-4, N_SEEDS seeds --")
+L_MAX, S_L = 16, N_SEEDS
 f_r, l_r, d_r = np.tile(fwd, L_MAX), np.tile(left, L_MAX), np.tile(dth, L_MAX)
 n_r = 1e-4 * np.stack([np.random.default_rng(s).standard_normal(N * L_MAX) for s in range(S_L)])
 xs, ys, ts = reckon_noisy(f_r, l_r, d_r, TH[0], X[0], Y[0], n_r)
@@ -408,6 +408,16 @@ say("cone_back_to_ego", np.round(world_to_ego(p_ex, via_matrix), 6).tolist())
 K_PI = int(np.argmax(TH > math.pi))
 say("yaw_first_above_pi_step", K_PI)
 say("yaw_first_above_pi_time_s", K_PI * DT, "{:.2f}")
+# the raw read-back comparison fails whenever the yaw is above pi (a full turn apart), not only after one crossing
+_above = TH > math.pi
+_cross = np.nonzero(np.diff(_above.astype(int)))[0] + 1
+_late = np.nonzero(np.abs(th_back - TH) > 1)[0]
+say("yaw_pi_crossings", len(_cross))
+say("yaw_pi_first_crossing_step", int(_cross[0]))
+say("yaw_pi_last_crossing_step", int(_cross[-1]))
+say("yaw_pi_last_crossing_time_s", int(_cross[-1]) * DT, "{:.2f}")
+say("raw_compare_fail_steps", len(_late))
+say("raw_compare_fail_equals_yaw_above_pi", bool(np.array_equal(_late, np.nonzero(_above)[0])))
 say("readback_theta_at_pi_crossing", [round(float(th_back[K_PI - 1]), 4), round(float(th_back[K_PI]), 4)])
 say("step1000_time_s", 1000 * DT, "{:.2f}")
 say("rms_peak_time_s", OUT["sigma_0.0001_rms_err_peak_step"] * DT, "{:.2f}")

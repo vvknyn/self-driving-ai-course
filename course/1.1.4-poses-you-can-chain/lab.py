@@ -53,8 +53,8 @@ print(f"{len(poses)} poses; step 400 is x = {poses[400, 0]:.4f}, y = {poses[400,
 # **Problem 1.** Write `pose_to_matrix`: from `(x, y, theta)` to the 3×3 matrix whose first two columns are the forward
 # and left axes and whose last column is `(x, y, 1)`. Use `rotation_matrix(theta)` for the top-left 2×2 block.
 #
-# **Guess first:** the cone sits 10 m ahead and 2 m to the left of the car at step 400. Is its world position nearer
-# the car's position, (154.7, 19.9), or further from the world origin than that?
+# **Guess first:** the cone sits 10 m ahead and 2 m to the left of the car at step 400. Will its world position be the
+# car's position plus (10, 2), that is (164.7, 21.9), or somewhere else?
 
 # %%
 def pose_to_matrix(pose):
@@ -69,8 +69,9 @@ def pose_to_matrix(pose):
 
 try:
     T400 = pose_to_matrix(tuple(poses[400]))
-    practice("the cone (10, 2, trailing 1) at step 400, in world metres", T400 @ [10, 2, 1], (160.987, 27.8514, 1), tol=0.001)
-    practice("the arrow (1, 0, trailing 0) at step 400", T400 @ [1, 0, 0], (0.7623, 0.6473, 0), tol=0.0001)
+    R400 = rotation_matrix(poses[400, 2])
+    practice("the cone (10, 2, trailing 1) at step 400, in world metres", T400 @ [10, 2, 1], np.append(R400 @ [10, 2] + poses[400, :2], 1), tol=1e-9)
+    practice("the arrow (1, 0, trailing 0) at step 400", T400 @ [1, 0, 0], np.append(R400 @ [1, 0], 0), tol=1e-9)
 except NotImplementedError:
     print("Write pose_to_matrix above first, then run this cell again.")
 
@@ -129,13 +130,18 @@ except NotImplementedError:
 try:
     gap = back[:, 2] - poses[:, 2]
     late = np.nonzero(np.abs(gap) > 1)[0]
-    print(f"the raw comparison fails from step {late[0]} on, by {abs(gap[late[0]]):.4f} rad (a full turn)")
+    above = poses[:, 2] > math.pi
+    crossings = np.nonzero(np.diff(above.astype(int)))[0] + 1
+    print(f"the raw comparison first fails at step {late[0]}, by {abs(gap[late[0]]):.4f} rad (a full turn); it fails at {len(late)} steps")
+    print(f"the yaw crosses π {len(crossings)} times, first at step {crossings[0]} and last at step {crossings[-1]}")
+    print("it fails exactly where the yaw is above π:", bool(np.array_equal(late, np.nonzero(above)[0])))
 except NameError:
     print("Finish Problem 2 first.")
 
 # %% [markdown]
-# From step 1021 on, the two differ by a full turn, 6.2832 rad, though both describe the same direction. Whenever you
-# compare angles, wrap the difference. The graders in this lab do.
+# Wherever the yaw is above π, the two differ by a full turn, 6.2832 rad, though both describe the same direction. The
+# yaw wobbles across π on the back straight, so the failures start there and then stay. Whenever you compare angles, wrap
+# the difference. The graders in this lab do.
 #
 # ## 2. Chaining and undoing
 #
@@ -150,7 +156,7 @@ except NameError:
 #
 # **Problem 3.** Write `invert_pose`, the closed-form inverse from "Undoing a pose": `[[Rᵀ, −Rᵀt], [0, 1]]`. It must
 # work at any size, so take the rotation block as `T[:k, :k]` and the position as `T[:k, k]` with `k = T.shape[0] - 1`.
-# Do not call `np.linalg.inv`: the formula is cheaper and exact, and it is the one the next lesson reuses on 4×4
+# Do not call `np.linalg.inv`: the formula is cheaper and needs no general solver, and it is the one the next lesson reuses on 4×4
 # matrices.
 #
 # **Guess first:** seen from A = (1, 0, π/2), the frame 1 m east of the start and facing north, where is the start?
@@ -173,7 +179,7 @@ try:
     worst = max(np.abs(invert_pose(T) @ T - np.eye(3)).max() for T in Tw)
     practice("worst entry of invert_pose(T) @ T minus the identity, over the lap", worst, 0.0, tol=1e-12)
     T4 = np.eye(4)
-    T4[:3, :3] = geom.rot_z(0.7) @ geom.rot_y(0.1)
+    T4[:3, :3] = geom.rot_z(0.7) @ geom.rot_y(0.1)  # a 3-D turn (next lesson); here it is only a test matrix
     T4[:3, 3] = (1.2, 0.3, 1.5)
     practice("a 4×4 pose: worst entry of invert_pose(T4) @ T4 minus the identity", np.abs(invert_pose(T4) @ T4 - np.eye(4)).max(), 0.0, tol=1e-12)
 except NotImplementedError:
@@ -205,8 +211,9 @@ slip = [np.abs(invert_pose_slip(T) @ T - np.eye(3)).max() for T in Tw]
 print(f"slip: worst entry of the round trip minus the identity is {slip[400]:.3f} at step 400 and {max(slip):.3f} over the lap")
 
 # %% [markdown]
-# It is off by almost 1 at step 400 and by 2.000 over the lap, because turning a position by the car's own angle
-# turns it further away instead of back. Fix: transpose the rotation block, in both places.
+# It is off by almost 1 at step 400 and by 2.000 over the lap. The position column cancels; the rotation block turns by
+# the car's angle twice, 2θ, instead of back to 0, and where θ is near π/2 that is a half turn, so cos 2θ − 1 = −2.
+# Fix: transpose the rotation block, in both places.
 #
 # ## 3. Odometry: the step between two poses
 #
@@ -275,8 +282,6 @@ except NotImplementedError:
 # shape `(n, 3, 3)`, and returns the `n + 1` poses: the start, then each pose times the next step, with the step on the
 # right (lecture: "Dead reckoning"). The check rebuilds the whole `gentle` lap from its 1777 steps and compares *every*
 # pose with the simulator's record, not only the last.
-#
-# **Guess first:** with the step on the left instead, how far off will the end of the lap be?
 
 # %% tags=["exercise:1.1.4.b"]
 def dead_reckon(T_world_start, steps):
@@ -293,13 +298,14 @@ def dead_reckon(T_world_start, steps):
 check("1.1.4.b", dead_reckon)
 
 # %% [markdown]
-# A correct function rebuilds all 1778 poses far inside the limits, $10^{-6}$ m and $10^{-9}$ rad. Add the parts of each step to
+# A correct function rebuilds all 1778 poses far inside the limits, $10^{-6}$ m and $10^{-9}$ rad. (The check builds its
+# steps a different way from the lecture, so its worst error is about $5 \times 10^{-13}$ m, not the lecture's
+# $1.5 \times 10^{-12}$ m.) Add the parts of each step to
 # x, y and theta instead and the lap becomes a straight line 710.66 m from the truth; the lecture draws it.
 #
 # ![](figures/naive_add.png)
 #
-# **Break it, fix it.** Multiply on the other side: `step @ pose`. **Guess first:** will the end of the lap look right?
-# Will the check pass?
+# **Break it, fix it.** Multiply on the other side: `step @ pose`. **Guess first:** will the check pass?
 
 # %%
 def dead_reckon_wrong_order(T_world_start, steps):
@@ -330,8 +336,24 @@ except NotImplementedError:
 #
 # ## 5. Drift
 #
-# The lecture adds a tiny error to every step's turn and rebuilds the lap again. This part needs no code from you; the
-# figures hold the measurements, and the challenge problems at the end of the lecture ask you to reproduce them.
+# The lecture adds a tiny random error to every step's turn and rebuilds the lap again. Now you do it with your own
+# `dead_reckon`. The cell draws one error per step from a normal distribution with standard deviation 0.0001 rad,
+# using seed 0, and turns each step by its error before chaining.
+#
+# **Guess first:** how far off is the rebuilt car at the end of the lap: millimetres, centimetres or metres?
+
+# %%
+try:
+    rng = np.random.default_rng(0)
+    noisy = steps @ np.stack([geom.pose_to_matrix((0, 0, n)) for n in rng.normal(0, 1e-4, len(steps))])
+    drifted = dead_reckon(Tw[0], noisy)
+    practice("seed 0: end error (m)", np.hypot(*(drifted[-1, :2, 2] - poses[-1, :2])), 0.688, tol=0.001)
+except (NameError, NotImplementedError):
+    print("Finish Problems 3, 4 and 5 first.")
+
+# %% [markdown]
+# Metres: one run of 1777 tiny errors ends 0.688 m from the truth. Change the seed and the number changes; over 500
+# seeds the typical end error is 0.608 m (the lecture's measurement).
 #
 # ![](figures/drift_end.png)
 #
@@ -341,9 +363,9 @@ except NotImplementedError:
 #
 # ## 6. The rear axle is a frame too
 #
-# **Problem 6.** The rear frame is fixed to the car's body, so one product places the rear axle at every step:
-# `Tw @ T_EGO_REAR`. Compute it, and compare step 400 with the by-hand answer, the front position minus 2.7 m along the
-# heading.
+# **Worked example 6.** The rear frame is fixed to the car's body, so one product places the rear axle at every step:
+# `Tw @ T_EGO_REAR`. The code below is given: read it, run it, and compare step 400 with the by-hand answer, the front
+# position minus 2.7 m along the yaw direction.
 #
 # **Guess first:** on the first bend, where does the rear axle ride: on the front axle's line, nearer the lane centre,
 # or further inside?

@@ -56,9 +56,59 @@ def test_adding_the_parts_of_each_step_is_far_off_at_the_end():
     assert position[-1] > 100.0
 
 
-def test_a_swapped_relative_pose_fails_and_the_message_names_the_case():
-    details = failing_details("1.1.4.a", lambda a, b: geom.invert_pose(b) @ a)
-    assert "A then B" in details
+@pytest.mark.parametrize("name, fn, named", [
+    ("the arguments swapped", lambda a, b: geom.invert_pose(b) @ a, "the arguments swapped"),
+    ("the product the wrong way round", lambda a, b: b @ geom.invert_pose(a), "the product the wrong way round"),
+    ("the world difference", lambda a, b: u1_1_4.matrix(b[0, 2] - a[0, 2], b[1, 2] - a[1, 2],
+                                                        math.atan2(b[1, 0], b[0, 0]) - math.atan2(a[1, 0], a[0, 0])),
+     "the difference of the two poses in world numbers"),
+])
+def test_each_relative_pose_mistake_the_lesson_names_is_named_in_the_message(name, fn, named):
+    details = failing_details("1.1.4.a", fn)
+    assert "That is what you get from" in details and named in details
+
+
+def test_a_wrong_relative_pose_that_matches_no_named_mistake_gets_no_guess():
+    details = failing_details("1.1.4.a", lambda a, b: np.eye(3))
+    assert "A then B" in details and "That is what you get" not in details
+
+
+@pytest.mark.parametrize("break_it, words", [
+    (lambda T: np.diag([1.0, 1.0, 2.0]) @ T, "last row"),
+    (lambda T: T + np.array([[0, 0, 0], [0, 0, 0], [0, 1e-3, 0]]), "last row"),
+    (lambda T: np.diag([1.5, 1.5, 1.0]) @ T, "not a rotation"),
+    (lambda T: np.diag([1.0, -1.0, 1.0]) @ T, "mirror"),
+    (lambda T: T * np.nan, "nan"),
+])
+def test_a_relative_pose_that_is_no_pose_matrix_is_told_so_in_plain_words(break_it, words):
+    assert words in failing_details("1.1.4.a", lambda a, b: break_it(solution.relative_pose(a, b)))
+
+
+@pytest.mark.parametrize("break_it, words", [
+    (lambda P: P * np.nan, "nan"),
+    (lambda P: np.diag([1.0, 1.0, 3.0]) @ P, "last row"),
+    (lambda P: np.diag([1.01, 1.01, 1.0]) @ P, "not a rotation"),
+])
+def test_a_dead_reckon_that_is_no_pose_matrix_names_the_pose_and_the_reason(break_it, words):
+    details = failing_details("1.1.4.b", lambda T0, steps: break_it(solution.dead_reckon(T0, steps)))
+    assert words in details and "is not a pose matrix" in details
+
+
+def test_a_dead_reckon_whose_positions_are_right_but_whose_rotation_entries_are_not_fails():
+    """Positions and the atan2 angle alone would accept a rotation block scaled by 1.001; the entries do not."""
+    def scaled(T0, steps):
+        P = solution.dead_reckon(T0, steps).copy()
+        P[:, :2, :2] *= 1.0000001
+        return P
+    assert not check("1.1.4.b", scaled, show=False).passed
+
+
+@pytest.mark.parametrize("name, named", [
+    ("add_components", "adding each step's forward part to x"),
+    ("wrong_order", "each step multiplied on the left"),
+])
+def test_each_dead_reckon_mistake_the_lesson_names_is_named_in_the_message(name, named):
+    assert named in failing_details("1.1.4.b", preset_function(name))
 
 
 def test_a_relative_pose_of_the_wrong_shape_is_a_clear_failure():
@@ -89,3 +139,5 @@ def test_the_trailing_one_and_the_wrapped_angle_the_lab_prints():
     assert np.allclose(T @ [10, 2, 0], (6.3282, 7.9971, 0), atol=1e-3)
     gap = np.array([geom.matrix_to_pose(geom.pose_to_matrix(tuple(p)))[2] for p in poses]) - poses[:, 2]
     assert math.isclose(abs(gap[1021]), 2 * math.pi, abs_tol=1e-9) and np.abs(gap[:1021]).max() < 1e-12
+    """The wrap trap, class-wide: the raw comparison fails at exactly the steps where the yaw is above pi, not only after one crossing."""
+    assert np.array_equal(np.nonzero(np.abs(gap) > 1)[0], np.nonzero(poses[:, 2] > math.pi)[0])

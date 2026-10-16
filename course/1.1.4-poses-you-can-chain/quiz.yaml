@@ -68,10 +68,10 @@
   type: mcq
   prompt: "On the first bend of `gentle`, which axle rides nearer the bend's centre?"
   choices:
+    - "The rear axle."
     - "Neither: both follow one path."
     - "The front axle."
-    - "The rear axle."
     - "It depends on speed only."
-  answer: 2
+  answer: 0
   explain: "The rear axle: its mean lateral error $e$ is 0.5746 m against 0.5298 m at the front. It sits on the shorter side of the right triangle the bend makes, so it follows a tighter path."
   section: the-rear-axle-is-a-frame-too

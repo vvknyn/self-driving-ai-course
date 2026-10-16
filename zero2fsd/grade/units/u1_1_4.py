@@ -13,7 +13,8 @@ from .._report import Failure, Threshold, call, exercise, vs_limit
 LESSON = ("1.1.4", "Poses you can chain")  # (unit id, title): grade/__init__ files it in LESSON_TITLES
 ROAD = "gentle"
 N_PAIRS, POSE_SEED, REL_TOL = 40, 114, 1e-9  # seeded pairs for relative_pose, and the entry-wise tolerance on its 3x3
-POS_TOL, ANGLE_TOL = 1e-6, 1e-9  # dead_reckon: every pose within this many metres and radians of the record
+POS_TOL, ANGLE_TOL = 1e-6, 1e-9  # dead_reckon: every pose within this many metres, and every rotation entry within this much, of the record
+RIGID_TOL = 1e-6  # how far a 3x3 may stray from last row (0, 0, 1) and an orthonormal top-left block before it is not a pose matrix
 
 
 def matrix(x, y, theta) -> np.ndarray:
@@ -27,6 +28,55 @@ def step_between(a, b) -> tuple[float, float, float]:
     dx, dy, dtheta = b[0] - a[0], b[1] - a[1], b[2] - a[2]
     c, s = math.cos(a[2]), math.sin(a[2])
     return c * dx + s * dy, -s * dx + c * dy, math.atan2(math.sin(dtheta), math.cos(dtheta))
+
+
+def not_rigid(m) -> str | None:
+    """Plain words for what stops a (..., 3, 3) array from being a pose matrix, or None when it is one."""
+    m = np.asarray(m, dtype=float)
+    if not np.isfinite(m).all():
+        return "it contains nan or infinity"
+    if np.abs(m[..., 2, :] - (0.0, 0.0, 1.0)).max() > RIGID_TOL:
+        return "its last row is not (0, 0, 1)"
+    r = m[..., :2, :2]
+    if np.abs(r.swapaxes(-1, -2) @ r - np.eye(2)).max() > RIGID_TOL:
+        return "its top-left 2x2 block is not a rotation (its columns must be 1 long and at right angles)"
+    if (np.linalg.det(r) < 0).any():
+        return "its top-left 2x2 block is a mirror, not a rotation (its determinant is -1)"
+    return None
+
+
+def named_mistake(got, candidates: dict[str, np.ndarray]) -> str:
+    """The sentence naming every common mistake whose output `got` equals (a case can fit two), or "" when it fits none."""
+    names = [name for name, wrong in candidates.items() if np.abs(got - wrong).max() < RIGID_TOL]
+    return f" That is what you get from {' or from '.join(names)}." if names else ""
+
+
+def show(m) -> str:
+    return np.array2string(np.asarray(m), precision=4, suppress_small=True)
+
+
+def relative_mistakes(a, b) -> dict[str, np.ndarray]:
+    """The outputs of the relative_pose mistakes the lesson names, at the pair (T_a, T_b)."""
+    inv = np.linalg.inv  # the grader's own inverse, so it never leans on the learner's invert_pose
+    world_difference = matrix(b[0, 2] - a[0, 2], b[1, 2] - a[1, 2], math.atan2(b[1, 0], b[0, 0]) - math.atan2(a[1, 0], a[0, 0]))
+    return {
+        "the arguments swapped, which is the step run backwards": inv(b) @ a,
+        "the product the wrong way round, T_world<-b times the inverse of T_world<-a": b @ inv(a),
+        "the difference of the two poses in world numbers, never turned into a's frame": world_difference,
+    }
+
+
+def reckon_mistakes(poses, steps) -> dict[str, np.ndarray]:
+    """The outputs of the dead_reckon mistakes the lesson names, run on the lap's first pose and steps."""
+    left = [matrix(*poses[0])]
+    for step in steps:
+        left.append(step @ left[-1])
+    parts = np.column_stack([steps[:, 0, 2], steps[:, 1, 2], np.arctan2(steps[:, 1, 0], steps[:, 0, 0])])
+    added = poses[0] + np.vstack([np.zeros(3), np.cumsum(parts, axis=0)])
+    return {
+        "each step multiplied on the left, step @ pose": np.stack(left),
+        "adding each step's forward part to x, its left part to y and its turn to the angle": np.stack([matrix(*p) for p in added]),
+    }
 
 
 @functools.cache
@@ -44,8 +94,11 @@ def rebuild(dead_reckon):
     if got.shape != (len(poses), 3, 3):
         raise Failure(f"returned an array of shape {got.shape}, expected {(len(poses), 3, 3)}: the start, then one pose per step",
                       given=f"{len(steps)} steps")
-    turn = np.arctan2(got[:, 1, 0], got[:, 0, 0]) - poses[:, 2]
-    return got, np.hypot(got[:, 0, 2] - poses[:, 0], got[:, 1, 2] - poses[:, 1]), np.abs(np.arctan2(np.sin(turn), np.cos(turn)))
+    if (why := not_rigid(got)) is not None:
+        k = int(np.argmax([not_rigid(m) is not None for m in got]))
+        raise Failure(f"pose {k} is not a pose matrix: {why}", given=f"the first pose and {len(steps)} steps of {ROAD}", got=show(got[k]))
+    want = np.stack([matrix(*p) for p in poses])
+    return got, np.hypot(got[:, 0, 2] - poses[:, 0], got[:, 1, 2] - poses[:, 1]), np.abs(got - want)[:, :2, :2].max(axis=(1, 2))
 
 
 def named_pairs():
@@ -73,10 +126,12 @@ def relative_pose_error(fn) -> float:
         got = np.asarray(call(fn, a, b, given=f"{name}: two 3x3 poses"), dtype=float)
         if got.shape != (3, 3):
             raise Failure(f"returned an array of shape {got.shape}, expected (3, 3)", given=name)
+        if (why := not_rigid(got)) is not None:
+            raise Failure(f"{name}: the result is not a pose matrix: {why}", given=f"{name}: T_a =\n{show(a)}\nT_b =\n{show(b)}", got=show(got))
         worst = max(worst, float(np.abs(got - want).max()))
         if worst >= REL_TOL:
-            raise Failure(f"{name}: off by {worst:.3g}, the limit is {REL_TOL:g}",
-                          given=f"{name}: T_a =\n{a}\nT_b =\n{b}", expected=want, got=got)
+            raise Failure(f"{name}: off by {worst:.3g}, the limit is {REL_TOL:g}." + named_mistake(got, relative_mistakes(a, b)),
+                          given=f"{name}: T_a =\n{show(a)}\nT_b =\n{show(b)}", expected=show(want), got=show(got))
     return worst
 
 
@@ -111,7 +166,7 @@ def _dead_reckon(fn, show, on_step):
         k = int(np.argmax(position / POS_TOL + angle / ANGLE_TOL))
         raise Failure(
             f"pose {k} of {len(poses)} is {position[k]:.4g} m and {angle[k]:.3g} rad off (the end is {position[-1]:.4g} m off): "
-            f"every pose is checked, the limit is {POS_TOL:g} m",
+            f"every pose is checked, the limit is {POS_TOL:g} m." + named_mistake(got, reckon_mistakes(poses, steps)),
             given=f"the first pose and {len(steps)} steps of {ROAD}", expected=f"x, y = ({poses[k, 0]:.3f}, {poses[k, 1]:.3f})",
             got=f"x, y = ({got[k, 0, 2]:.3f}, {got[k, 1, 2]:.3f})",
         )
