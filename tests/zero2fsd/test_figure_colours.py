@@ -408,3 +408,77 @@ def test_no_figure_label_names_a_symbol_in_another_symbols_colour(source, tmp_pa
     make_unit_figures(source.parent, tmp_path)
     assert drawn, "no figure was drawn"
     assert {name: found for name, found in drawn.items() if found} == {}
+
+
+# --- G9 (ruling 10c): a segment between two points is never drawn raw in e's colour; `drawing.draw_offset` is the one place that does ---
+
+
+def _is_segment_call(node: ast.Call) -> bool:
+    """`ax.plot(*zip(p, q), ...)`, `_brace(ax, p, q, ...)` and `ax.annotate("", ...)`: the calls that draw a line between two chosen points."""
+    func = node.func
+    name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+    if name == "plot":
+        return bool(node.args) and isinstance(node.args[0], ast.Starred) and isinstance(node.args[0].value, ast.Call) and getattr(node.args[0].value.func, "id", "") == "zip"
+    if name == "annotate":
+        return bool(node.args) and isinstance(node.args[0], ast.Constant) and node.args[0].value == ""
+    return name == "_brace"
+
+
+def e_coloured_segments(source: str, e_names: set[str]) -> list[int]:
+    """Lines of the raw segment calls in `source` that mention e's colour: a name bound to it (`e_names`) or QUANTITY["e_off"]."""
+    lines = []
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Call) and _is_segment_call(node):
+            mentions = [n for n in ast.walk(node) if (isinstance(n, ast.Name) and n.id in e_names)
+                        or (isinstance(n, ast.Subscript) and ast.unparse(n) == "QUANTITY['e_off']")]
+            if mentions:
+                lines.append(node.lineno)
+    return lines
+
+
+SEGMENT_VIOLATIONS = {
+    "plot between two points": 'ax.plot(*zip(foot, car), color=BLUE, lw=3)\n',
+    "brace": '_brace(ax, a, b, BLUE)\n',
+    "annotate dimension line": 'ax.annotate("", xy=q, xytext=p, arrowprops={"color": QUANTITY["e_off"]})\n',
+    "plot in a keyword": 'bot.plot(*zip(B, Q), lw=3, color=BLUE)\n',
+}
+SEGMENT_ALLOWED = {
+    "the helper": 'draw_offset(ax, foot, car, "d")\n',
+    "neutral ink": 'ax.plot(*zip(foot, car), color=TEXT, lw=3)\n_brace(ax, a, b, TEXT)\n',
+    "another quantity": 'ax.plot(*zip(car, tip), color=PINK, lw=2)\n',
+    "a series in e's colour": 'ax.plot(lap.t, lap.e, color=BLUE, lw=2)\n',
+}
+
+
+@pytest.mark.parametrize("source", SEGMENT_VIOLATIONS.values(), ids=SEGMENT_VIOLATIONS)
+def test_a_raw_segment_in_e_blue_is_flagged(source):
+    assert e_coloured_segments(source, {"BLUE"}) == [1]
+
+
+@pytest.mark.parametrize("source", SEGMENT_ALLOWED.values(), ids=SEGMENT_ALLOWED)
+def test_the_helper_neutral_segments_other_quantities_and_series_are_not_flagged(source):
+    assert e_coloured_segments(source, {"BLUE"}) == []
+
+
+def test_draw_offset_draws_d_in_neutral_ink_and_e_in_blue_and_nothing_else():
+    from zero2fsd.drawing import draw_offset
+    colours = {}
+    for symbol in ("d", "e"):
+        ax = Figure().subplots()
+        draw_offset(ax, (0, 0), (1, 1), symbol)
+        colours[symbol] = to_hex(ax.texts[0].arrow_patch.get_edgecolor())
+    assert colours == {"d": CHROME["text"].lower(), "e": QUANTITY["e_off"].lower()}
+    with pytest.raises(KeyError):
+        draw_offset(Figure().subplots(), (0, 0), (1, 1), "psi")
+
+
+@pytest.mark.parametrize("source", SCANNED[:-1], ids=[p.parent.name for p in SCANNED[:-1]])
+def test_no_figure_module_draws_a_raw_segment_in_e_blue(source):
+    """Distances to the road (d) are drawn by draw_offset, in neutral ink; e's blue on a hand-drawn segment is how d went blue."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(f"colours_{source.parent.name.replace('.', '_').replace('-', '_')}", source)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    e_hues = {shade.upper() for shade in shades(QUANTITY["e_off"], 4)}
+    e_names = {name for name, value in vars(module).items() if isinstance(value, str) and value.upper() in e_hues}
+    assert e_coloured_segments(source.read_text(encoding="utf-8"), e_names) == []

@@ -54,7 +54,7 @@ $$\begin{aligned}\text{forward} &= (\mathbf{p}-\mathbf{a})\cdot\hat{u}\\ &= 3(0.
 
 **Guess first:** where on the segment is the point nearest $\mathbf{p}$, and how far is $\mathbf{p}$ from it?
 
-![The hand example on a grid in metres. A grey segment runs from a at (2, 1) to b at (10, 7), 10 m long. The point p, at (5, 7), sits to its left. A grey brace along the segment, from a to the foot at (6.8, 4.6), is labelled forward part 6.0. A blue line from the foot to p, at right angles to the segment, is labelled left part 3.0.](figures/segment_hand.png)
+![The hand example on a grid in metres. A grey segment runs from a at (2, 1) to b at (10, 7), 10 m long. The point p, at (5, 7), sits to its left. A grey brace along the segment, from a to the foot at (6.8, 4.6), is labelled forward part 6.0. A grey line from the foot to p, at right angles to the segment, is labelled left part 3.0.](figures/segment_hand.png)
 
 **Answer:** 6 m along the segment from $\mathbf{a}$, at $\mathbf{a} + 6\,\hat{u} = (6.8, 4.6)$, and 3.0 m away, exactly the left part. Walking 6 m forward from $\mathbf{a}$ brings you level with $\mathbf{p}$, and what is left is a step straight to the left.
 
@@ -81,7 +81,7 @@ The forward part, 12 m, is longer than the segment, 10 m.
 
 **Guess first:** is $\mathbf{q}$ really 4.0 m from the segment?
 
-![Two stacked panels for the point q at (14, 5) and the same segment from a (2, 1) to b (10, 7). Top, without the clamp: the foot lands at (11.6, 8.2), past the end b, on a dashed grey extension of the segment, and the line to it is 4.0 m long. Bottom, with the clamp: the forward part is cut to the segment's length, 10, the foot is b itself, and the blue line from b to q is 4.472 m long, the true distance to the nearest point of the segment.](figures/clamp.png)
+![Two stacked panels for the point q at (14, 5) and the same segment from a (2, 1) to b (10, 7). Top, without the clamp: the foot lands at (11.6, 8.2), past the end b, on a dashed grey extension of the segment, and the line to it is 4.0 m long. Bottom, with the clamp: the forward part is cut to the segment's length, 10, the foot is b itself, and the grey line from b to q is 4.472 m long, the true distance to the nearest point of the segment.](figures/clamp.png)
 
 **Answer:** no. 4.0 m is the distance to (11.6, 8.2), a point on the segment's line 2 m past $\mathbf{b}$, where there is no road. The nearest point that is on the segment is its end $\mathbf{b}$, and $\mathbf{q}$ is $\sqrt{4^2 + 2^2} = \sqrt{20} = 4.472$ m from it. The rule needs one more step: **clamp** $t$, which means cutting it to 0 if it is negative and to the segment's length if it is longer. In NumPy that is `np.clip(t, 0, length)`. For $\mathbf{q}$, $t = 12$ becomes $t = 10$, and the foot becomes $\mathbf{b}$.
 
@@ -93,7 +93,7 @@ A road has thousands of segments, and each one gives the point its own foot. The
 
 **Guess first:** which segment's foot is nearer $\mathbf{p}$?
 
-![An L-shaped road of two grey segments, from (0, 0) east to (10, 0) and then north to (10, 10). The side to the road's left is shaded light grey and labelled left, plus; the side to its right is labelled right, minus. The point p at (8, 3) has two candidate feet: on the first segment at (8, 0), 3.0 m away, drawn dashed; on the second at (10, 3), 2.0 m away, drawn solid blue. A second point, (12, −2), outside the corner, is 2.828 m from the shared vertex (10, 0), which is the foot on both segments.](figures/l_corner.png)
+![An L-shaped road of two grey segments, from (0, 0) east to (10, 0) and then north to (10, 10). The side to the road's left is shaded light grey and labelled left, plus; the side to its right is labelled right, minus. The point p at (8, 3) has two candidate feet: on the first segment at (8, 0), 3.0 m away, drawn dashed; on the second at (10, 3), 2.0 m away, drawn solid. A second point, (12, −2), outside the corner, is 2.828 m from the shared vertex (10, 0), which is the foot on both segments.](figures/l_corner.png)
 
 **Answer:** the second. Its foot, (10, 3), is 2.0 m away, against 3.0 m for the first segment's foot at (8, 0). You do not need to know in advance which segment is nearest. Project the point onto every segment, then pick the smallest distance. The position of the smallest number in a list is called its **argmin**, read "arg min", and NumPy's `np.argmin` finds it. The second segment runs north, so its left is west, and $\mathbf{p}$ is west of it: the left part is positive, and the point is 2.0 m to the left.
 
@@ -185,7 +185,7 @@ First, a shortcut that looked harmless stops working. Skip the segments: find th
 
 **Guess first:** with a vertex every 5 m, how far out can the shortcut be?
 
-![The first bend of gentle with a vertex only every 5 m, zoomed in around the car at 43.30 s. Grey dots mark the vertices along the yellow line. The dashed grey line to the nearest vertex is long and slanted; the blue line at right angles to the nearest segment is short. The shortcut is 1.550 m out; the projection onto the segment is 0.039 m out.](figures/sparse_vertex.png)
+![The first bend of gentle with a vertex only every 5 m, zoomed in around the car at 43.30 s. Grey dots mark the vertices along the yellow line. The dashed grey line to the nearest vertex is long and slanted; the solid grey line at right angles to the nearest segment is short. The shortcut is 1.550 m out; the projection onto the segment is 0.039 m out.](figures/sparse_vertex.png)
 
 **Answer:** by 1.550 m, at 43.30 s, with the car 1.27 m from the line. Projecting onto the 5 m segments is out by only 0.0391 m. The nearest vertex is not the nearest point. Midway between two vertices 5 m apart on a straight, the nearest vertex is 2.5 m along the road, so a car 1.8 m from the line is $\sqrt{1.8^2 + 2.5^2} = 3.081$ m from it, 1.281 m too far.
 
@@ -193,7 +193,7 @@ Second, even the segments miss. A straight segment between two points of a circl
 
 $$\begin{aligned}\text{sagitta} &\approx \frac{c^2}{8R}\end{aligned}$$
 
-![A 5 m chord of gentle's first bend, radius 80 m, with the sideways scale stretched so the gap shows. The yellow arc and the grey chord join two vertices 5 m apart. A blue brace at the chord's middle, labelled 0.0391 m, spans the gap between chord and arc: the chord's middle is 79.9609 m from the bend's centre instead of 80.](figures/sagitta.png)
+![A 5 m chord of gentle's first bend, radius 80 m, with the sideways scale stretched so the gap shows. The yellow arc and the grey chord join two vertices 5 m apart. A grey brace at the chord's middle, labelled 0.0391 m, spans the gap between chord and arc: the chord's middle is 79.9609 m from the bend's centre instead of 80.](figures/sagitta.png)
 
 <details>
 <summary>How we got c² / (8R)</summary>
@@ -210,7 +210,7 @@ Both ends of the chord sit that far from your line, so the straight chord betwee
 
 **Guess first:** at 1 m and 10 m spacing, will projecting onto segments still miss by exactly the sagitta?
 
-![The largest error in d over a lap of gentle, against the spacing between vertices, 1, 5 and 10 m, on a scale where each grid line is ten times the one below. Grey dots, the nearest-vertex shortcut: 0.096, 1.550 and 3.924 m. Blue dots, projection onto segments: 0.0016, 0.0391 and 0.1562 m, each sitting on a grey curve labelled c squared over 8 times 80.](figures/spacing.png)
+![The largest error in d over a lap of gentle, against the spacing between vertices, 1, 5 and 10 m, on a scale where each grid line is ten times the one below. Grey dots, the nearest-vertex shortcut: 0.096, 1.550 and 3.924 m. Rings, projection onto segments: 0.0016, 0.0391 and 0.1562 m, each sitting on a grey curve labelled c squared over 8 times 80.](figures/spacing.png)
 
 **Answer:** yes, to four decimal places. Projection misses by 0.0016, 0.0391 and 0.1562 m at 1, 5 and 10 m, and $c^2/(8 \times 80)$ gives the same three numbers. The formula is an approximation, but here it is good to four decimals. The shortcut is 61 times worse at 1 m, 40 times at 5 m and 25 times at 10 m.
 

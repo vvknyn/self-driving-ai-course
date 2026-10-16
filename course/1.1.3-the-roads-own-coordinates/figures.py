@@ -13,7 +13,7 @@ from matplotlib.textpath import TextPath
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 from zero2fsd.car import Car, run
-from zero2fsd.drawing import LABEL_GAP
+from zero2fsd.drawing import LABEL_GAP, draw_offset
 from zero2fsd.geom import lane_errors, project_to_segment, to_road_frame, world_to_ego, wrap_angle
 from zero2fsd.palette import CHROME, QUANTITY, SCENE, shades
 from zero2fsd.sim import Road, make_scenario
@@ -206,7 +206,7 @@ def result_first(path):
     _band(bot, road, lap.s[k] - 6, lap.s[k] + 6)
     _paint(bot, road, lap.s[k] - 6, lap.s[k] + 6)
     _car(bot, (*car, yaw))
-    _brace(bot, lane_pt, car, BLUE)
+    draw_offset(bot, lane_pt, car, "e")
     _pointer(bot, "0.528 m left of\nthe lane centre", 0.5 * (lane_pt + car), (car[0] + 0.9, car[1] - 1.9), colour=BLUE)
     _xy_axes(bot)
     assert round(lap.s[k], 3) == 159.011 and round(lap.e[k], 3) == 0.528 and round(lap.t[k], 2) == 20.0
@@ -323,19 +323,19 @@ def segment_hand(path):
     ax.plot(*zip(A, B), color=TEXT, lw=3)
     ax.grid(color=BORDER, lw=1)
     ax.set_axisbelow(True)
-    ax.plot(*zip(foot, P), color=BLUE, lw=3)
+    draw_offset(ax, foot, P, "d")
     _right_angle(ax, foot, U, (-U[1], U[0]), 0.35)
     off = np.array([U[1], -U[0]]) * 0.45
     _brace(ax, A + off, foot + off, TEXT)
     _pointer(ax, "forward part 6.0", A + 3.0 * U + off, (8.2, 1.7))
-    _tag(ax, 3.4, 5.8, "left part 3.0", color=BLUE)
+    _tag(ax, 3.4, 5.8, "left part 3.0")
     _tag(ax, 1.3, 1.9, "a (2, 1)")
     _tag(ax, 10.4, 7.7, "b (10, 7)")
     _tag(ax, 3.2, 3.8, "10 m")
     for pt in (A, B, P):
         _dot(ax, *pt, TEXT, 10)
     _tag(ax, 5.0, 7.8, "p (5, 7)")
-    _dot(ax, *foot, BLUE, 10)
+    _dot(ax, *foot, TEXT, 10)
     _pointer(ax, "foot (6.8, 4.6)", foot, (9.3, 3.5))
     ax.set(xlabel="east (m)", ylabel="north (m)", xticks=np.arange(0, 13, 2), yticks=np.arange(0, 9, 2))
     _save(fig, path)
@@ -364,10 +364,10 @@ def clamp(path):
     _tag(top, 12.0, 9.7, "foot (11.6, 8.2)")
     _tag(top, 14.4, 7.2, "4.0 m")
     bot.set_title("With the clamp")
-    bot.plot(*zip(B, Q), color=BLUE, lw=3)
-    _dot(bot, *B, BLUE, 10)
+    draw_offset(bot, B, Q, "d")
+    _dot(bot, *B, TEXT, 10)
     _tag(bot, 3.6, 9.4, "forward part\ncut to 10", ha="center")
-    _tag(bot, 11.2, 4.2, "4.472 m", color=BLUE)
+    _tag(bot, 11.2, 4.2, "4.472 m")
     _save(fig, path)
 
 
@@ -380,7 +380,7 @@ def l_corner(path):
     ax.add_patch(Rectangle((0, 0), 10, 10, fc=TEXT, alpha=0.10, ec=CLEAR, lw=0))
     ax.plot(*L_ROAD.T, color=TEXT, lw=4, zorder=3)
     ax.plot(*zip(p, (8.0, 0.0)), color=TEXT, lw=2, ls="--")
-    ax.plot(*zip(p, (10.0, 3.0)), color=BLUE, lw=3)
+    draw_offset(ax, p, (10.0, 3.0), "d")
     ax.plot(*zip(tie, (10.0, 0.0)), color=TEXT, lw=2, ls="--")
     for pt in (p, tie, (8.0, 0.0), (10.0, 3.0), (10.0, 0.0)):
         _dot(ax, *pt, TEXT, 9)
@@ -388,7 +388,7 @@ def l_corner(path):
     _tag(ax, 12.2, 5.5, "right, −")
     _tag(ax, 6.2, 3.2, "p (8, 3)")
     _tag(ax, 6.8, 1.4, "3.0 m")
-    _tag(ax, 11.6, 1.7, "(10, 3)\n2.0 m", color=BLUE)
+    _tag(ax, 11.6, 1.7, "(10, 3)\n2.0 m")
     _tag(ax, 8.0, -1.0, "(8, 0)")
     _tag(ax, 12.0, -3.2, "(12, −2)")
     _tag(ax, 7.2, -2.9, "2.828 m, a tie")
@@ -412,7 +412,7 @@ def d_sideways(path):
     _tag(ax, 2.4, -0.8, "d₁ = 2.64 m", color=CORAL)
     _tag(ax, 7.0, -0.8, "d₂ = 7.19 m", color=CORAL)
     _tag(ax, 3.6, -4.2, "forward", color=CORAL)
-    _brace(ax, (-0.9, 0.0), (-0.9, EGO_LANE_CENTER), TEXT)
+    draw_offset(ax, (-0.9, 0.0), (-0.9, EGO_LANE_CENTER), "d")
     _tag(ax, -2.35, -0.9, "d = −1.8 m")
     _tag(ax, -2.3, -2.7, "sideways")
     ax.set(xlabel="east (m)", ylabel="north (m)")
@@ -430,7 +430,7 @@ def arc_length_l(path):
     _brace(ax, (10.8, 0.0), (10.8, 3.0), TEXT)
     _tag(ax, 12.4, 1.5, "t = 3 m")
     _tag(ax, 4.2, 6.5, "s = 10 + 3 = 13")
-    ax.plot(*zip((10.0, 3.0), p), color=TEXT, lw=3)
+    draw_offset(ax, (10.0, 3.0), p, "d")
     _dot(ax, *p, TEXT, 9)
     _tag(ax, 8.6, 4.2, "d = +2")
     ax.set(xlabel="east (m)", ylabel="north (m)")
@@ -458,7 +458,7 @@ def step400_foot(path):
     _line(ax, pts[:, 0], pts[:, 1], color=YELLOW, lw=2, zorder=2)
     _line(ax, pts[:, 0], pts[:, 1], marker="o", ms=6, mfc=DIM, mec=DIM, ls="none", zorder=3)
     ax.plot(*zip(road._a[i], road._b[i]), color=TEXT, lw=5, zorder=4)
-    ax.plot(*zip(foot, car), color=TEXT, lw=3, zorder=4)
+    draw_offset(ax, foot, car, "d")
     _dot(ax, *car, TEXT, 11)
     _dot(ax, *foot, TEXT, 10)
     _pointer(ax, "segment 1590\nof 7028", road._b[i], (mid[0] + 1.1, mid[1] + 1.45))
@@ -631,10 +631,10 @@ def sparse_vertex(path):
     _line(ax, closed[:, 0], closed[:, 1], color=DIM, lw=3, zorder=3)
     _line(ax, pts[:, 0], pts[:, 1], marker="o", ms=11, mfc=TEXT, mec=BACKGROUND, mew=2, ls="none", zorder=5)
     ax.plot(*zip(car, vertex), color=TEXT, lw=2.5, ls="--", zorder=4)
-    ax.plot(*zip(car, foot), color=BLUE, lw=3, zorder=6)
+    draw_offset(ax, car, foot, "d")
     _dot(ax, *car, TEXT, 11)
     _pointer(ax, "nearest vertex:\n1.550 m out", 0.5 * (car + vertex), (car[0] + 1.0, car[1] - 3.0))
-    _pointer(ax, "segment:\n0.039 m out", 0.5 * (car + foot), (car[0] - 1.8, car[1] + 1.6), colour=BLUE)
+    _pointer(ax, "segment:\n0.039 m out", 0.5 * (car + foot), (car[0] - 1.8, car[1] + 1.6))
     _xy_axes(ax)
     _save(fig, path)
 
@@ -652,8 +652,8 @@ def sagitta(path):
     ax.plot(u, v, color=YELLOW, lw=3, zorder=3)
     for x in (-chord / 2, chord / 2):
         _dot(ax, x, 0.0, TEXT, 11)
-    _brace(ax, (0.0, 0.0), (0.0, sag), BLUE)
-    _pointer(ax, "0.0391 m", (0.0, sag / 2), (1.5, 0.075), colour=BLUE)
+    draw_offset(ax, (0.0, 0.0), (0.0, sag), "d")
+    _pointer(ax, "0.0391 m", (0.0, sag / 2), (1.5, 0.075))
     _tag(ax, 0.0, -0.014, "5 m apart")
     _tag(ax, -0.1, 0.143, "chord middle: 79.9609 m\nfrom the centre, not 80")
     _tag(ax, 0.0, 0.105, "c² / (8R) = 25 / 640")
@@ -680,10 +680,10 @@ def spacing(path):
     c = np.linspace(0.8, 11.0, 80)
     ax.plot(c, c**2 / (8 * GENTLE_RADIUS), color=DIM, lw=3, zorder=2)
     ax.plot(gaps, [e[0] for e in errors], marker="o", ms=11, mfc=TEXT, mec=BACKGROUND, mew=2, ls="none", zorder=5)
-    ax.plot(gaps, [e[1] for e in errors], marker="o", ms=11, mfc=BLUE, mec=BACKGROUND, mew=2, ls="none", zorder=6)
+    ax.plot(gaps, [e[1] for e in errors], marker="o", ms=11, mfc=BACKGROUND, mec=TEXT, mew=2.5, ls="none", zorder=6)
     for g, (near, seg) in zip(gaps, errors):
         _tag(ax, 8.0 if g == 10.0 else g, near if g == 10.0 else near * 2.6, f"{near:.3f}")
-        _tag(ax, g, seg / 2.8, f"{seg:.4f}", color=BLUE)
+        _tag(ax, g, seg / 2.8, f"{seg:.4f}")
     _pointer(ax, "c² / (8 × 80)", (7.0, 49 / 640), (8.4, 0.006))
     ax.set_xticks(gaps)
     ax.set_xticklabels(["1", "5", "10"])
@@ -770,7 +770,7 @@ def challenge_setup(path):
     ax.plot(*zip(car, car + 3.0 * np.array([math.cos(wide), math.sin(wide)])), color=PINK, lw=2, ls="--", zorder=3)
     theta = np.linspace(yaw - 0.04, wide, 12)
     ax.plot(car[0] + 2.5 * np.cos(theta), car[1] + 2.5 * np.sin(theta), color=PINK, lw=3, zorder=5)
-    _brace(ax, lane, car, BLUE, lw=4)
+    draw_offset(ax, lane, car, "e", lw=4)
     _car(ax, (x, y, yaw), length=1.5)  # behind the front axle, so the ego frame's x axis ahead of it does not hide it
     _frame(ax, (x, y, yaw), QUANTITY["ego"], "", length=1.6)
     left_of = np.array([-ahead[1], ahead[0]])
