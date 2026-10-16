@@ -23,7 +23,7 @@ from zero2fsd.sim.world import EGO_LANE_CENTER, WHITE_LINE_LATERAL
 
 TEXT, PANEL, BACKGROUND, BORDER = CHROME["text"], CHROME["panel"], CHROME["background"], CHROME["border"]
 DIM = shades(BORDER, 5)[3]  # a quieter grey from the same chrome, for helper lines
-BLUE, PINK, CORAL, PURPLE = QUANTITY["e_off"], QUANTITY["psi"], QUANTITY["perception"], QUANTITY["ego"]  # e and d, psi, the box's points, the ego frame
+BLUE, PINK, CORAL, PURPLE = QUANTITY["e_off"], QUANTITY["psi"], QUANTITY["perception"], QUANTITY["ego"]  # e (d is untinted: TEXT), psi, the box's points, the ego frame
 YELLOW, WHITE, ASPHALT = SCENE["yellow"], SCENE["white"], SCENE["road"]
 LABEL_BOX = {"boxstyle": "round,pad=0.2", "fc": PANEL, "ec": BORDER}  # text that sits on top of a picture
 CLEAR = (0, 0, 0, 0)
@@ -412,9 +412,9 @@ def d_sideways(path):
     _tag(ax, 2.4, -0.8, "d₁ = 2.64 m", color=CORAL)
     _tag(ax, 7.0, -0.8, "d₂ = 7.19 m", color=CORAL)
     _tag(ax, 3.6, -4.2, "forward", color=CORAL)
-    _brace(ax, (-0.9, 0.0), (-0.9, EGO_LANE_CENTER), BLUE)
-    _tag(ax, -2.35, -0.9, "d = −1.8 m", color=BLUE)
-    _tag(ax, -2.3, -2.7, "sideways", color=BLUE)
+    _brace(ax, (-0.9, 0.0), (-0.9, EGO_LANE_CENTER), TEXT)
+    _tag(ax, -2.35, -0.9, "d = −1.8 m")
+    _tag(ax, -2.3, -2.7, "sideways")
     ax.set(xlabel="east (m)", ylabel="north (m)")
     _ticks(ax, 5, 4)
     _save(fig, path)
@@ -430,9 +430,9 @@ def arc_length_l(path):
     _brace(ax, (10.8, 0.0), (10.8, 3.0), TEXT)
     _tag(ax, 12.4, 1.5, "t = 3 m")
     _tag(ax, 4.2, 6.5, "s = 10 + 3 = 13")
-    ax.plot(*zip((10.0, 3.0), p), color=BLUE, lw=3)
+    ax.plot(*zip((10.0, 3.0), p), color=TEXT, lw=3)
     _dot(ax, *p, TEXT, 9)
-    _tag(ax, 8.6, 4.2, "d = +2", color=BLUE)
+    _tag(ax, 8.6, 4.2, "d = +2")
     ax.set(xlabel="east (m)", ylabel="north (m)")
     _ticks(ax, 5, 5)
     _save(fig, path)
@@ -458,18 +458,18 @@ def step400_foot(path):
     _line(ax, pts[:, 0], pts[:, 1], color=YELLOW, lw=2, zorder=2)
     _line(ax, pts[:, 0], pts[:, 1], marker="o", ms=6, mfc=DIM, mec=DIM, ls="none", zorder=3)
     ax.plot(*zip(road._a[i], road._b[i]), color=TEXT, lw=5, zorder=4)
-    ax.plot(*zip(foot, car), color=BLUE, lw=3, zorder=4)
+    ax.plot(*zip(foot, car), color=TEXT, lw=3, zorder=4)
     _dot(ax, *car, TEXT, 11)
-    _dot(ax, *foot, BLUE, 10)
+    _dot(ax, *foot, TEXT, 10)
     _pointer(ax, "segment 1590\nof 7028", road._b[i], (mid[0] + 1.1, mid[1] + 1.45))
     _pointer(ax, "the foot,\nzoomed below", foot, (mid[0] - 1.0, mid[1] + 1.3))
-    _tag(ax, mid[0] + 1.1, mid[1] - 1.0, "d = −1.2717 m", color=BLUE)
+    _tag(ax, mid[0] + 1.1, mid[1] - 1.0, "d = −1.2717 m")
     _xy_axes(ax)
     zoom.plot([0.0, seg_len], [0.0, 0.0], color=TEXT, lw=5, zorder=3)  # segment 1590, drawn along its own direction
-    zoom.plot([t, t], [0.0, -0.03], color=BLUE, lw=3, zorder=4)  # towards the car, which is off the bottom
+    zoom.plot([t, t], [0.0, -0.03], color=TEXT, lw=3, zorder=4)  # towards the car, which is off the bottom
     _dot(zoom, 0.0, 0.0, DIM, 11)
     _dot(zoom, seg_len, 0.0, DIM, 11)
-    _dot(zoom, t, 0.0, BLUE, 10)
+    _dot(zoom, t, 0.0, TEXT, 10)
     _brace(zoom, (0.0, -0.011), (t, -0.011), TEXT)
     _pointer(zoom, "a: s₀ = 158.983 m", (0.0, 0.0), (0.05, 0.02))
     _tag(zoom, seg_len, 0.008, "b, the end")
@@ -525,9 +525,11 @@ def e_from_d(path):
             ax.add_patch(Rectangle((x0, y - 0.25), x1 - x0, 0.5, fc=CLEAR, ec=DIM, hatch="//", lw=0))
     _tag(ax, 0.4, y_d + 0.75, "off road", fontsize=FS, ha="center")
     _tag(ax, -2.7, (y_d + y_e) / 2, "e = d + 1.8", fontsize=18, ha="center")
-    for y in (y_d, y_e):
-        _dot(ax, -1.2717, y, BLUE, 12)
-    ax.text(-2.4, 0.15, "car at step 400:\nd = −1.2717, e = +0.5283", color=BLUE, ha="center", va="center")
+    for y, colour in ((y_d, TEXT), (y_e, BLUE)):  # d is untinted; e is blue
+        _dot(ax, -1.2717, y, colour, 12)
+    ax.text(-2.4, 0.15, "car at step 400", ha="center", va="center")
+    ax.text(-1.9, y_d + 0.6, "d = −1.2717", ha="center", va="center")
+    ax.text(-1.0, y_e + 0.6, "e = +0.5283", color=BLUE, ha="center", va="center")
     _save(fig, path)
 
 

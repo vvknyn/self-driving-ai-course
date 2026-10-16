@@ -2,6 +2,7 @@
 """Gate G2: no figures.py (nor scripts/figstyle.py) holds a string colour literal; colours come from zero2fsd.palette.
 Gate G3: every quantity hue, and every shade of it, reads on the dark figure background (WCAG contrast >= 3:1).
 Gate G7: no figure plots data outside its axes (an axes that is a deliberate zoom carries the gid "zoom-inset").
+Gate G9 (ruling 10b): a symbol has one colour across the text and the figures; a figure label naming a symbol never wears another symbol's colour.
 
 What counts as a colour literal is derived from matplotlib itself, never from a list of names: the kwarg aliases of
 every Artist property whose name contains "color", any kwarg or dict key containing "color"/"colour", any "#hex"
@@ -14,6 +15,8 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from matplotlib.colors import to_hex
+from matplotlib.text import Text
 from matplotlib.figure import Figure
 from matplotlib.artist import Artist, ArtistInspector
 from matplotlib.axes._base import _process_plot_format
@@ -348,3 +351,60 @@ def test_render_pool_workers_exit_after_their_parent_is_killed(monkeypatch):
         for pid in workers:
             if alive(pid):
                 os.kill(pid, signal.SIGKILL)
+
+
+# --- G9: a symbol has one colour across the text and the figures (ruling 10b) ---
+
+SYMBOL_TINT = {"e": "e_off", "ψ": "psi", "δ": "delta", "θ": "theta", "d": None}  # None: the lectures leave the symbol untinted (neutral ink)
+SYMBOL = re.compile(r"(?<![\w.])(" + "|".join(SYMBOL_TINT) + r")(?![\w.])")  # a lone symbol; d₁ and "deg" are other words
+TINT_OWNER = {shade.upper(): name for name, hue in QUANTITY.items() for shade in shades(hue, 4)}
+
+
+def symbol_tint_violations(fig) -> list[str]:
+    """One message per text (a label, a tag, a legend entry) that names a symbol but is drawn in another symbol's quantity colour, or in any tint for an untinted symbol."""
+    problems = []
+    for text in fig.findobj(Text):
+        owner = TINT_OWNER.get(to_hex(text.get_color()).upper())
+        symbols = set(SYMBOL.findall(text.get_text()))
+        wrong = sorted(s for s in symbols if SYMBOL_TINT[s] != owner)
+        if owner and wrong:
+            problems.append(f"{text.get_text()!r} names {wrong} in the colour of {owner}")
+    return problems
+
+
+def _label_figure(text, colour):
+    fig = Figure()
+    fig.subplots().text(0.5, 0.5, text, color=colour)
+    return fig
+
+
+@pytest.mark.parametrize("text, colour", [
+    ("d = −1.8 m", QUANTITY["e_off"]),                                 # the motivating case: d drawn in e's blue
+    ("ψ = 0.2", QUANTITY["e_off"]),                                    # another symbol, another unit's colour
+    ("d = −1.27, e = +0.53", QUANTITY["e_off"]),                       # a mixed label may not be tinted at all
+    ("d", shades(QUANTITY["e_off"], 3)[2]),                            # a shade of e's blue is still e's blue
+    ("θ", QUANTITY["psi"]),
+])
+def test_a_label_naming_a_symbol_in_another_symbols_colour_is_flagged(text, colour):
+    assert len(symbol_tint_violations(_label_figure(text, colour))) == 1
+
+
+@pytest.mark.parametrize("text, colour", [
+    ("e = +0.5", QUANTITY["e_off"]), ("ψ", QUANTITY["psi"]), ("θ = 30°", QUANTITY["theta"]),
+    ("d = −1.8 m", CHROME["text"]),                                    # the untinted symbol in neutral ink
+    ("d₁ = 2.64 m", QUANTITY["perception"]),                           # a different quantity: the box's point distance
+    ("distance in m", QUANTITY["e_off"]), ("0.5 m left of the lane centre", QUANTITY["e_off"]),
+])
+def test_a_label_in_its_own_symbols_colour_or_neutral_ink_or_without_a_symbol_is_not_flagged(text, colour):
+    assert symbol_tint_violations(_label_figure(text, colour)) == []
+
+
+@pytest.mark.parametrize("source", SCANNED[:-1], ids=[p.parent.name for p in SCANNED[:-1]])
+def test_no_figure_label_names_a_symbol_in_another_symbols_colour(source, tmp_path, monkeypatch):
+    """Render every figure of the unit and read the colour of every label: d drawn in e's blue would ship otherwise."""
+    drawn = {}
+    save = Figure.savefig
+    monkeypatch.setattr(Figure, "savefig", lambda self, path, *args, **kwargs: (drawn.update({Path(path).name: symbol_tint_violations(self)}), save(self, path, *args, **kwargs))[1])
+    make_unit_figures(source.parent, tmp_path)
+    assert drawn, "no figure was drawn"
+    assert {name: found for name, found in drawn.items() if found} == {}

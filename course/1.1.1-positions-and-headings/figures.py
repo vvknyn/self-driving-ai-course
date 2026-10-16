@@ -525,7 +525,7 @@ def _move_point_diagram(path):
     _arc(ax, o, 1.7, th + dl, th + dl + hf, THETA, lw=2.2)
     _text(ax, 3.05, 0.83, "θ (yaw)", THETA, ha="left")
     _text(ax, 5.35, -1.35, NORTH_EAST, TEXT, ha="right")
-    _text(ax, 2.25, 3.0 * math.sin(th + dl) + 0.1, "θ + δ (wheel)", DELTA, ha="left", va="bottom")
+    _text(ax, 2.25, 3.0 * math.sin(th + dl) + 0.1, "θ + δ (wheel)", TEXT, ha="left", va="bottom")
     _text(ax, -0.5, 3.0, "θ + δ + ½Δθ (chord)", TEXT, ha="left", va="bottom")
     _text(ax, 1.5, 0.9, "δ", DELTA, ha="left")
     _text(ax, 0.85, 1.75, "½Δθ", THETA, ha="right")

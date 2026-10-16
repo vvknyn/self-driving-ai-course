@@ -99,7 +99,7 @@ A road has thousands of segments, and each one gives the point its own foot. The
 
 That signed distance from the nearest point of the centreline is the road's sideways coordinate. It is written $d$, read "dee": metres to the left of the centreline, negative to the right. Careful: in *Your first perception box*, $d_1$ and $d_2$ were distances **forward**, from the car to the two lane-centre points ahead of it. This $d$ is **sideways**. On `gentle`, $d = 0$ is the middle of the yellow line, your lane centre is $d = -1.8$ m, and the white line is $d = -3.6$ m.
 
-![The car at the start of gentle, seen from above, facing east along the first straight on its lane centre. Two coral dots on the lane centre ahead mark the perception box's two lane-centre points, with coral braces along the lane labelled d₁ = 2.64 m and d₂ = 7.19 m: distances forward. A blue brace across the road, from the yellow line to the car, is labelled d = −1.8 m: a distance sideways.](figures/d_sideways.png)
+![The car at the start of gentle, seen from above, facing east along the first straight on its lane centre. Two coral dots on the lane centre ahead mark the perception box's two lane-centre points, with coral braces along the lane labelled d₁ = 2.64 m and d₂ = 7.19 m: distances forward. A grey brace across the road, from the yellow line to the car, is labelled d = −1.8 m: a distance sideways.](figures/d_sideways.png)
 
 Outside the corner the two segments tie. The point (12, −2) is 2.828 m from their shared vertex, which is the foot on both. Both give the same foot, so both give the same $d$, −2.828 m. The last section comes back to ties.
 
@@ -109,7 +109,7 @@ On `gentle` there are 7028 segments. On the laptop that wrote this lesson, a Pyt
 
 The second coordinate says how far along the road the point is. Start at the first vertex of the centreline and walk along it, segment by segment, to the foot. The distance walked is the **arc length** to the foot, written $s$, read "ess". It has two parts: the lengths of all the segments before the nearest one, added up, and $t$, how far along the nearest one the foot is.
 
-![The L-shaped road again, with arc length marked along it in grey: s = 0 at (0, 0), s = 10 at the corner (10, 0) and s = 20 at the far end (10, 10). The point p at (8, 3) has its foot 3 m along the second segment, shown by a grey brace labelled t = 3 m, so its s is 10 + 3 = 13 m. A blue line from the foot to p is labelled d = +2.](figures/arc_length_l.png)
+![The L-shaped road again, with arc length marked along it in grey: s = 0 at (0, 0), s = 10 at the corner (10, 0) and s = 20 at the far end (10, 10). The point p at (8, 3) has its foot 3 m along the second segment, shown by a grey brace labelled t = 3 m, so its s is 10 + 3 = 13 m. A grey line from the foot to p is labelled d = +2.](figures/arc_length_l.png)
 
 The total length of the segments before segment $i$ is written $s_{0,i}$, read "s nought i". `gentle`'s first straight is 1000 segments of exactly 0.1 m, so segment 1000, the first one of the bend, starts at $s_{0} = 100.0000$ m. NumPy's `np.cumsum` builds every running total in one call. Then
 
@@ -119,7 +119,7 @@ In the L, the first segment is 10 m long, so $\mathbf{p} = (8, 3)$, 3 m along th
 
 **Guess first:** at step 400, 20.00 s in, the car has driven 8 m/s × 20.00 s = 160 m. Is its $s$ more than 160 m, or less?
 
-![Two stacked panels at step 400, 20.00 s in. Top: a few metres of gentle's first bend around the car, with the centreline's vertices as grey dots along the yellow line; a blue line at right angles from the foot to the car is labelled d = −1.2717 m, so the car is 1.27 m to the right of the yellow line, and the foot is marked as zoomed below. Bottom: a zoom on the nearest segment, number 1590 of 7028, 0.1 m long, from a, 158.983 m along the road, to b. The foot sits 0.0279 m along it, shown by a grey brace, so s is 159.011 m.](figures/step400_foot.png)
+![Two stacked panels at step 400, 20.00 s in. Top: a few metres of gentle's first bend around the car, with the centreline's vertices as grey dots along the yellow line; a grey line at right angles from the foot to the car is labelled d = −1.2717 m, so the car is 1.27 m to the right of the yellow line, and the foot is marked as zoomed below. Bottom: a zoom on the nearest segment, number 1590 of 7028, 0.1 m long, from a, 158.983 m along the road, to b. The foot sits 0.0279 m along it, shown by a grey brace, so s is 159.011 m.](figures/step400_foot.png)
 
 **Answer:** less. The nearest segment is number 1590, which starts at $s_{0} = 158.983$ m, and the foot is $t = 0.0279$ m along it, so $s = 159.011$ m while the car has driven 160.000 m. $s$ is measured along the yellow line. On a left bend your lane is on the outside of the turn, on a bigger circle: at step 400 the car is 81.2717 m from the bend's centre, (100, 80), while the yellow line is 80 m from it. Over the whole lap the car drives 710.80 m while $s$ runs from 0 to 702.65 m. The lane centre's own loop, two 100 m straights and a full circle of radius 81.8 m, is $200 + 2\pi \times 81.8 = 713.96$ m long, and the car cuts slightly inside it on the bends.
 
@@ -145,7 +145,7 @@ At step 400, $d = -1.2717$ m, so $e = +0.5283$ m: the car is 0.53 m left of its 
 
 **Guess first:** the car is off the road once $|e| > 1.8$ m. Which values of $d$ is that?
 
-![Two number lines, one above the other, for the same sideways positions. The top one is d, metres from the yellow line; the bottom one is e, metres from the lane centre, shifted by 1.8. The white line sits at d = −3.6, e = −1.8; the lane centre at d = −1.8, e = 0; the yellow line at d = 0, e = +1.8. The car at step 400 is a blue dot at d = −1.2717 and e = +0.5283. Grey hatching marks off-road beyond both lines.](figures/e_from_d.png)
+![Two number lines, one above the other, for the same sideways positions. The top one is d, metres from the yellow line; the bottom one is e, metres from the lane centre, shifted by 1.8. The white line sits at d = −3.6, e = −1.8; the lane centre at d = −1.8, e = 0; the yellow line at d = 0, e = +1.8. The car at step 400 is a grey dot at d = −1.2717 on the top line and a blue dot at e = +0.5283 on the bottom one. Grey hatching marks off-road beyond both lines.](figures/e_from_d.png)
 
 **Answer:** $d > 0$, over the yellow line, or $d < -3.6$, over the white line. Every $d$ maps to its $e$ by the same shift of 1.8 m.
 
