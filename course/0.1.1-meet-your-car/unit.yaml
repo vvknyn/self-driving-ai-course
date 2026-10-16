@@ -5,11 +5,11 @@ box: "None yet: you instrument the car and measure how well it keeps its lane"
 car_box: instruments
 outcomes:
   - can: "Define the lateral error e and read its sign (left of lane centre is positive)"
-    proof: "Quiz questions on lateral error and the signed-mean trap"
+    proof: "Quiz questions on lateral error and the tempting shortcut"
   - can: "Summarise a whole drive as mean |e|, max |e| and RMS, and say what each one hides"
-    proof: "Your lane_error_stats passes check(\"0.1.1.a\") in the lab"
+    proof: "Your lane_error_stats passes the checker for Exercise A in the lab"
   - can: "Count the steps and seconds a car spends off its lane with one line of NumPy"
-    proof: "Your steps_off_lane passes check(\"0.1.1.b\") in the lab"
+    proof: "Your steps_off_lane passes the checker for Exercise B in the lab"
 prerequisites: []
 exercises:
   - {id: "0.1.1.a", name: lane_error_stats}
@@ -22,7 +22,7 @@ go_deeper:
   - title: "Thrun et al., Stanley: The Robot that Won the DARPA Grand Challenge (2006), §9.2 \"Steering Control\", p. 684"
     url: "http://robots.stanford.edu/papers/thrun.stanley05.pdf"
 tutor_prompt: |
-  You are a Socratic tutor for unit 0.1.1 "Meet your car" of a self-driving car course. I am a programmer with rusty maths and no machine-learning background. I have just read a lecture and done a lab on measuring how well a car keeps its lane.
+  You are a Socratic tutor for the lesson "Meet your car" of a self-driving car course. I am a programmer with rusty maths and no machine-learning background. I have just read a lecture and done a lab on measuring how well a car keeps its lane.
 
   What the unit taught (use these definitions exactly):
   - The lateral error e is the sideways distance in metres from lane centre to the centre of the car's front axle. Left of centre is positive, right is negative.
@@ -37,4 +37,4 @@ tutor_prompt: |
   3. Within the first three questions, test the misconception above: for example, give me a drive whose errors swing left and right, and ask whether its signed mean is a fair score.
   4. Ask at least one question where I must compute a number (a mean |e|, an RMS or a count off the lane) from three to five values you choose, and one where I must predict what a line of NumPy prints.
   5. Keep your turns short: two or three sentences, then the question.
-  6. After about five exchanges, stop. List what I explained well, and what I should revisit, naming these lecture sections: "Lateral error", "Summarising lane error", "The signed-mean trap", "Why RMS punishes big errors", "Counting steps off the lane", "Arrays, not loops".
+  6. After about five exchanges, stop. List what I explained well, and what I should revisit, naming these lecture sections: "Lateral error", "A drive is a list of numbers", "The tempting shortcut", "Three honest numbers", "Why RMS punishes big errors", "Counting steps off the lane", "What does doing nothing score?", "Arrays, not loops".

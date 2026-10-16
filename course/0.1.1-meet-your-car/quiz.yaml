@@ -11,14 +11,14 @@
   answer: 0.35
   tolerance: 0.005
   explain: "Drop the signs first: $(0.5, 0.2, 0.6, 0.1)$. They add up to 1.4, and $1.4 / 4 = 0.35$ m. If you got $-0.05$, you averaged the signed values: that is the signed mean, not mean $|e|$."
-  section: summarising-lane-error
+  section: three-honest-numbers
 - id: q3
   type: numeric
   prompt: "Two steps have lateral errors $(0.3, -0.4)$ m. What is their RMS, in metres, to three decimals?"
   answer: 0.354
   tolerance: 0.002
   explain: "Inside out: the squares are $0.09$ and $0.16$, their mean is $0.25 / 2 = 0.125$, and $\\sqrt{0.125} = 0.354$ m. Squaring makes the minus sign irrelevant, and the root brings the units back to metres."
-  section: summarising-lane-error
+  section: three-honest-numbers
 - id: q4
   type: mcq
   prompt: "Over a whole drive, car X has a signed mean lateral error of +0.01 m and car Y has +0.30 m. Which statement do these two numbers justify?"
@@ -29,7 +29,7 @@
     - "Car Y left the lane at some point."
   answer: 1
   explain: "The signed mean measures bias, which side the car favours on average. It cannot rank quality: car X could swing 0.5 m left and 0.5 m right and still average +0.01 m, as the stiffer car on `curvy` did (signed mean +0.02 m, mean $|e|$ 0.50 m). To compare how far the cars strayed, you need mean $|e|$ or RMS."
-  section: the-signed-mean-trap
+  section: the-tempting-shortcut
 - id: q5
   type: mcq
   prompt: "Drives P and Q both have mean $|e|$ = 0.2 m. Drive P has RMS 0.21 m and drive Q has RMS 0.45 m. Which drive most likely contains one large swerve?"
@@ -66,3 +66,32 @@
   answer: 1
   explain: "`** 2` squares every element of the array at once (vectorisation), and the square of a negative number is positive. The result is still an array of the same shape, not a single number; `.mean()` is what would reduce it to one."
   section: arrays-not-loops
+- id: q9
+  type: mcq
+  prompt: "A car that never steers drives the `straight` test road and scores mean $|e|$ = 0.00 m, max $|e|$ = 0.00 m and RMS = 0.00 m. What does that tell you?"
+  choices:
+    - "The straight road cannot tell it apart from a perfect driver; you need a road with bends."
+    - "It drives as well as a perfect driver on every road."
+    - "The numbers must be wrong, because a car that never steers always drifts."
+    - "RMS does not work on straight roads."
+  answer: 0
+  explain: "A car that starts on the centre line of a straight lane, pointing along it, and never turns stays on the centre line, so every $e$ is 0, the same as a perfect driver. Only bends separate the two: on `gentle` the do-nothing car's run ends at the first bend."
+  section: what-does-doing-nothing-score
+- id: q10
+  type: mcq
+  prompt: "Over a whole drive, the plain average of $e$, with signs kept, is $-0.25$ m. What does it tell you?"
+  choices:
+    - "On average the car sat to the right of centre."
+    - "The car was typically 0.25 m from centre."
+    - "The car was never more than 0.25 m from centre."
+    - "On average the car sat to the left of centre."
+  answer: 0
+  explain: "Left of centre is positive, so a negative average means the car favoured the right. It says nothing about how far off the car typically was: errors on opposite sides cancel in a signed average, so a car that weaves widely can still average close to 0."
+  section: the-tempting-shortcut
+- id: q11
+  type: numeric
+  prompt: "A drive lasts 10 s. The simulator records $e$ every 0.05 s, starting at $t = 0$ and including $t = 10$ s. How many values of $e$ are in the list?"
+  answer: 201
+  tolerance: 0
+  explain: "$10 / 0.05 = 200$ gaps between readings. Counting both ends gives one more reading than gaps: 201, like 201 fence posts with 200 gaps."
+  section: a-drive-is-a-list-of-numbers

@@ -16,3 +16,9 @@
 - id: c6
   front: "How long is one simulator step, and how do you turn steps into seconds?"
   back: "0.05 s, so 20 steps make a second: divide the number of steps by 20."
+- id: c7
+  front: "What is bias, in a lateral-error trace?"
+  back: "The signed average of e: which side of centre the car favours (positive = left). It is not a score: errors on opposite sides cancel, so a car can weave badly and still have a bias near 0."
+- id: c8
+  front: "Why is one test road not enough?"
+  back: "One road can be too easy to tell drivers apart. On straight, a car that never steers scores 0.00 m on every number, the same as a perfect driver. Bends separate them."
