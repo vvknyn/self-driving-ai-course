@@ -5,9 +5,9 @@ import math
 
 import numpy as np
 
-from ...car import Car, LaneEstimate
+from ...car import LaneEstimate
 from ...sim.dynamics import MAX_STEER
-from .._drive import drive, gate, outcome, require_own
+from .._drive import GATE_MEAN_LAT, GATE_SCENARIO, drive, gate, outcome, require_car, require_own
 from .._report import Failure, call, exercise, fmt, is_real
 
 TOL = 1e-9
@@ -38,7 +38,7 @@ def _cases():
     checked=f"p_steer against -(k_off*offset + k_head*heading) clipped to +-{MAX_STEER}: signs, clipping, invalid estimate, 30 random cases",
     hint='lecture 0.1.4, section "The P controller"',
 )
-def _p_steer(fn, show):
+def _p_steer(fn, show, on_step):
     cases = _cases()
     for what, est, k_off, k_head, want in cases:
         given = f"est = LaneEstimate(offset_m={fmt(est.offset_m)}, heading_rad={fmt(est.heading_rad)}, valid={est.valid}), k_off={fmt(k_off)}, k_head={fmt(k_head)}"
@@ -52,13 +52,12 @@ def _p_steer(fn, show):
 
 @exercise(
     "0.1.4.b",
-    checked="my_car (your perception and your controller) on `gentle`: it must complete with mean |lat| < 0.5 m; then `curvy` is shown, not graded",
+    checked=f"my_car (your perception and your controller) on `{GATE_SCENARIO}`: it must complete with mean |lat| < {GATE_MEAN_LAT} m; then `curvy` is shown, not graded",
     hint='lecture 0.1.4, section "Closing the loop"',
 )
-def _my_car(car, show):
-    if not isinstance(car, Car):
-        raise Failure(f"my_car must be a Car(perception=..., controller=...), got {type(car).__name__}")
+def _my_car(car, show, on_step):
+    require_car(car)
     require_own(car)
-    passed = gate(car, show)
+    passed = gate(car, show, on_step)
     curvy = drive(car, "curvy", "your cliffhanger on curvy", show)
     return f"{passed}; cliffhanger (not graded): {outcome(curvy)}"

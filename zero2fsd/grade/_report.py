@@ -1,6 +1,6 @@
 """What a graded exercise is: a checker that raises `Failure` on the first thing wrong.
 
-`exercise(...)` registers a checker in `EXERCISES` and turns it into `(target, show) -> Result`.
+`exercise(...)` registers a checker in `EXERCISES` and turns it into `(target, show, on_step) -> Result`.
 `call` and `learner_code` are the one place learner code is run, so an exception in it becomes a
 readable red result instead of a traceback and a missing implementation can never count as a pass.
 """
@@ -10,12 +10,16 @@ import functools
 import math
 import traceback
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from numbers import Real
 from typing import Any, Callable
 
 import numpy as np
 
+from ..car.runner import StepHook
+
+REPORT: ContextVar[bool] = ContextVar("REPORT", default=True)  # False while `check(..., report=False)` runs: nothing the grader would print
 NOT_IMPLEMENTED = "not implemented yet \N{EM DASH} write your code in the cell above"
 
 
@@ -34,7 +38,7 @@ class Failure(Exception):
         self.headline, self.checked, self.shown = headline, checked, shown
 
 
-EXERCISES: dict[str, Callable[[Any, bool], Result]] = {}
+EXERCISES: dict[str, Callable[[Any, bool, StepHook | None], Result]] = {}
 
 
 def fmt(value) -> str:
@@ -53,6 +57,29 @@ def fmt(value) -> str:
 def is_real(value) -> bool:
     """A finite number that is not a bool."""
     return isinstance(value, Real) and not isinstance(value, bool) and math.isfinite(value)
+
+
+BORDERLINE_FRACTION = 0.02  # a verdict within this fraction of its limit can flip between computers
+BORDERLINE_NOTE = "Borderline: tiny differences between computers can flip this. Aim for a clearer margin."
+
+
+def margin(value: float, limit: float) -> float:
+    """How far `value` is from `limit`, as a fraction of the limit."""
+    return abs(value - limit) / abs(limit)
+
+
+def borderline(value: float, threshold: float) -> str | None:
+    """The borderline sentence when `value` is under BORDERLINE_FRACTION of `threshold` away from it, else None."""
+    return BORDERLINE_NOTE if margin(value, threshold) < BORDERLINE_FRACTION else None
+
+
+def vs_limit(value: float, limit: float, unit: str = "", decisive: bool = True) -> str:
+    """`(limit 0.5 m, margin 25 %)`, then the borderline sentence when the margin is that thin and `value` decided the verdict."""
+    percent = 100 * margin(value, limit)
+    shown = f"{percent:.1f}" if percent < 10 else f"{percent:.0f}"
+    text = f"(limit {limit:g}{' ' + unit if unit else ''}, margin {shown} %)"
+    note = borderline(value, limit) if decisive else None
+    return f"{text}. {note}" if note else text
 
 
 @contextmanager
@@ -83,13 +110,13 @@ def _lines(failure: Failure, exercise_id, checked, hint) -> list[str]:
 
 
 def exercise(exercise_id: str, *, checked: str, hint: str):
-    """Register a checker `(target, show) -> str` (what passed); it raises `Failure` for the first problem."""
+    """Register a checker `(target, show, on_step) -> str` (what passed); it raises `Failure` for the first problem."""
 
     def register(checker):
         @functools.wraps(checker)
-        def graded(target, show):
+        def graded(target, show, on_step):
             try:
-                message = checker(target, show)
+                message = checker(target, show, on_step)
             except Failure as failure:
                 return Result(False, _lines(failure, exercise_id, checked, hint))
             return Result(True, [f"\N{CHECK MARK} {exercise_id}: {message}"])

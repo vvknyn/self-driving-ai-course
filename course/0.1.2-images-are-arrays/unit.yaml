@@ -2,6 +2,7 @@ id: "0.1.2"
 title: Images are arrays
 minutes: 210
 box: "Perception, first half: the paint masks that find the yellow and white lines in a camera frame"
+car_box: perception
 outcomes:
   - can: "Index and slice a camera frame: its shape, its dtype, one pixel by row and column (row 0 is the top), one colour channel"
     proof: "Practice problems in the lab, and the quiz questions on frame indexing"

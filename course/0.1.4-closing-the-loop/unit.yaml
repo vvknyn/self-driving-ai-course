@@ -2,6 +2,7 @@ id: "0.1.4"
 title: Closing the loop
 minutes: 240
 box: "Controller: the steering law that turns your lane estimate into a wheel angle, every 0.05 s"
+car_box: steer
 outcomes:
   - can: "Explain why a closed-loop controller corrects an error that an open-loop plan lets grow, and write a P steering law with the right signs, the 0.5 rad clip and a straight wheel when the estimate is not valid"
     proof: "Your p_steer passes check(\"0.1.4.a\") in the lab, and the quiz questions on open loop and on signs"

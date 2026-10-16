@@ -59,6 +59,16 @@ class Road:
         x, y, h = self.pose_at(s)
         return np.stack([x - np.sin(h) * d, y + np.cos(h) * d], axis=-1)
 
+    def sample_points(self, spacing_m: float, lateral: float = 0.0) -> np.ndarray:
+        """(N, 2) world points every `spacing_m` of arc length at `lateral` (left positive).
+
+        Closed roads stop before `length` (the first point closes the loop); open roads end at `length`.
+        """
+        s = np.arange(0.0, self.length, spacing_m)
+        if not self.closed:
+            s = np.append(s, self.length)
+        return self.offset(s, lateral)
+
     def _locate(self, x, y):
         """(s, lateral, heading of the nearest segment) for a world point."""
         rel = np.array([x, y]) - self._a

@@ -2,6 +2,7 @@ id: "0.1.3"
 title: Your first perception box
 minutes: 210
 box: "Perception, second half: turning paint masks into the lane offset and heading the controller needs"
+car_box: perception
 outcomes:
   - can: "Turn an image row into a distance ahead on a flat road, and explain why one pixel column covers more ground the further away it is"
     proof: "Practice problems 1 and 2 in the lab, and the quiz questions on the horizon, row distances and metres per column"

@@ -6,10 +6,12 @@ import numpy as np
 import pytest
 
 import zero2fsd.grade as grade_pkg
-from zero2fsd.car import Car, LaneEstimate, provided
+from zero2fsd.car import Car, LaneEstimate, provided, run
+from zero2fsd.car.runner import COLUMNS
 from zero2fsd.grade import _drive, check
+from zero2fsd.grade._drive import GATE_SCENARIO
 from zero2fsd.grade._poses import LOOKAHEAD, sample_poses
-from zero2fsd.grade._report import EXERCISES, NOT_IMPLEMENTED
+from zero2fsd.grade._report import EXERCISES, NOT_IMPLEMENTED, REPORT
 from zero2fsd.sim.dynamics import MAX_STEER
 
 IDS = ["0.1.1.a", "0.1.1.b", "0.1.2.a", "0.1.3.a", "0.1.3.b", "0.1.4.a", "0.1.4.b"]
@@ -90,6 +92,31 @@ def test_a_correct_answer_passes_and_prints_a_green_summary(exercise_id, capsys)
     result = check(exercise_id, GOOD[exercise_id], show=False)
     assert result.passed, text(result)
     assert capsys.readouterr().out.startswith(f"\033[32m\N{CHECK MARK} {exercise_id}:")
+
+
+@pytest.mark.parametrize("before", [True, False])
+@pytest.mark.parametrize("report", [True, False])
+def test_report_is_restored_after_a_check_that_raises(monkeypatch, before, report):
+    def explode(target, show, on_step):
+        raise RuntimeError("a bug in the grader")
+
+    monkeypatch.setitem(EXERCISES, "x.y.z", explode)
+    token = REPORT.set(before)
+    try:
+        with pytest.raises(RuntimeError, match="a bug in the grader"):
+            check("x.y.z", None, show=False, report=report)
+        assert REPORT.get() is before
+    finally:
+        REPORT.reset(token)
+
+
+def test_check_report_false_prints_nothing_and_the_default_prints(capsys):
+    for exercise_id, target in (("0.1.4.a", GOOD["0.1.4.a"]), ("0.1.3.b", own_perception)):  # a check that only calls, and one that drives
+        quiet = check(exercise_id, target, show=False, report=False)
+        assert capsys.readouterr().out == "", exercise_id
+        loud = check(exercise_id, target, show=False)
+        assert quiet.details == loud.details
+        assert f"\N{CHECK MARK} {exercise_id}:" in capsys.readouterr().out
 
 
 # --- wrong answers: each failure says what was checked, the input, expected, got, and a hint --------------------
@@ -205,7 +232,7 @@ def telemetry_that(make_tel, *, completed, mean_lat, off_road=False):
 )
 def test_the_gate_decides_on_completion_and_mean_lateral_error(monkeypatch, make_tel, completed, mean_lat, off_road, verdict):
     tel = telemetry_that(make_tel, completed=completed, mean_lat=mean_lat, off_road=off_road)
-    monkeypatch.setattr(_drive, "run", lambda car, scenario: tel)
+    monkeypatch.setattr(_drive, "run", lambda car, scenario, on_step=None: tel)
     if verdict == "pass":
         assert "completed gentle" in _drive.gate(Car(), show=False)
     else:
@@ -215,7 +242,7 @@ def test_the_gate_decides_on_completion_and_mean_lateral_error(monkeypatch, make
 
 
 def test_show_draws_the_dashboard_once_per_run_only_when_asked(monkeypatch, make_tel):
-    monkeypatch.setattr(_drive, "run", lambda car, scenario: telemetry_that(make_tel, completed=True, mean_lat=0.1))
+    monkeypatch.setattr(_drive, "run", lambda car, scenario, on_step=None: telemetry_that(make_tel, completed=True, mean_lat=0.1))
     shown = []
     monkeypatch.setattr(_drive, "show_figure", shown.append)
     _drive.gate(Car(), show=False)
@@ -236,6 +263,43 @@ def test_a_working_all_yours_car_passes_gentle_and_shows_the_curvy_cliffhanger(c
 def test_a_working_perception_passes_the_gate_when_placed_in_the_provided_car():
     result = check("0.1.3.b", own_perception, show=False)
     assert result.passed and "completed gentle" in text(result), text(result)
+
+
+# --- streaming: `on_step` sees every step of the gate drive, and only of a drive ----------------------------------
+
+def own_car():
+    return Car(perception=own_perception, controller=lambda est, obs: provided.steer_p(est))
+
+
+@pytest.mark.parametrize(
+    "exercise_id, target, reference",
+    [
+        ("0.1.3.b", own_perception, lambda: Car(perception=own_perception)),
+        ("0.1.4.b", own_car(), own_car),  # the curvy cliffhanger after the gate is not streamed
+    ],
+)
+def test_the_gate_drive_streams_every_step_to_on_step(exercise_id, target, reference):
+    rows, ref_rows = [], []
+    result = check(exercise_id, target, show=False, on_step=rows.append)
+    assert result.passed, text(result)
+    run(reference(), GATE_SCENARIO, on_step=ref_rows.append)
+    assert ref_rows and rows == ref_rows  # the very rows a plain run of the same car produces, not just as many
+    assert all(len(row) == len(COLUMNS) for row in rows)
+
+
+@pytest.mark.parametrize("exercise_id", ["0.1.1.a", "0.1.1.b", "0.1.2.a", "0.1.3.a", "0.1.4.a"])
+def test_a_grader_that_does_not_drive_never_calls_on_step(exercise_id):
+    calls = []
+    result = check(exercise_id, GOOD[exercise_id], show=False, on_step=calls.append)
+    assert result.passed, text(result)
+    assert calls == []
+
+
+def test_a_car_that_fails_before_driving_streams_nothing():
+    calls = []
+    result = check("0.1.4.b", Car(), show=False, on_step=calls.append)
+    assert not result.passed and "still uses the provided" in text(result)
+    assert calls == []
 
 
 # --- the pose sampler and the grader's own hygiene ---------------------------------------------------------------

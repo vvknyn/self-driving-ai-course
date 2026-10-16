@@ -6,7 +6,7 @@ import numpy as np
 from ...sim import Camera
 from ...sim.camera import WHITE, YELLOW
 from .._poses import sample_poses
-from .._report import Failure, call, exercise
+from .._report import Failure, call, exercise, vs_limit
 
 NOISE_SIGMA, IOU_MIN, N_FRAMES = 6.0, 0.85, 6
 
@@ -16,7 +16,7 @@ def _iou(a: np.ndarray, b: np.ndarray) -> float:
     return np.count_nonzero(a & b) / union if union else 1.0  # both empty: nothing to find, nothing found
 
 
-def _as_masks(got, shape, given):
+def as_masks(got, shape, given):
     """The learner's answer as two bool masks of the frame's shape, or a Failure saying what is off."""
     masks = list(got) if isinstance(got, tuple | list) else None
     if masks is None or len(masks) != 2:
@@ -28,25 +28,36 @@ def _as_masks(got, shape, given):
     return masks
 
 
-@exercise(
-    "0.1.2.a",
-    checked=f"yellow and white masks on {N_FRAMES} noisy (sigma={NOISE_SIGMA:g}) frames against the renderer's true paint, IoU >= {IOU_MIN}",
-    hint='lecture 0.1.2, section "Paint is a colour threshold"',
-)
-def _paint_masks(fn, show):
+def paint_trials(fn):
+    """Run `fn` on the seeded noisy frames: yield (given, name, mask, truth, iou) for the yellow, then the white mask of each."""
     camera, rng = Camera(), np.random.default_rng(201)
     poses = sample_poses(rng, N_FRAMES, ("straight", "gentle", "curvy"), straight_only=False)
     for k, pose in enumerate(poses):
         frame, labels = camera.render(pose.road, pose.state, noise_sigma=NOISE_SIGMA, seed=k, return_labels=True)
         given = f"a {frame.shape[1]}x{frame.shape[0]} frame rendered at {pose}"
-        masks = _as_masks(call(fn, frame.copy(), given=given), frame.shape[:2], given)
+        masks = as_masks(call(fn, frame.copy(), given=given), frame.shape[:2], given)
         for name, mask, paint in zip(("yellow", "white"), masks, (YELLOW, WHITE)):
             truth = labels == paint
-            iou = _iou(mask, truth)
-            if iou < IOU_MIN:
-                raise Failure(
-                    f"the {name} mask overlaps the true {name} paint too little (IoU {iou:.2f}, need {IOU_MIN})", given=given,
-                    expected=f"{np.count_nonzero(truth)} {name} pixels",
-                    got=f"{np.count_nonzero(mask)} pixels marked, {np.count_nonzero(mask & truth)} of them on {name} paint",
-                )
-    return f"both masks reach IoU >= {IOU_MIN} on all {N_FRAMES} noisy frames"
+            yield given, name, mask, truth, _iou(mask, truth)
+
+
+def _iou_text(iou: float) -> str:
+    return f"IoU {iou:.3f} {vs_limit(iou, IOU_MIN)}"
+
+
+@exercise(
+    "0.1.2.a",
+    checked=f"yellow and white masks on {N_FRAMES} noisy (sigma={NOISE_SIGMA:g}) frames against the renderer's true paint, IoU >= {IOU_MIN}",
+    hint='lecture 0.1.2, section "Paint is a colour threshold"',
+)
+def _paint_masks(fn, show, on_step):
+    worst = 1.0  # an IoU cannot be higher
+    for given, name, mask, truth, iou in paint_trials(fn):
+        if iou < IOU_MIN:
+            raise Failure(
+                f"the {name} mask overlaps the true {name} paint too little: {_iou_text(iou)}", given=given,
+                expected=f"{np.count_nonzero(truth)} {name} pixels",
+                got=f"{np.count_nonzero(mask)} pixels marked, {np.count_nonzero(mask & truth)} of them on {name} paint",
+            )
+        worst = min(worst, iou)
+    return f"both masks overlap the true paint on all {N_FRAMES} noisy frames; lowest {_iou_text(worst)}"

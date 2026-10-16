@@ -4,9 +4,10 @@ from __future__ import annotations
 import io
 
 from ..car import Car, Telemetry, run
+from ..car.runner import StepHook
 from ..dashboard import dashboard
 from ..score import driving_score, metrics, metrics_table
-from ._report import Failure, learner_code
+from ._report import REPORT, Failure, learner_code, vs_limit
 
 GATE_SCENARIO, GATE_MEAN_LAT = "gentle", 0.5  # the car must complete the scenario with mean |lat| below this (m)
 
@@ -29,11 +30,14 @@ def outcome(tel: Telemetry) -> str:
     return f"{how} after {tel.progress_m[-1]:.0f} of {tel.route_length:.0f} m of {tel.scenario}"
 
 
-def drive(car: Car, scenario: str, label: str, show: bool) -> Telemetry:
-    """Run the car on a scenario (learner exceptions become a Failure), print its metrics and maybe the dashboard."""
+def drive(car: Car, scenario: str, label: str, show: bool, on_step: StepHook | None = None) -> Telemetry:
+    """Run the car on a scenario (learner exceptions become a Failure), print its metrics and maybe the dashboard.
+
+    `on_step` receives each telemetry row as the car drives (see `run`)."""
     with learner_code(f"your car driving {scenario!r}"):
-        tel = run(car, scenario)
-    print(metrics_table(tel, labels=[label]))
+        tel = run(car, scenario, on_step=on_step)
+    if REPORT.get():
+        print(metrics_table(tel, labels=[label]))
     if show:
         show_figure(dashboard(tel, labels=[label]))
     return tel
@@ -47,12 +51,21 @@ def require_own(car: Car, *slots: str) -> None:
                       given=f"Car with provided: {car.uses_provided()}")
 
 
-def gate(car: Car, show: bool) -> str:
+def require_car(car) -> Car:
+    """The all-yours exercise's answer must be a Car (it is `None` until the learner builds one); returns it."""
+    if not isinstance(car, Car):
+        raise Failure(f"my_car must be a Car(perception=..., controller=...), got {type(car).__name__}")
+    return car
+
+
+def gate(car: Car, show: bool, on_step: StepHook | None = None) -> str:
     """Fail unless the car completes the gate scenario with mean |lat| under the limit; else say how it did."""
-    tel = drive(car, GATE_SCENARIO, f"your car on {GATE_SCENARIO}", show)
+    tel = drive(car, GATE_SCENARIO, f"your car on {GATE_SCENARIO}", show, on_step)
     mean_lat = metrics(tel)["mean_abs_lat"]
+    # an unfinished run fails on completion, so a thin mean |lat| did not decide it and earns no borderline sentence
+    seen = f"mean |lat| {mean_lat:.3f} m {vs_limit(mean_lat, GATE_MEAN_LAT, 'm', decisive=tel.completed)}"
     if not tel.completed or mean_lat >= GATE_MEAN_LAT:
         raise Failure(f"your car did not pass the {GATE_SCENARIO} gate",
                       expected=f"completes {GATE_SCENARIO} with mean |lat| < {GATE_MEAN_LAT} m",
-                      got=f"{outcome(tel)}, mean |lat| {mean_lat:.2f} m", given=f"your car driving {GATE_SCENARIO!r}")
-    return f"{outcome(tel)}, mean |lat| {mean_lat:.2f} m (< {GATE_MEAN_LAT} m), score {driving_score(tel)}"
+                      got=f"{outcome(tel)}, {seen}", given=f"your car driving {GATE_SCENARIO!r}")
+    return f"{outcome(tel)}, score {driving_score(tel)}, {seen}"

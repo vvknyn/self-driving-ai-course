@@ -37,4 +37,4 @@ class Car:
             return est, out
         if isinstance(out, Real) and not isinstance(out, bool):  # a bare number is a steering angle
             return est, Action(float(out), provided.hold_speed(obs.speed))
-        raise TypeError(f"the controller box must return an Action or a steering angle (float), got {type(out).__name__}")
+        raise TypeError(f"the controller box must return one number (a steering angle in radians) or an Action, got {type(out).__name__}")

@@ -26,7 +26,7 @@ def _loop_stats(errors: list[float]) -> dict[str, float]:
     checked=f"mean_abs, max_abs and rms of seeded arrays (negatives included) against a python-loop computation, to {TOL}",
     hint='lecture 0.1.1, section "Summarising lane error"',
 )
-def _lane_error_stats(fn, show):
+def _lane_error_stats(fn, show, on_step):
     rng = np.random.default_rng(101)
     arrays = [rng.normal(0.0, sd, n) for sd, n in ((0.3, 50), (0.6, 200), (1.0, 7), (0.05, 1000), (0.8, 2))]
     arrays.append(np.array([-0.4]))  # one negative sample: |e|, not e
@@ -46,7 +46,7 @@ def _lane_error_stats(fn, show):
     checked="the count of steps with |error| strictly greater than the threshold, at the default 0.9 and at custom thresholds",
     hint='lecture 0.1.1, section "Counting steps off the lane"',
 )
-def _steps_off_lane(fn, show):
+def _steps_off_lane(fn, show, on_step):
     rng = np.random.default_rng(102)
     edge = np.array([0.9, -0.9, 0.9000001, -0.95, 0.2, 0.0])  # values exactly at the threshold are not off the lane
     cases = [(edge, None), (edge, 0.5)] + [(rng.normal(0.0, 0.7, n), thr) for n, thr in ((30, None), (200, 0.3), (1, None))]

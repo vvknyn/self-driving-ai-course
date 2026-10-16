@@ -4,15 +4,22 @@ from __future__ import annotations
 import importlib.util
 import json
 import re
+import sys
 from pathlib import Path
 from typing import NamedTuple
 
 import yaml
 
 REPO = Path(__file__).resolve().parents[1]
+if str(REPO) not in sys.path:  # `python scripts/<name>.py` puts scripts/ first, not the repo root: scripts that import zero2fsd get it from here
+    sys.path.insert(0, str(REPO))
 REPO_SLUG = "vvknyn/self-driving-ai-course"
 CELL_HEADER = re.compile(r"^# %%(?P<rest>.*)$")
 FENCE = re.compile(r"^```.*?^```", re.S | re.M)
+
+
+class BuildError(ValueError):
+    """What the build scripts raise for a problem in the course sources; their `main`s report it as one `error:` line, and only it."""
 
 
 def load_yaml(path: Path):
@@ -22,6 +29,11 @@ def load_yaml(path: Path):
 def unit_slug(unit_id: str) -> str:
     """URL slug of a unit id: dots become hyphens."""
     return unit_id.replace(".", "-")
+
+
+def colab_url(folder: str) -> str:
+    """The Colab link of a unit's lab notebook; `folder` is its directory under course/."""
+    return f"https://colab.research.google.com/github/{REPO_SLUG}/blob/main/course/{folder}/lab.ipynb"
 
 
 def heading_slug(text: str) -> str:
@@ -70,7 +82,7 @@ def parse_lab(text: str) -> list[Cell]:
             header, body = match, []
         elif header is None:
             if line.strip():
-                raise ValueError(f"text before the first '# %%' cell header: {line!r}")
+                raise BuildError(f"text before the first '# %%' cell header: {line!r}")
         else:
             body.append(line)
     close()

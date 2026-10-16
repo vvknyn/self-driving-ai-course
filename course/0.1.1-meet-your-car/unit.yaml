@@ -2,6 +2,7 @@ id: "0.1.1"
 title: Meet your car
 minutes: 210
 box: "None yet: you instrument the car and measure how well it keeps its lane"
+car_box: instruments
 outcomes:
   - can: "Define the lateral error e and read its sign (left of lane centre is positive)"
     proof: "Quiz questions on lateral error and the signed-mean trap"

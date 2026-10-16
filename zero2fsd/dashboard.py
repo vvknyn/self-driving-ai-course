@@ -1,16 +1,20 @@
 """One figure that shows how a run (or several) went."""
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
-from matplotlib.figure import Figure
 
 from .car.runner import Telemetry
 from .score import OFF_LANE_LAT, metrics_table, run_labels
 from .sim import make_scenario, render_topdown
 
+if TYPE_CHECKING:  # `dashboard` imports it when called: the browser build loads matplotlib only on demand
+    from matplotlib.figure import Figure
+
 
 def dashboard(*tels: Telemetry, labels=None) -> Figure:
-    """2x2: top-down trajectories, lateral error vs time, estimated vs true offset, metrics table.
+    """Three plots side by side (top-down trajectories, lateral error vs time, estimated vs true offset) over a full-width metrics table.
 
     Runs must share a scenario (they are drawn on one road).  Returns the Figure; the caller shows it.
     """
@@ -18,8 +22,12 @@ def dashboard(*tels: Telemetry, labels=None) -> Figure:
     if len(scenarios) != 1:
         raise ValueError(f"a dashboard compares runs on one scenario, got {sorted(scenarios) or 'no runs'}")
     names = run_labels(tels, labels)
-    fig = Figure(figsize=(12, 8))
-    top, lat, est, table = fig.subplots(2, 2).ravel()
+    from matplotlib.figure import Figure
+
+    fig = Figure(figsize=(12, 9))
+    grid = fig.add_gridspec(2, 3, height_ratios=[3, 1])
+    top, lat, est = (fig.add_subplot(grid[0, i]) for i in range(3))
+    table = fig.add_subplot(grid[1, :])  # its own full-width row: the table is wider than any one plot
 
     render_topdown(make_scenario(tels[0].scenario).road, [np.column_stack([t.x, t.y]) for t in tels], names, ax=top)
     top.set_title("Where the car drove")
@@ -39,6 +47,6 @@ def dashboard(*tels: Telemetry, labels=None) -> Figure:
         est.legend(loc="best")
 
     table.axis("off")
-    table.text(0.0, 1.0, metrics_table(*tels, labels=names), family="monospace", fontsize=8, va="top")
+    table.text(0.0, 1.0, metrics_table(*tels, labels=names), family="monospace", fontsize="medium", va="top")  # the axis labels' size
     fig.tight_layout()
     return fig

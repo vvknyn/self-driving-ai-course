@@ -120,7 +120,7 @@ def test_objects_with_estimate_and_act_methods_are_accepted():
 @pytest.mark.parametrize("bad, message", [(None, "NoneType"), ("left", "str"), (True, "bool")])
 def test_a_controller_returning_the_wrong_type_raises_a_readable_type_error(bad, message):
     car = Car(perception=lambda obs: LaneEstimate(0.0, 0.0, True), controller=lambda est, obs: bad)
-    with pytest.raises(TypeError, match=message):
+    with pytest.raises(TypeError, match=f"must return one number.*got {message}"):
         car.step(Observation(np.zeros((1, 1, 3), np.uint8), 8.0, 0.0))
 
 

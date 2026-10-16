@@ -6,8 +6,9 @@ import pkgutil
 
 import numpy as np
 
+from ..car.runner import StepHook
 from . import units
-from ._report import EXERCISES, Result, fmt
+from ._report import EXERCISES, REPORT, Result, fmt
 
 for _unit in pkgutil.iter_modules(units.__path__):  # importing a unit registers its exercises
     importlib.import_module(f"{units.__name__}.{_unit.name}")
@@ -15,13 +16,21 @@ for _unit in pkgutil.iter_modules(units.__path__):  # importing a unit registers
 GREEN, RED, RESET = "\033[32m", "\033[31m", "\033[0m"
 
 
-def check(exercise_id: str, fn_or_box, show: bool = True) -> Result:
-    """Run one exercise's checks on the learner's function (or Car), print the verdict, return it."""
+def check(exercise_id: str, fn_or_box, show: bool = True, on_step: StepHook | None = None,
+          report: bool = True) -> Result:
+    """Run one exercise's checks on the learner's function (or Car), print the report unless `report` is False, return it.
+
+    `on_step` is called with each telemetry row while a graded drive runs; exercises that do not drive never call it."""
     if exercise_id not in EXERCISES:
         raise ValueError(f"unknown exercise {exercise_id!r}; known: {', '.join(sorted(EXERCISES))}")
-    result = EXERCISES[exercise_id](fn_or_box, show)
-    head, *rest = result.details
-    print(f"{GREEN if result.passed else RED}{head}{RESET}", *rest, sep="\n")
+    token = REPORT.set(report)  # the graded drives print their metrics tables too: one switch for everything the grader prints
+    try:
+        result = EXERCISES[exercise_id](fn_or_box, show, on_step)
+    finally:
+        REPORT.reset(token)
+    if report:
+        head, *rest = result.details
+        print(f"{GREEN if result.passed else RED}{head}{RESET}", *rest, sep="\n")
     return result
 
 

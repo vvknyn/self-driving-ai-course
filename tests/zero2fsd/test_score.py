@@ -68,6 +68,18 @@ def test_dashboard_returns_a_four_panel_figure_for_real_runs():
     assert "drifting left" in "".join(t.get_text() for t in fig.axes[3].texts)  # the metrics table panel
 
 
+@pytest.mark.parametrize("n_runs", [1, 3])
+def test_dashboard_table_is_drawn_whole_and_no_smaller_than_the_axis_labels(n_runs):
+    tels = [run(Car(controller=lambda est, obs, k=k: 0.01 * k), "straight", max_steps=40) for k in range(n_runs)]
+    fig = dashboard(*tels, labels=[f"a run with a rather long label number {k}" for k in range(n_runs)])
+    fig.canvas.draw()
+    (table,) = fig.axes[3].texts
+    box = table.get_window_extent()
+    assert box.x0 >= 0 and box.x1 <= fig.bbox.x1 and box.y0 >= 0 and box.y1 <= fig.bbox.y1  # nothing runs off the page
+    assert table.get_fontsize() >= fig.axes[1].xaxis.label.get_fontsize()
+    assert len(fig.axes) == 4
+
+
 def test_dashboard_needs_runs_on_one_scenario(make_tel):
     with pytest.raises(ValueError, match="gentle.*straight"):
         dashboard(make_tel([0.0], [0], scenario="straight"), make_tel([0.0], [0], scenario="gentle"))
