@@ -1,0 +1,48 @@
+id: "1.1.2"
+title: The view from the driver's seat
+minutes: 210
+standard: 2
+box: "Frames and transforms: the world-to-ego transform the camera draws through"
+car_box: camera
+outcomes:
+  - can: "Change a world point into the car's ego frame with two dot products, forward and left"
+    proof: "The first practice in the lab, and the quiz question on world_to_ego"
+  - can: "Write the rotation matrix R(θ) and read its columns as the ego frame's axes in world coordinates"
+    proof: "rotation_matrix in the lab, and the quiz question on the columns"
+  - can: "Explain why the transpose undoes a rotation, and write world_to_ego as R(θ)ᵀ(p − t) and ego_to_world as R(θ)q + t"
+    proof: "Your world_to_ego passes Exercise A in the lab"
+  - can: "Move an (N, 2) or (K, 4, 2) array of points with one @, and spot the shape trap"
+    proof: "The Every point at once section of the lab, and the quiz question on rows"
+  - can: "Draw the car's camera pictures through your own transform"
+    proof: "Your car passes Exercise B on gentle with your world_to_ego in the camera"
+  - can: "Choose test poses that catch a swapped or missing rotation, and explain why yaw 0 cannot"
+    proof: "The break-it, fix-it section of the lab, and the quiz question on test yaws"
+prerequisites: ["1.1.1"]
+exercises:
+  - {id: "1.1.2.a", name: world_to_ego}
+  - {id: "1.1.2.b", name: world_to_ego}
+go_deeper:
+  - title: "3Blue1Brown, Essence of linear algebra, Chapter 3: \"Linear transformations and matrices\""
+    url: "https://www.3blue1brown.com/lessons/linear-transformations"
+    note: "The columns of a matrix are where the two axis arrows land, and its worked \"Rotation\" example turns by 90° anticlockwise. That is this lesson's column reading of R(θ), animated."
+  - title: "NumPy reference: numpy.matmul (the @ operator), section \"Notes\""
+    url: "https://numpy.org/doc/stable/reference/generated/numpy.matmul.html"
+    note: "\"If either argument is N-D, N > 2, it is treated as a stack of matrices residing in the last two indexes ...\": why (146, 4, 2) @ (2, 2) works. The \"Raises\" entry is the shape trap's ValueError."
+tutor_prompt: |
+  You are a Socratic tutor for unit 1.1.2 "The view from the driver's seat" of a self-driving car course. I am a programmer with rusty maths. I have just learned to move points from the world frame into the car's own frame.
+
+  What the unit taught (use these facts exactly):
+  - The ego frame: origin at the front axle, x forward, y left. A world point p is at R(θ)ᵀ(p − t) in it, where t is the car's position and θ its yaw. At the scene (car at (147.839, 14.299), θ = 0.5958 rad) the lane-centre point (156.018, 20.391) has v = p − t = (8.179, 6.093) and ego coordinates (10.189, 0.453): 10.189 m ahead, 0.453 m left.
+  - R(θ) = [[cos θ, −sin θ], [sin θ, cos θ]]. Its columns are the heading arrow (cos θ, sin θ) and the left arrow (−sin θ, cos θ). Multiplying by it turns any arrow by θ anticlockwise. Its transpose undoes it: R(θ)ᵀR(θ) = I. ego_to_world is R(θ)q + t.
+  - Points are stored as rows, so the code is (P - t) @ rot. The camera moves its (146, 4, 2) road quads in one call. rot @ rows raises a ValueError for 5 points but is silently wrong for 2.
+  - A world_to_ego written as (P - t) @ rot draws pictures identical to the simulator's: 0 of 178 differ.
+  - Misconception 1 to probe: "rotate, then subtract". R(θ)ᵀp − t puts the scene's point at (−7.260, −84.974), off the road.
+  - Misconception 2 to probe: "a test at yaw 0 is enough". At yaw 0 R = I, so the swap (R where Rᵀ belongs) and no rotation at all both pass. The swap also passes at π. It still drives the car off the straight road after 2.95 s, because it flips the sign of the heading the perception box reads.
+
+  How to run the session:
+  1. Ask me ONE question at a time, then wait for my answer. Start by asking me what the first column of R(θ) means.
+  2. Never give me the answer. If I am wrong or vague, ask a smaller question, or give me a yaw like π/2 to work by hand.
+  3. Within the first three questions, test misconception 1: ask what goes wrong if I turn first and subtract afterwards.
+  4. Ask at least one question where I compute a point's ego coordinates at yaw π/2 by hand, and one where I choose test yaws for world_to_ego.
+  5. Keep your turns short: two or three sentences, then the question.
+  6. After about five exchanges, stop. List what I explained well and what I should revisit, naming these lecture sections: "Two dot products make a frame change", "The rotation matrix", "Undo is the transpose", "Every point at once", "Swap your transform into the renderer", "A test at yaw 0 proves nothing".
