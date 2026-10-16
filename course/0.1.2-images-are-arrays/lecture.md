@@ -177,7 +177,7 @@ $$\begin{aligned}1 \times \frac{1}{6\sqrt{2\pi}} &= \frac{1}{6 \times 2.5066}\\ 
 
 The three channels get independent nudges, and the chances of independent events multiply:
 
-$$\begin{aligned}0.066 \times 0.066 \times 0.066 &= 0.000287\\ &\approx 0.0003\end{aligned}$$
+$$\begin{aligned}&0.066 \times 0.066 \times 0.066 \\ &= 0.000287 \\ &\approx 0.0003\end{aligned}$$
 
 Each of the 709 yellow pixels has that chance, so the number you expect to be exactly yellow is $709 \times 0.000287 = 0.20 \approx 0.2$.
 

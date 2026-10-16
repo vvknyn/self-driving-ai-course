@@ -24,7 +24,9 @@ REQUIRED_FILES = ("unit.yaml", "lecture.md", "lab.ipynb", "quiz.yaml", "cards.ya
 REQUIRED_UNIT_KEYS = ("id", "title", "minutes", "outcomes", "prerequisites", "box", "go_deeper", "tutor_prompt")
 QUESTION_KEYS = ("id", "type", "prompt", "answer", "explain", "section")
 FIGURE_URL = "/learnfsd-course/figures"
-IMAGE = re.compile(r"(!\[[^\]]*\]\()(?P<path>[^)\s]+)(?P<tail>(?:\s+\"[^\"]*\")?\))")
+# alt text = any run of non-bracket chars or one balanced [..] group (CommonMark link text), so `frame[0, 0]` stays inside the alt
+IMAGE = re.compile(r"(!\[(?:[^\[\]]|\[[^\[\]]*\])*\]\()(?P<path>[^)\s]+)(?P<tail>(?:\s+\"[^\"]*\")?\))")
+LEFTOVER_FIGURE = re.compile(r"\]\((?:\./)?figures/")
 LOCAL_FIGURE = re.compile(r"(?:\./)?figures/(?P<file>[^/]+)")
 HEADING = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$", re.M)
 
@@ -50,7 +52,9 @@ def rewrite_figures(unit_id: str, slug: str, folder: Path, lecture: str) -> str:
         _need((folder / "figures" / local["file"]).is_file(), f"{unit_id}: lecture references figures/{local['file']}, which does not exist")
         return f"{match[1]}{FIGURE_URL}/{slug}/{local['file']}{match['tail']}"
 
-    return IMAGE.sub(rewrite, lecture)
+    out = IMAGE.sub(rewrite, lecture)
+    _need(not LEFTOVER_FIGURE.search(out), f"{unit_id}: a lecture image path under figures/ was left unrewritten (check its alt text)")
+    return out
 
 
 def build_quiz(unit_id: str, quiz, sections: set[str]) -> list[dict]:
