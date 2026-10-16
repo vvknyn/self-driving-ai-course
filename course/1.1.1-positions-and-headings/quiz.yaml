@@ -1,0 +1,77 @@
+- id: q1
+  type: mcq
+  prompt: "The step-700 arrow is (−0.2410, +0.3192), 0.2410 m west and 0.3192 m north. What does `np.arctan(dy / dx)` give, and where does that point?"
+  choices:
+    - "2.2175 rad, up and to the left, the way the car is moving"
+    - "−0.9241 rad, which points up and to the left"
+    - "−0.9241 rad, which points down and to the right, opposite to the way the car is moving"
+    - "+0.9241 rad, which points up and to the right"
+  answer: 2
+  explain: "The slope is $0.3192 / (-0.2410) = -1.3245$: the minus signs of dx and dy cancel in the division, so arctan cannot tell this arrow from its opposite. $\\arctan(-1.3245) = -0.9241$ rad, which is −52.9°, down and to the right. The car's yaw is 2.1812 rad, so this answer is 3.1053 rad off, about π. `np.arctan2(dy, dx)` gives 2.2175 rad."
+  section: which-way-is-it-pointing
+- id: q2
+  type: mcq
+  prompt: "The arrow v = (−1, 1) points 1 m west and 1 m north. Which call gives its direction, and what is it?"
+  choices:
+    - "`np.arctan2(1, -1)` = 2.3562 rad"
+    - "`np.arctan(1 / -1)` = −0.7854 rad"
+    - "`np.arctan2(-1, 1)` = −0.7854 rad"
+    - "`np.arctan2(1, 1)` = 0.7854 rad"
+  answer: 0
+  explain: "`np.arctan2` takes the north part first, then the east part: `np.arctan2(dy, dx)`. For (−1, 1) that is `np.arctan2(1, -1)` = 3π/4 = 2.3562 rad, north-west. `np.arctan(1 / -1)` divides first and loses the signs. `np.arctan2(-1, 1)` has the two parts swapped, so it is the direction of (1, −1). `np.arctan2(1, 1)` is the direction of (1, 1)."
+  section: which-way-is-it-pointing
+- id: q3
+  type: mcq
+  prompt: "What should `direction_angle` return for the zero arrow (0, 0)?"
+  choices:
+    - "0.0, east"
+    - "nan, because the zero arrow has no direction"
+    - "π/2"
+    - "It should raise an error, because dividing by zero is not allowed"
+  answer: 1
+  explain: "An arrow of length 0 points nowhere. `np.arctan2(0, 0)` returns 0.0, which would claim it points east, and any later code would use that claim. `nan` says \"no direction\" and spreads through any arithmetic that uses it, so the mistake shows. Nothing is divided here, so there is no error to raise."
+  section: which-way-is-it-pointing
+- id: q4
+  type: mcq
+  prompt: "The yaw at the end of the gentle lap is 6.226408 rad. What is it wrapped into [−π, π)?"
+  choices:
+    - "6.2264 rad, unchanged, because it is already a valid angle"
+    - "+0.0568 rad"
+    - "3.0848 rad"
+    - "−0.0568 rad"
+  answer: 3
+  explain: "$(a + \\pi) \\bmod 2\\pi - \\pi$ with $a = 6.226408$: $a + \\pi = 9.3680$; $9.3680 \\bmod 6.2832 = 3.0848$; $3.0848 - \\pi = -0.0568$. The car has gone round almost a full turn and is 0.0568 rad short of east again, so it points 0.0568 rad to the right of east. 3.0848 is the answer if you forget to take π away again."
+  section: angles-go-round
+- id: q5
+  type: mcq
+  prompt: "The car faces north, θ = π/2. A cone is at the arrow (2, 3) from the front axle: 2 m east and 3 m north. What are its forward and left parts?"
+  choices:
+    - "forward 2 m, left 3 m: the arrow's own numbers"
+    - "forward 3 m, left +2 m"
+    - "forward 3 m, left −2 m, that is, 2 m to the right"
+    - "forward −2 m, left 3 m"
+  answer: 2
+  explain: "Facing north, ahead is north and left is west. The cone is 3 m north, so 3 m ahead, and 2 m east, so 2 m to the right: left = −2 m. Formally, $\\hat{h} = (0, 1)$, forward = $\\hat{h} \\cdot \\vec{v} = 3$ and left = $\\hat{h} \\times \\vec{v} = 0 \\cdot 3 - 1 \\cdot 2 = -2$. Writing the left arrow as (sin θ, cos θ) instead of (−sin θ, cos θ) would give +2."
+  section: ahead-and-to-the-left
+- id: q6
+  type: mcq
+  prompt: "In the middle of a bend on gentle, atan2 of a GPS step misses the car's yaw by about 0.036 rad. Why?"
+  choices:
+    - "The simulator's GPS adds noise to every position."
+    - "The step's arrow points at θ + δ + ½Δθ: the wheel angle (0.0333 rad) plus half the step's turn (0.00247 rad)."
+    - "The yaw is not wrapped, so it is a little off."
+    - "np.arctan2 is only accurate to about 0.04 rad."
+  answer: 1
+  explain: "A GPS step records where the car moved, and the car moves the way its front wheels point, δ to the left of its body, along a short arc whose chord points half a turn further round. In the bend middles that is 0.0333 + 0.00247 = 0.0358 rad. The simulator's GPS is exact, wrapping changes angles by whole turns and not by 0.036, and np.arctan2 is exact to the last digit."
+  section: moving-is-not-pointing
+- id: q7
+  type: mcq
+  prompt: "(Optional) At the last step of the lap, the plain difference atan2 − yaw is −6.2634 rad. How far apart do the two directions really point?"
+  choices:
+    - "6.2634 rad"
+    - "π rad"
+    - "0.0198 rad"
+    - "0 rad"
+  answer: 2
+  explain: "Wrap the difference: −6.2634 + 2π = +0.0198 rad. The yaw (6.2237) is the car's heading counted past a full turn, while atan2 (−0.0397) is the same direction counted from −π to π; they are 0.0198 rad apart, a small and ordinary gap."
+  section: angles-go-round

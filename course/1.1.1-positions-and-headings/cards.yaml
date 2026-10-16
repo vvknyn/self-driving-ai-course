@@ -1,0 +1,27 @@
+- id: c1
+  front: "What is the world frame?"
+  back: "The origin is where the road starts. x is the road's first direction (\"east\") and y is a quarter turn to its left (\"north\"). gentle starts at (0, −1.8) facing east."
+- id: c2
+  front: "What is a vector, and how long is it?"
+  back: "The difference of two points: how far and which way, not from where. Its length comes from Pythagoras, $\\sqrt{\\Delta x^2 + \\Delta y^2}$. One gentle step is 0.40 m."
+- id: c3
+  front: "What is the heading arrow $\\hat{h}(\\theta)$?"
+  back: "$(\\cos\\theta, \\sin\\theta)$, a unit vector (length 1 m) pointing at yaw θ. At step 700 it is (−0.5732, +0.8194)."
+- id: c4
+  front: "Why does `np.arctan(dy / dx)` fail as a direction, and what fixes it?"
+  back: "Dividing loses the signs of dx and dy, so an arrow and its opposite give one answer: about π off on 888 of gentle's 1777 steps. `np.arctan2(dy, dx)` keeps both signs and stays within 0.041 rad of the yaw."
+- id: c5
+  front: "What is the direction of the zero arrow?"
+  back: "There is none, so `direction_angle` gives nan. `np.arctan2(0, 0)` gives 0.0, which would claim east."
+- id: c6
+  front: "How do you wrap an angle into [−π, π)?"
+  back: "$(a + \\pi) \\bmod 2\\pi - \\pi$ with Python's `%`. Wrap every difference of two angles. The final yaw 6.2264 wraps to −0.0568."
+- id: c7
+  front: "How do you split an arrow into forward and left parts?"
+  back: "forward = $\\hat{h} \\cdot \\vec{v}$ (the dot product); left = $\\hat{h} \\times \\vec{v} = \\cos\\theta\\, v_y - \\sin\\theta\\, v_x$ (the 2D cross product). Positive left means left. The cone at step 700: 12.6579 m ahead, −1.6678 m left."
+- id: c8
+  front: "What is the left arrow $\\hat{n}(\\theta)$?"
+  back: "$(-\\sin\\theta, \\cos\\theta)$: the heading arrow turned a quarter turn anticlockwise. The left part is $\\vec{v} \\cdot \\hat{n}$, the same number as $\\hat{h} \\times \\vec{v}$."
+- id: c9
+  front: "Why is a GPS step's direction not the car's yaw?"
+  back: "A step points at $\\theta + \\delta + \\tfrac{1}{2}\\Delta\\theta$: the wheel angle plus half the step's turn. In gentle's bend middles that is 0.0333 + 0.00247 = 0.0358 rad. The rule holds to 4.4e-14 rad."
