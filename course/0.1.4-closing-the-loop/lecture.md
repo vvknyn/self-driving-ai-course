@@ -304,7 +304,7 @@ Read the paper's Figure 1 and "Network Architecture", then answer:
 
 ALVINN aimed at the road centre 7 m ahead, and the question mark marks a point of that kind, 10 m ahead. To aim at a point ahead, a controller must say where that point is, and the answer depends on who measures it: the camera counts in pixels, the car in metres forward and to its left, the road in metres along it and across it. Each way of measuring position is called a frame of reference, or frame, a different meaning from a camera frame. How do you move a point from one frame to another?
 
-That is the next lesson, *Frames and transforms*.
+That is the next module, *Frames and transforms*, which opens with *Positions and headings*.
 
 ## Challenge problems
 
