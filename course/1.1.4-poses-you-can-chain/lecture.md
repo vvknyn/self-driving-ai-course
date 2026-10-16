@@ -22,7 +22,7 @@ Then add the car's position:
 
 $$\begin{aligned}x &= 6.33 + 154.66\\ &= 160.99\\ y &= 8.00 + 19.85\\ &= 27.85\end{aligned}$$
 
-![Two panels stacked. Top: the world frame's axes in white at the world origin, and a long white arrow from there to the car at step 400, labelled (154.66, 19.85). Bottom: a 20 m square around the car, with its ego frame in purple, the forward axis 40.33° left of east, with a white dashed line labelled east and an arc for the 40.33° between them. A purple arrow runs 10 m along the forward axis and a second one 2 m along the left axis, ending at the cone, labelled (160.99, 27.85).](figures/pose_frame.png)
+![Two panels stacked. Top: the world frame's axes in light grey at the world origin, and a long light grey arrow from there to the car at step 400, labelled (154.66, 19.85). Bottom: a 20 m square around the car, with its ego frame in purple, the forward axis 40.33° left of east, with a light grey dashed line labelled east and an arc for the 40.33° between them. A purple arrow runs 10 m along the forward axis and a second one 2 m along the left axis, ending at the cone, labelled (160.99, 27.85).](figures/pose_frame.png)
 
 Rotate, then add: two operations for one frame change. This lesson chains frame changes, from the rear axle to the car, from the car to the world, from one step to the next. Written as rotate-then-add pairs, even two of them nest awkwardly: $R(\theta_1)(R(\theta_2)\mathbf p + \mathbf t_2) + \mathbf t_1$. One small trick turns each pair into a single multiplication.
 
@@ -114,7 +114,7 @@ Two operations **commute** when their order does not matter, as $2 \times 3$ and
 
 Now go the other way, from a point's world coordinates to the car's. World coordinates go in and ego coordinates come out, so the transform is $T_{\text{ego}\leftarrow\text{world}}$. Undo the two operations in reverse order: first take away the car's position, then undo the turn.
 
-![Two panels stacked, undoing the cone from the start of this lesson, at step 400. Top, titled take away the position: take the car's position away from the cone's world point, (160.99, 27.85), and the cone sits at (6.33, 8.00) from the car, still measured along the white east and north axes. Bottom: turn that back by the car's 40.33°, and the cone lands at (10, 2), 10 m along the car's purple forward axis and 2 m along its left one.](figures/undo_steps.png)
+![Two panels stacked, undoing the cone from the start of this lesson, at step 400. Top, titled take away the position: take the car's position away from the cone's world point, (160.99, 27.85), and the cone sits at (6.33, 8.00) from the car, still measured along the light grey east and north axes. Bottom: turn that back by the car's 40.33°, and the cone lands at (10, 2), 10 m along the car's purple forward axis and 2 m along its left one.](figures/undo_steps.png)
 
 You wrote exactly that in *The view from the driver's seat*: `world_to_ego` computes $R(\theta)^{\mathsf T}(\mathbf p - \mathbf t)$, where $\mathbf t$ is the car's position and the transpose $R(\theta)^{\mathsf T}$ undoes the turn $R(\theta)$. Multiplied out, that is $R(\theta)^{\mathsf T}\mathbf p - R(\theta)^{\mathsf T}\mathbf t$: a turn, then a fixed shift, which fits the same 3×3 pattern:
 
@@ -141,7 +141,7 @@ Check it by multiplying. $A^{-1}$ times $A$'s third column, $(1, 0, 1)$, gives $
 
 **Guess first:** at step 400 the car is on the first bend, pointing 40° left of east. Where is the world origin, the start of the road's centre line, as seen from the car: in front or behind, to the left or to the right?
 
-![Two panels stacked. Top: the world frame in white and the car at step 400 in purple, pointing 40.33° left of east, with a white dot at the world origin, the start of the road's centre line. Bottom: the same scene drawn in the car's ego frame, the car at the origin facing up the page. The world origin now sits at 130.74 m behind the car and 84.97 m to its left, labelled (−130.74, 84.97).](figures/inverse_view.png)
+![Two panels stacked. Top: the world frame in light grey and the car at step 400 in purple, pointing 40.33° left of east, with a light grey dot at the world origin, the start of the road's centre line. Bottom: the same scene drawn in the car's ego frame, the car at the origin facing up the page. The world origin now sits at 130.74 m behind the car and 84.97 m to its left, labelled (−130.74, 84.97).](figures/inverse_view.png)
 
 **Answer:** behind and to the left. `invert_pose(T)`, the closed form you write in the lab, puts $(-130.7431, 84.9692)$ in the third column: the world origin is 130.74 m behind the car and 84.97 m to its left. Over every pose of the lap, `invert_pose(T) @ T` equals $I$ to within $2.2 \times 10^{-16}$. Taking world points into the car's frame with it matches `world_to_ego` to $1.1 \times 10^{-13}$ m. NumPy's general inverse, `np.linalg.inv`, agrees to $5.7 \times 10^{-14}$, but the lab asks for the closed form: it says what undoing a pose means.
 
@@ -161,7 +161,7 @@ Step 100, 5.00 s in, is on the first straight. The record gives the pose $(40.00
 
 **Guess first:** why is the left part, 0.00079 m, smaller than the northward shift, 0.00082 m?
 
-![One step of the car, step 100 on the first straight, zoomed in, with the angles drawn many times larger than they are. The car's frame at step 100 in purple and at step 101 in light purple. The step's arrow is split along the step-100 frame's axes into 0.4000 m forward and 0.00079 m left, and the turn between the two frames is labelled 0.00027 rad in orange and drawn as an arc between the two forward axes, extended. The same arrow is also split along the white world axes into 0.39999 m east and 0.00082 m north.](figures/one_step.png)
+![One step of the car, step 100 on the first straight, zoomed in, with the angles drawn many times larger than they are. The car's frame at step 100 in purple and at step 101 in light purple. The step's arrow is split along the step-100 frame's axes into 0.4000 m forward and 0.00079 m left, and the turn between the two frames is labelled 0.00027 rad in orange and drawn as an arc between the two forward axes, extended. The same arrow is also split along the light grey world axes into 0.39999 m east and 0.00082 m north.](figures/one_step.png)
 
 **Answer:** the car already points 0.00008 rad left of east, so its forward axis leans slightly north. A small angle in radians times a distance is a sideways distance (*Your first perception box*), so $0.00008 \times 0.4 = 0.00003$ m of the northward shift is really forward motion. The rest, $0.00082 - 0.00003 = 0.00079$ m, is to the car's left.
 

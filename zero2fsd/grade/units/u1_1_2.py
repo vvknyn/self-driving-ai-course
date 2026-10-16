@@ -127,7 +127,7 @@ def _world_to_ego(fn, show, on_step):
                       given=f"pose {pose} and a (146, 4, 2) array of points")
     worst = check_against_renderer(fn)
     proved = "; ".join(f"yaw {label} {proof}" for label, (_, proof) in NAMED_YAWS.items())
-    return f"all four yaws pass ({proved}), and so do the shape and the round trip; largest difference from the renderer's transform {fmt_gap(worst, TOL, ".2g")} m over {N_POSES} poses"
+    return f"all four yaws pass ({proved}), and so do the shape and the round trip; largest difference from the renderer's transform {fmt_gap(worst, TOL, '.2g')} m over {N_POSES} poses"
 
 
 def check_against_renderer(fn) -> float:

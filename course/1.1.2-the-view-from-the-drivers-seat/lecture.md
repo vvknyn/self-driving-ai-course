@@ -103,7 +103,7 @@ $$
 
 So a matrix–vector product can be read two ways. Row by row, it is dot products, which is how you compute it. Column by column, it is the first column scaled by a, plus the second column scaled by b, which is the walk. Both readings give the same numbers.
 
-![Two stacked panels at the scene. Top: the two columns of R(θ) at θ = 0.5958 rad, (0.8277, 0.5612) and (−0.5612, 0.8277), drawn in purple from the car's front axle. They are the ego frame's x and y axes. The world's x and y axes are drawn in white for comparison. Bottom: start at the car, (147.839, 14.299), walk 10.189 m along the first column and then 0.453 m along the second, and you arrive at the lane-centre point (156.018, 20.391). A magnified inset shows the second leg.](figures/columns_axes.png)
+![Two stacked panels at the scene. Top: the two columns of R(θ) at θ = 0.5958 rad, (0.8277, 0.5612) and (−0.5612, 0.8277), drawn in purple from the car's front axle. They are the ego frame's x and y axes. The world's x and y axes are drawn in light grey for comparison. Bottom: start at the car, (147.839, 14.299), walk 10.189 m along the first column and then 0.453 m along the second, and you arrive at the lane-centre point (156.018, 20.391). A magnified inset shows the second leg.](figures/columns_axes.png)
 
 Multiplying by R(θ) takes the world's x axis, (1, 0), to the heading arrow, and the world's y axis, (0, 1), to the left arrow. Both are turned by θ anticlockwise, both are still 1 m long, and they are still a quarter turn apart. Any arrow, a times (1, 0) plus b times (0, 1), goes to a times the heading arrow plus b times the left arrow: the same arrow, turned by θ. So R(θ) is called a **rotation matrix**. Multiplying by it turns any arrow by the angle θ.
 
@@ -128,7 +128,7 @@ R(\theta)^{\mathsf T} &= \\
 \end{aligned}
 $$
 
-![The same arrow turned out and back, in two stacked panels, with the car's front axle at the origin and the world's x and y axes in white. Top: R(θ) turns the arrow (10.189, 0.453) by 0.5958 rad anticlockwise, to (8.179, 6.093). Bottom: R(θ)ᵀ turns (8.179, 6.093) by the same angle clockwise, back to (10.189, 0.453).](figures/undo.png)
+![The same arrow turned out and back, in two stacked panels, with the car's front axle at the origin and the world's x and y axes in light grey. Top: R(θ) turns the arrow (10.189, 0.453) by 0.5958 rad anticlockwise, to (8.179, 6.093). Bottom: R(θ)ᵀ turns (8.179, 6.093) by the same angle clockwise, back to (10.189, 0.453).](figures/undo.png)
 
 So `world_to_ego` computes $R(\theta)^{\mathsf T}(\mathbf{p} - \mathbf{t})$: subtract the car's position, then take the two dot products. `ego_to_world` computes $R(\theta)\,\mathbf{q} + \mathbf{t}$: walk along the columns, then add the car's position. Confusion is normal here. The same two arrows are rows in one matrix and columns in the other, and the whole difference between the two directions is which.
 
@@ -170,7 +170,7 @@ The order inside `world_to_ego` matters. Turn first and subtract afterwards, $R(
 
 **Guess first:** take 2109 points along the yellow line, the lane centre and the white line of the lap, 1 m apart, and send them into the ego frame and back out to the world. Do it at 41 poses: the scene's and 40 random ones. How far from where they started do the points land?
 
-![Two stacked panels. Top: the lap of gentle in the world frame, its 2109 points in grey, and the same points after world_to_ego and then ego_to_world at the scene's pose, in white as rings on a sample of the points, landing on top of them. Bottom: at each of the 41 poses, the largest coordinate error after the round trip, on a scale where each grid line is ten times the one below. Every pose is below the dashed line at 10 to the minus 12 m. The largest error is 1.4 times ten to the minus 13 m going world to ego to world, and 8.5 times ten to the minus 14 m going ego to world to ego.](figures/round_trip.png)
+![Two stacked panels. Top: the lap of gentle in the world frame, its 2109 points in grey, and the same points after world_to_ego and then ego_to_world at the scene's pose, in light grey as rings on a sample of the points, landing on top of them. Bottom: at each of the 41 poses, the largest coordinate error after the round trip, on a scale where each grid line is ten times the one below. Every pose is below the dashed line at 10 to the minus 12 m. The largest error is 1.4 times ten to the minus 13 m going world to ego to world, and 8.5 times ten to the minus 14 m going ego to world to ego.](figures/round_trip.png)
 
 **Answer:** within $1.4\times10^{-13}$ m. Going the other way, ego to world to ego, the points land within $8.5\times10^{-14}$ m. Neither is exactly 0, because every multiply-and-add rounds in the last digit. The lab's check uses a tolerance of $1\times10^{-9}$ m, thousands of times bigger than either, while the two mistakes at the end of this lesson miss it by hundreds of metres.
 

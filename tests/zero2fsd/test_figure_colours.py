@@ -15,7 +15,8 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from matplotlib.colors import to_hex
+from matplotlib.colors import to_hex, to_rgba
+from matplotlib.legend import Legend
 from matplotlib.text import Text
 from matplotlib.figure import Figure
 from matplotlib.artist import Artist, ArtistInspector
@@ -26,7 +27,7 @@ from matplotlib.path import Path as Path_
 import figstyle
 from make_figures import make_unit_figures
 from zero2fsd.drawing import draw_frame
-from zero2fsd.palette import CHROME, QUANTITY, shades
+from zero2fsd.palette import CHROME, MIX, QUANTITY, shades
 
 REPO = Path(__file__).resolve().parents[2]
 SCANNED = sorted(REPO.glob("course/*/figures.py")) + [REPO / "scripts" / "figstyle.py"]
@@ -353,50 +354,139 @@ def test_render_pool_workers_exit_after_their_parent_is_killed(monkeypatch):
                 os.kill(pid, signal.SIGKILL)
 
 
-# --- G9: a symbol has one colour across the text and the figures (ruling 10b) ---
+# --- G9: a symbol has one colour across the text and the figures ---
 
 SYMBOL_TINT = {"e": "e_off", "ψ": "psi", "δ": "delta", "θ": "theta", "d": None}  # None: the lectures leave the symbol untinted (neutral ink)
 SYMBOL = re.compile(r"(?<![\w.])(" + "|".join(SYMBOL_TINT) + r")(?![\w.])")  # a lone symbol; d₁ and "deg" are other words
-TINT_OWNER = {shade.upper(): name for name, hue in QUANTITY.items() for shade in shades(hue, 4)}
+SPELLED = {"psi": "ψ", "theta": "θ", "delta": "δ"}
+EXPRESSION_SYMBOL = {re.compile(r"wrap\(\s*θ\s*[-−]\s*θ_road\s*\)"): "ψ"}  # an expression is owned by the quantity it computes: this one is ψ, though it names θ
+OWNER_TOLERANCE = 2.5  # per channel, 0-255: `shades` rounds each channel to an integer
+
+
+def _rgb255(colour) -> np.ndarray:
+    return np.array(to_rgba(colour)[:3]) * 255
+
+
+def tint_owner(colour) -> str | None:
+    """The quantity whose family `colour` belongs to, or None: any point on a hue's `shades` line (hue to the lightest shade), whatever n was."""
+    c, best = _rgb255(colour), (OWNER_TOLERANCE, None)
+    for name, hue in QUANTITY.items():
+        h = _rgb255(hue)
+        d = _rgb255(CHROME["text"]) - h
+        along = float(np.clip((c - h) @ d / (d @ d), 0, MIX))
+        miss = float(np.abs(c - (h + along * d)).max())
+        if miss <= best[0]:
+            best = (miss, name)
+    return best[1]
+
+
+def named_symbols(label: str) -> set[str]:
+    """The symbols a label names, whether typeset ($\\psi$), written out (psi) or as the expression that computes one."""
+    text = re.sub(r"\\mathrm\{([^}]*)\}", r"\1", label).replace("$", "").replace("{", "").replace("}", "")
+    text = re.sub(r"(?<![A-Za-z])(" + "|".join(SPELLED) + r")(?![A-Za-z])", lambda m: SPELLED[m.group(1).lower()], text.replace("\\", " "), flags=re.I)
+    for pattern, symbol in EXPRESSION_SYMBOL.items():
+        text = pattern.sub(symbol, text)
+    return set(SYMBOL.findall(text))
+
+
+def _patch_colours(patch) -> list:
+    return [] if patch is None else [patch.get_facecolor(), patch.get_edgecolor()]
+
+
+def _handle_colour(handle):
+    return handle.get_color() if hasattr(handle, "get_color") else handle.get_facecolor()
+
+
+def shown_colours(fig) -> list[tuple[str, list]]:
+    """(label, every colour it is shown in): its own ink, its bbox, its annotate arrow, and for a legend entry its swatch."""
+    shown = []
+    for text in fig.findobj(Text):
+        arrow = getattr(text, "arrow_patch", None)
+        shown.append((text.get_text(), [text.get_color(), *_patch_colours(text.get_bbox_patch()), *_patch_colours(arrow)]))
+    for legend in fig.findobj(Legend):
+        shown += [(t.get_text(), [_handle_colour(h)]) for t, h in zip(legend.get_texts(), legend.legend_handles)]
+    return shown
 
 
 def symbol_tint_violations(fig) -> list[str]:
-    """One message per text (a label, a tag, a legend entry) that names a symbol but is drawn in another symbol's quantity colour, or in any tint for an untinted symbol."""
+    """One message per label that names a symbol while shown in another symbol's quantity colour, or in any tint for an untinted symbol."""
     problems = []
-    for text in fig.findobj(Text):
-        owner = TINT_OWNER.get(to_hex(text.get_color()).upper())
-        symbols = set(SYMBOL.findall(text.get_text()))
-        wrong = sorted(s for s in symbols if SYMBOL_TINT[s] != owner)
-        if owner and wrong:
-            problems.append(f"{text.get_text()!r} names {wrong} in the colour of {owner}")
+    for label, colours in shown_colours(fig):
+        for owner in {tint_owner(c) for c in colours if to_rgba(c)[3] > 0} - {None}:
+            wrong = sorted(s for s in named_symbols(label) if SYMBOL_TINT[s] != owner)
+            if wrong:
+                problems.append(f"{label!r} names {wrong} in the colour of {owner}")
     return problems
 
 
-def _label_figure(text, colour):
+def _label_figure(text, colour, **text_kwargs):
     fig = Figure()
-    fig.subplots().text(0.5, 0.5, text, color=colour)
+    fig.subplots().text(0.5, 0.5, text, color=colour, **text_kwargs)
     return fig
 
 
-@pytest.mark.parametrize("text, colour", [
-    ("d = −1.8 m", QUANTITY["e_off"]),                                 # the motivating case: d drawn in e's blue
-    ("ψ = 0.2", QUANTITY["e_off"]),                                    # another symbol, another unit's colour
-    ("d = −1.27, e = +0.53", QUANTITY["e_off"]),                       # a mixed label may not be tinted at all
-    ("d", shades(QUANTITY["e_off"], 3)[2]),                            # a shade of e's blue is still e's blue
-    ("θ", QUANTITY["psi"]),
-])
-def test_a_label_naming_a_symbol_in_another_symbols_colour_is_flagged(text, colour):
-    assert len(symbol_tint_violations(_label_figure(text, colour))) == 1
+def _legend_figure(label, line_colour):
+    fig = Figure()
+    ax = fig.subplots()
+    ax.plot([0, 1], [0, 1], color=line_colour, label=label)
+    ax.legend()
+    return fig
 
 
-@pytest.mark.parametrize("text, colour", [
-    ("e = +0.5", QUANTITY["e_off"]), ("ψ", QUANTITY["psi"]), ("θ = 30°", QUANTITY["theta"]),
-    ("d = −1.8 m", CHROME["text"]),                                    # the untinted symbol in neutral ink
-    ("d₁ = 2.64 m", QUANTITY["perception"]),                           # a different quantity: the box's point distance
-    ("distance in m", QUANTITY["e_off"]), ("0.5 m left of the lane centre", QUANTITY["e_off"]),
-])
-def test_a_label_in_its_own_symbols_colour_or_neutral_ink_or_without_a_symbol_is_not_flagged(text, colour):
-    assert symbol_tint_violations(_label_figure(text, colour)) == []
+def _arrow_figure(label, arrow_colour):
+    fig = Figure()
+    fig.subplots().annotate(label, xy=(0.2, 0.2), xytext=(0.6, 0.6), color=CHROME["text"], arrowprops={"color": arrow_colour})
+    return fig
+
+
+E_BLUE, PSI_PINK = QUANTITY["e_off"], QUANTITY["psi"]
+WRONG_COLOUR = {
+    "motivating case: d in e's blue": lambda: _label_figure("d = −1.8 m", E_BLUE),
+    "another symbol, another unit's colour": lambda: _label_figure("ψ = 0.2", E_BLUE),
+    "a mixed label may not be tinted at all": lambda: _label_figure("d = −1.27, e = +0.53", E_BLUE),
+    "theta in psi's colour": lambda: _label_figure("θ", PSI_PINK),
+    "shade of any n, end": lambda: _label_figure("d", shades(E_BLUE, 3)[2]),
+    "shade of n=3, interior": lambda: _label_figure("d", shades(E_BLUE, 3)[1]),
+    "shade of n=7, interior": lambda: _label_figure("d", shades(E_BLUE, 7)[3]),
+    "mathtext psi in e's blue": lambda: _label_figure(r"$\psi$", E_BLUE),
+    "mathtext theta in psi's colour": lambda: _label_figure(r"$\theta = 0.3$", PSI_PINK),
+    "mathtext delta in e's blue": lambda: _label_figure(r"$\mathrm{\delta}$", E_BLUE),
+    "legend entry d next to an e-blue line": lambda: _legend_figure("d", E_BLUE),
+    "neutral d on an e-blue bbox": lambda: _label_figure("d", CHROME["text"], bbox={"facecolor": E_BLUE}),
+    "neutral d with an e-blue outline": lambda: _label_figure("d", CHROME["text"], bbox={"facecolor": "none", "edgecolor": E_BLUE}),
+    "neutral d with an e-blue arrow": lambda: _arrow_figure("d", E_BLUE),
+    "spelled-out psi in e's blue": lambda: _label_figure("psi = 0.3", E_BLUE),
+    "spelled-out theta in psi's colour": lambda: _label_figure("Theta", PSI_PINK),
+}
+RIGHT_COLOUR = {
+    "e in its blue": lambda: _label_figure("e = +0.5", E_BLUE),
+    "e in a shade of its blue": lambda: _label_figure("e", shades(E_BLUE, 5)[2]),
+    "psi in its pink": lambda: _label_figure("ψ", PSI_PINK),
+    "mathtext theta in theta's colour": lambda: _label_figure(r"$\theta = 30°$", QUANTITY["theta"]),
+    "spelled-out delta in delta's colour": lambda: _label_figure("delta", QUANTITY["delta"]),
+    "the wrap expression is psi": lambda: _label_figure(r"$\mathrm{wrap}(\theta - \theta_{\mathrm{road}})$", PSI_PINK),
+    "d in neutral ink": lambda: _label_figure("d = −1.8 m", CHROME["text"]),
+    "d1 is another quantity": lambda: _label_figure("d₁ = 2.64 m", QUANTITY["perception"]),
+    "no symbol": lambda: _label_figure("distance in m", E_BLUE),
+    "neutral d on a panel bbox": lambda: _label_figure("d", CHROME["text"], bbox={"facecolor": CHROME["panel"], "edgecolor": CHROME["border"]}),
+    "e legend entry next to its line": lambda: _legend_figure("e", E_BLUE),
+    "e with its own arrow": lambda: _arrow_figure("e", E_BLUE),
+}
+
+
+@pytest.mark.parametrize("make", WRONG_COLOUR.values(), ids=WRONG_COLOUR)
+def test_a_label_naming_a_symbol_in_another_symbols_colour_is_flagged(make):
+    assert len(symbol_tint_violations(make())) == 1
+
+
+@pytest.mark.parametrize("make", RIGHT_COLOUR.values(), ids=RIGHT_COLOUR)
+def test_a_label_in_its_own_symbols_colour_or_neutral_ink_or_without_a_symbol_is_not_flagged(make):
+    assert symbol_tint_violations(make()) == []
+
+
+def test_every_shade_of_every_length_belongs_to_its_quantity_and_the_chrome_text_to_none():
+    assert {tint_owner(s) for n in range(2, 9) for s in shades(E_BLUE, n)} == {"e_off"}
+    assert {tint_owner(c) for c in CHROME.values()} == {None}
 
 
 @pytest.mark.parametrize("source", SCANNED[:-1], ids=[p.parent.name for p in SCANNED[:-1]])
@@ -482,3 +572,24 @@ def test_no_figure_module_draws_a_raw_segment_in_e_blue(source):
     e_hues = {shade.upper() for shade in shades(QUANTITY["e_off"], 4)}
     e_names = {name for name, value in vars(module).items() if isinstance(value, str) and value.upper() in e_hues}
     assert e_coloured_segments(source.read_text(encoding="utf-8"), e_names) == []
+
+
+# --- alt text in the 1.x lessons names the text ink "light grey": "white" is the painted lane line only (0.1 names paint, so it is not scanned) ---
+
+ALT = re.compile(r"!\[(.*?)\]\(figures/(\w+)\.png\)", re.S)
+BARE_WHITE = re.compile(r"\bwhite\b(?! (edge |lane )?line)", re.I)
+
+
+def bare_white(alt: str) -> list[str]:
+    return [m.group(0) for m in BARE_WHITE.finditer(alt)]
+
+
+def test_white_in_alt_text_is_flagged_unless_it_is_the_painted_line():
+    assert bare_white("the world axes in white, a white dot") == ["white", "white"]
+    assert bare_white("the yellow line and the white edge line, strips of white line, the white line") == []
+
+
+@pytest.mark.parametrize("lecture", sorted(REPO.glob("course/1.*/lecture.md")), ids=lambda p: p.parent.name)
+def test_no_alt_text_calls_the_text_ink_white(lecture):
+    found = {name: bare_white(alt) for alt, name in ALT.findall(lecture.read_text())}
+    assert {name: words for name, words in found.items() if words} == {}

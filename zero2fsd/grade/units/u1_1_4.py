@@ -178,7 +178,7 @@ THRESHOLDS = {
 )
 def _relative_pose(fn, show, on_step):
     worst = relative_pose_error(fn)
-    return f"all {len(tuple(named_pairs())) + N_PAIRS} cases within {REL_TOL:g}: worst entry {fmt_gap(worst, REL_TOL, ".2g")} {vs_limit(worst, REL_TOL)}"
+    return f"all {len(tuple(named_pairs())) + N_PAIRS} cases within {REL_TOL:g}: worst entry {fmt_gap(worst, REL_TOL, '.2g')} {vs_limit(worst, REL_TOL)}"
 
 
 @exercise(
@@ -199,5 +199,5 @@ def _dead_reckon(fn, show, on_step):
             given=f"the first pose and {len(steps)} steps of {ROAD}; expected and got are pose {k}'s (x, y) in m",
             expected=poses[k, :2], got=got[k, :2, 2],
         )
-    return (f"{len(poses)} poses rebuilt from {len(steps)} steps: worst {fmt_gap(position.max(), POS_TOL, ".2g")} m {vs_limit(position.max(), POS_TOL, 'm')}, "
-            f"end {fmt_gap(position[-1], POS_TOL, ".2g")} m, worst yaw error {fmt_gap(yaw.max(), ANGLE_TOL, ".2g")} rad")
+    return (f"{len(poses)} poses rebuilt from {len(steps)} steps: worst {fmt_gap(position.max(), POS_TOL, '.2g')} m {vs_limit(position.max(), POS_TOL, 'm')}, "
+            f"end {fmt_gap(position[-1], POS_TOL, '.2g')} m, worst yaw error {fmt_gap(yaw.max(), ANGLE_TOL, '.2g')} rad")
