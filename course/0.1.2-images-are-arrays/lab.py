@@ -1,5 +1,5 @@
 # %% [markdown]
-# # Lab 0.1.2: Images are arrays
+# # Lab: Images are arrays
 #
 # You will open a camera frame, pick it apart with indexing and slicing, measure colours as distances, find out why exact
 # matching breaks on noise, and write the function that finds the paint in a noisy frame: the first half of your
@@ -49,8 +49,6 @@ plt.title("clean")
 plt.show()
 
 # %% [markdown]
-# ![](figures/frame_grid.png)
-#
 # **Problem 1.** Print the shape, the dtype and the number of values (`size`) of `clean`.
 #
 # **Guess first:** how many numbers is that in total? Compare with the lecture's count, 172,800.
@@ -62,11 +60,10 @@ print("shape:", clean.shape, " dtype:", clean.dtype)
 practice("number of values in the frame", frame_size, 172800)
 
 # %% [markdown]
+# ![](figures/frame_grid.png)
+
+# %% [markdown]
 # ## 2. Finding one pixel: row, column, channel
-#
-# ![](figures/row_col.png)
-#
-# ![](figures/channels.png)
 #
 # **Problem 2.** Read the pixel `clean[179, 160]` (row first!) and `clean[0, 0]`; print both. Then read the **blue**
 # value, index 2, of one yellow pixel and of one road pixel, using the coordinates from the lecture's patch: yellow is at
@@ -85,13 +82,14 @@ practice("blue value of the road pixel", blue_road, 95)
 
 # %% [markdown]
 # Yellow paint has the smaller blue value, so in the blue channel the yellow line is *darker* than the road, as in the
-# lecture's picture. That one fact is what the ALVINN team's blue channel exploited.
+# lecture's picture. ALVINN also used the blue channel alone, for a related reason: in its road scenes,
+# blue gave the most contrast between road and non-road.
+#
+# ![](figures/row_col.png)
+#
+# ![](figures/channels.png)
 #
 # ## 3. Slicing: taking a block of rows
-#
-# ![](figures/slices.png)
-#
-# ![](figures/line_width.png)
 #
 # **Problem 3.** Print the shape of `clean[100:180]`.
 #
@@ -101,8 +99,13 @@ practice("blue value of the road pixel", blue_road, 95)
 print("frame[100:180].shape:", clean[100:180].shape)
 
 # %% [markdown]
+# ![](figures/slices.png)
+#
+# ![](figures/line_width.png)
+#
 # The lecture says rows 0 to 75 of every frame are sky. Check that on all three roads, 20 m along each (this prints
-# `True` three times). Then work out how much of the frame is paint.
+# `True` three times). Then work out how much of the frame is paint (`|` and `.sum()` are in the
+# lecture's section "Scoring a mask: intersection over union").
 #
 # **Guess first:** what share of all the pixels is yellow or white paint: about 0.3, 0.03 or 0.003?
 
@@ -123,8 +126,9 @@ practice("share of the frame that is paint", paint_share, 0.0274, tol=0.0001)
 #
 # ![](figures/distance_build.png)
 #
-# **Problem 4.** Write `colour_distance(p, c)`: the straight-line distance between two colours, $\sqrt{\Delta R^2 + \Delta G^2
-# + \Delta B^2}$. Convert to float first: that is the whole point of the last section of the lecture.
+# **Problem 4.** Write `colour_distance(p, c)`: the straight-line distance between two colours, $\sqrt{\Delta_R^2 + \Delta_G^2
+# + \Delta_B^2}$, where $\Delta_R = p_R - c_R$ ("delta R") is the red difference, and likewise for green and blue.
+# Convert to float first: that is the whole point of the last section of the lecture.
 #
 # **Guess first:** the lecture computed road grey to yellow paint as 186.3. Will grass green to yellow paint be bigger or
 # smaller?
@@ -140,8 +144,6 @@ practice("grass green to yellow paint", colour_distance(PALETTE[GRASS], PALETTE[
 practice("sky blue to white paint", colour_distance(PALETTE[SKY], PALETTE[WHITE]), 116.4, tol=0.05)
 
 # %% [markdown]
-# ![](figures/nearest_bars.png)
-#
 # Now find the colour nearest to yellow paint, and the colour nearest to white paint, among the other four of the five:
 # loop over `range(5)`, skip the paint itself, and keep the index with the smallest distance. The indices are
 # `SKY, GRASS, ROAD, YELLOW, WHITE` = 0 to 4.
@@ -150,15 +152,14 @@ practice("sky blue to white paint", colour_distance(PALETTE[SKY], PALETTE[WHITE]
 nearest_to_yellow = None  # your code: the index (0 to 4) of the colour nearest to yellow paint
 nearest_to_white = None  # your code: the index of the colour nearest to white paint
 
-practice("colour nearest to yellow (GRASS = 1)", nearest_to_yellow, GRASS)
-practice("colour nearest to white (SKY = 0)", nearest_to_white, SKY)
+practice("colour nearest to yellow", nearest_to_yellow, GRASS)
+practice("colour nearest to white", nearest_to_white, SKY)
+
+# %% [markdown]
+# ![](figures/nearest_bars.png)
 
 # %% [markdown]
 # ## 5. Noise: no two pixels quite alike
-#
-# ![](figures/noise_bell.png)
-#
-# ![](figures/noisy_patch.png)
 #
 # **Problem 5.** The nudge noise added to every value is `noisy - clean`, computed in `int`, not `uint8`. What share of
 # all the nudges lies between -6 and +6?
@@ -173,11 +174,12 @@ share_within_6 = None  # your code: the fraction of values in `nudges` with abso
 practice("share of nudges within 6", share_within_6, 0.721, tol=0.0005)
 
 # %% [markdown]
+# ![](figures/noise_bell.png)
+#
+# ![](figures/noisy_patch.png)
+
+# %% [markdown]
 # ## 6. The tempting shortcut: exact equality
-#
-# ![](figures/exact_fails.png)
-#
-# ![](figures/exact_odds.png)
 #
 # **Problem 6.** Count the pixels exactly equal to yellow paint, with `np.all(frame == PALETTE[YELLOW], axis=-1)`, on the
 # clean frame and on the noisy frame.
@@ -191,6 +193,11 @@ exact_noisy = None  # your code: the same count on `noisy`
 
 practice("exact matches on the clean frame", exact_clean, 709)
 practice("exact matches on the noisy frame", exact_noisy, 0)
+
+# %% [markdown]
+# ![](figures/exact_fails.png)
+#
+# ![](figures/exact_odds.png)
 
 # %% [markdown]
 # ## 7. Paint is a colour threshold
@@ -225,9 +232,7 @@ practice("white pixels at tau = 120", white_at_120, 18098)
 # At 10 the mask loses almost half the paint; at 120 the white mask swallows most of the sky, 18,098 pixels instead of
 # 872. Between the two extremes there is a wide gap with no pixels in it, and 60 sits inside it.
 #
-# ## 8. Scoring a mask with IoU
-#
-# ![](figures/accuracy_trap.png)
+# ## 8. Scoring a mask: intersection over union
 #
 # **Problem 8.** Write `iou(M, T)`: the number of pixels in both masks divided by the number in either. Run it on the 8 by 8
 # example of the lecture's figure, built in the next cell: the truth `T` outlines 10 cells, your mask `M` marks 12, and
@@ -250,8 +255,6 @@ M[5, 2:6] = True  # the 12 cells the mask marks
 practice("IoU of the 8 by 8 example", iou(M, T), 0.5714, tol=0.0001)
 
 # %% [markdown]
-# ![](figures/iou_grid.png)
-#
 # Now the trap from the lecture. A mask that marks nothing at all gets almost every pixel right. Score the empty yellow
 # mask on the noisy frame two ways: the share of pixels it gets right, and its IoU against `labels == YELLOW`.
 #
@@ -268,9 +271,12 @@ practice("share right of the empty mask", share_right, 0.9877, tol=0.0001)
 practice("IoU of the empty mask", iou_empty, 0.0)
 
 # %% [markdown]
-# ## 9. The uint8 wraparound trap: break it, fix it
+# ![](figures/accuracy_trap.png)
 #
-# ![](figures/uint8_wrap.png)
+# ![](figures/iou_grid.png)
+
+# %% [markdown]
+# ## 9. The uint8 wraparound trap: break it, fix it
 #
 # A teammate wrote a shorter version: "`PALETTE` already holds the colours, so skip the conversion." Run it. It is
 # perfect on the clean frame and hopeless on the noisy one.
@@ -286,8 +292,11 @@ def paint_masks_fast(frame):
 
 
 fast_yellow, fast_white = paint_masks_fast(noisy)
-practice("IoU of the teammate's yellow mask on the noisy frame", iou(fast_yellow, labels == YELLOW), 0.14, tol=0.005)
-practice("IoU of the teammate's white mask on the noisy frame", iou(fast_white, labels == WHITE), 0.14, tol=0.005)
+practice("IoU of the teammate's yellow mask on the noisy frame", iou(fast_yellow, labels == YELLOW), 0.1354, tol=0.001)
+practice("IoU of the teammate's white mask on the noisy frame", iou(fast_white, labels == WHITE), 0.1388, tol=0.001)
+
+# %% [markdown]
+# ![](figures/uint8_wrap.png)
 
 # %% [markdown]
 # <details><summary>Hint (open after you have a guess)</summary>
@@ -319,7 +328,7 @@ if fixed is not None:
 #
 # ## 10. Graded exercise
 #
-# ### 0.1.2.a `paint_masks`
+# ### Exercise A: `paint_masks`
 #
 # Now package the method as the first half of your perception box (lecture: "Paint is a colour threshold"). Mind the
 # last section of the lecture, "The uint8 wraparound trap". The checker renders six noisy frames on all three roads,
@@ -364,5 +373,5 @@ except NotImplementedError:
 #
 # ![](figures/next_lesson.png)
 #
-# You can now find the paint in any frame the car sees. In unit 0.1.3 you turn these two masks into the numbers the
+# You can now find the paint in any frame the car sees. In the next lesson, *Your first perception box*, you turn these two masks into the numbers the
 # controller needs: how far the car is from lane centre, and which way it is pointing.

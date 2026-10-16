@@ -1,9 +1,11 @@
 import dataclasses
 import math
+import re
 from pathlib import Path
 
 import numpy as np
 import pytest
+import yaml
 
 import zero2fsd.grade as grade_pkg
 from zero2fsd.car import Car, LaneEstimate, provided, run
@@ -11,7 +13,7 @@ from zero2fsd.car.runner import COLUMNS
 from zero2fsd.grade import _drive, check
 from zero2fsd.grade._drive import GATE_SCENARIO
 from zero2fsd.grade._poses import LOOKAHEAD, sample_poses
-from zero2fsd.grade._report import EXERCISES, NOT_IMPLEMENTED, REPORT
+from zero2fsd.grade._report import EXERCISES, LESSON_TITLES, NOT_IMPLEMENTED, REPORT, exercise_label
 from zero2fsd.sim.dynamics import MAX_STEER
 
 IDS = ["0.1.1.a", "0.1.1.b", "0.1.2.a", "0.1.3.a", "0.1.3.b", "0.1.4.a", "0.1.4.b"]
@@ -24,6 +26,37 @@ def as_target(exercise_id, fn):
 
 def text(result):
     return "\n".join(result.details)
+
+
+# --- what the learner reads never contains a dotted id ------------------------------------------------------------
+
+def test_lesson_titles_are_the_unit_yaml_titles():
+    units = {y["id"]: y["title"] for y in (yaml.safe_load(p.read_text()) for p in Path("course").glob("*/unit.yaml"))}
+    assert LESSON_TITLES == {unit: units[unit] for unit in LESSON_TITLES}
+
+
+@pytest.mark.parametrize("exercise_id, label", [
+    ("0.1.1.a", "Exercise A (Meet your car)"),
+    ("0.1.1.b", "Exercise B (Meet your car)"),
+    ("0.1.2.a", "Exercise A (Images are arrays)"),
+    ("0.1.3.b", "Exercise B (Your first perception box)"),
+    ("0.1.4.a", "Exercise A (Closing the loop)"),
+])
+def test_exercise_label_is_the_suffix_and_the_lesson_title(exercise_id, label):
+    assert exercise_label(exercise_id) == label
+
+
+@pytest.mark.parametrize("exercise_id", IDS)
+def test_failing_report_and_hint_name_no_dotted_id(exercise_id):
+    result = check(exercise_id, as_target(exercise_id, lambda *a, **k: None), show=False)
+    lines = text(result)
+    assert exercise_label(exercise_id) in lines and f'lecture "{LESSON_TITLES[exercise_id.rpartition(".")[0]]}"' in lines
+    assert not re.search(r"\d\.\d\.\d", lines), lines
+
+
+@pytest.mark.parametrize("exercise_id", ["0.1.1.a", "0.1.2.a", "0.1.3.a", "0.1.4.a"])
+def test_passing_report_names_no_dotted_id(exercise_id):
+    assert not re.search(r"\d\.\d\.\d", text(check(exercise_id, GOOD[exercise_id], show=False)))
 
 
 # --- correct answers, written here independently of the grader and of solutions/ ---------------------------------
@@ -91,7 +124,7 @@ def test_a_raising_function_is_reported_with_its_input(exercise_id):
 def test_a_correct_answer_passes_and_prints_a_green_summary(exercise_id, capsys):
     result = check(exercise_id, GOOD[exercise_id], show=False)
     assert result.passed, text(result)
-    assert capsys.readouterr().out.startswith(f"\033[32m\N{CHECK MARK} {exercise_id}:")
+    assert capsys.readouterr().out.startswith(f"\033[32m\N{CHECK MARK} {exercise_label(exercise_id)}:")
 
 
 @pytest.mark.parametrize("before", [True, False])
@@ -116,7 +149,7 @@ def test_check_report_false_prints_nothing_and_the_default_prints(capsys):
         assert capsys.readouterr().out == "", exercise_id
         loud = check(exercise_id, target, show=False)
         assert quiet.details == loud.details
-        assert f"\N{CHECK MARK} {exercise_id}:" in capsys.readouterr().out
+        assert f"\N{CHECK MARK} {exercise_label(exercise_id)}:" in capsys.readouterr().out
 
 
 # --- wrong answers: each failure says what was checked, the input, expected, got, and a hint --------------------

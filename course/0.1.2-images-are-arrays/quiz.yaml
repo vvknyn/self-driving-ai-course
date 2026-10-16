@@ -99,7 +99,7 @@
   section: paint-is-a-colour-threshold
 - id: q10
   type: mcq
-  prompt: "`frame` has shape (180, 320, 3) and `yellow` has shape (3,). What is the shape of `np.linalg.norm(frame - yellow, axis=-1)`?"
+  prompt: "`frame` has shape (180, 320, 3) and `yellow` has shape (3,). What is the shape of `np.linalg.norm(frame.astype(float) - yellow, axis=-1)`?"
   choices:
     - "(180, 320)"
     - "(180, 320, 3)"
@@ -118,7 +118,7 @@
     - "0.5"
   answer: 3
   explain: "Both: 6. Either: $6 + 4 + 2 = 12$ (6 right, 4 missed, 2 wrong). $6 / 12 = 0.5$. 0.6 is the share of the paint found, which ignores the false marks."
-  section: scoring-a-mask-with-iou
+  section: scoring-a-mask-intersection-over-union
 - id: q12
   type: mcq
   prompt: "Both arrays are uint8. A road pixel's red is 90 and yellow's red is 230. What does `frame - yellow` give for that channel?"

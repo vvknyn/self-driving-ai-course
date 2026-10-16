@@ -17,7 +17,7 @@ Every number on that card comes from a recording of the drive, and in the lab yo
 
 A speed in metres per second says how many metres you cover in one second. To say it in kilometres per hour, count kilometres instead of metres (1 km is 1000 m, so divide by 1000) and count in hours instead of seconds (1 h is 3600 s, so multiply by 3600):
 
-$$8\ \text{m/s} = 8 \times \frac{3600}{1000}\ \text{km/h} = 8 \times 3.6\ \text{km/h} = 28.8\ \text{km/h}$$
+$$\begin{aligned}8\ \text{m/s} &= 8 \times \frac{3600}{1000}\ \text{km/h} \\ &= 8 \times 3.6\ \text{km/h} = 28.8\ \text{km/h}\end{aligned}$$
 
 That is about 29 km/h.
 
@@ -59,11 +59,11 @@ Each length is the distance along the road, measured along the yellow line, from
 
 `gentle` is two straights of 100 m and two half-circle bends of radius $r = 80$ m:
 
-$$2 \times 100 + 2 \times \pi \times 80 = 200 + 502.65 = 702.65 \approx 702.7 \text{ m}$$
+$$\begin{aligned}2 \times 100 + 2 \times \pi \times 80 &= 200 + 502.65 \\ &= 702.65 \approx 702.7 \text{ m}\end{aligned}$$
 
 `curvy` is a 30 m straight and six quarter-circle bends of radius 20 m:
 
-$$30 + 6 \times \frac{\pi}{2} \times 20 = 30 + 188.50 = 218.50 \approx 218.5 \text{ m}$$
+$$\begin{aligned}30 + 6 \times \frac{\pi}{2} \times 20 &= 30 + 188.50 \\ &= 218.50 \approx 218.5 \text{ m}\end{aligned}$$
 
 The paint of an open road runs 40 m past the end of the route, so the camera still has lines to look at as the car finishes. Those 40 m are not part of the route, which is why the figure marks the route's end with a square.
 
@@ -137,7 +137,7 @@ $$e = (0.1,\ -0.3,\ 0.2,\ -0.4,\ 0.4)$$
 
 **Answer:** zero. Add them up and divide by how many there are:
 
-$$\frac{0.1 + (-0.3) + 0.2 + (-0.4) + 0.4}{5} = \frac{0.0}{5} = 0.0 \text{ m}$$
+$$\begin{aligned}\frac{0.1 + (-0.3) + 0.2 + (-0.4) + 0.4}{5} &= \frac{0.0}{5} \\ &= 0.0 \text{ m}\end{aligned}$$
 
 A perfect score, for a car that was never once on the lane centre. The errors to the left cancelled the errors to the right.
 
@@ -169,7 +169,7 @@ They add up to $1.4$, and $1.4 / 5 = 0.28$. So this car sat 0.28 m from centre, 
 
 Written out in full for these five steps, the calculation is
 
-$$\frac{|e_1| + |e_2| + |e_3| + |e_4| + |e_5|}{5} = \frac{0.1 + 0.3 + 0.2 + 0.4 + 0.4}{5} = 0.28 \text{ m}$$
+$$\begin{aligned}\frac{|e_1| + |e_2| + |e_3| + |e_4| + |e_5|}{5} &= \frac{0.1 + 0.3 + 0.2 + 0.4 + 0.4}{5} \\ &= 0.28 \text{ m}\end{aligned}$$
 
 For a lap of 1,778 steps you would never write out every term, so mathematicians use a shorthand:
 

@@ -3,6 +3,7 @@ import numpy as np
 from matplotlib.colors import LinearSegmentedColormap, to_rgb
 from matplotlib.figure import Figure
 from matplotlib.patches import Circle, Rectangle
+from matplotlib.ticker import FuncFormatter
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401  (registers the "3d" projection)
 
 from zero2fsd.car.provided import PAINT_DISTANCE, paint_masks
@@ -18,7 +19,9 @@ NAMES = ("sky", "grass", "road", "yellow", "white")
 TEXT, PANEL, BACKGROUND, BORDER = CHROME["text"], CHROME["panel"], CHROME["background"], CHROME["border"]
 LABEL_BOX = {"boxstyle": "round,pad=0.25", "fc": PANEL, "ec": BORDER}  # text that sits on top of a picture
 GREY = LinearSegmentedColormap.from_list("channel", [BACKGROUND, TEXT])  # one channel as brightness: 0 darkest, 255 brightest
-BASE = QUANTITY["e_off"]  # the one hue of a chart that has no quantity to name
+BASE = TEXT  # neutral chrome for what names no quantity (the quantity hues are saved for the lessons that measure them)
+DIM, DIMMER = shades(BORDER, 5)[3], shades(BORDER, 5)[2]  # two quieter greys from the same chrome
+THOUSANDS = FuncFormatter(lambda value, _: f"{value:,.0f}")
 IOU_TRUTH = (slice(3, 5), slice(1, 6))  # iou_grid: the 10 true paint cells
 IOU_MARKED = ((slice(3, 5), slice(2, 6)), (slice(5, 6), slice(2, 6)))  # and the 12 cells the mask marks
 FS = 12  # smallest annotation size
@@ -62,13 +65,13 @@ def _rgb_text(rgb):
     return "\n".join(str(int(v)) for v in rgb)
 
 
-def _show_patch(ax, patch, title, outline=None):
+def _show_patch(ax, patch, title, outline=None, fontsize=FS - 1):
     """A few pixels drawn large, each labelled with its red, green and blue values; `outline` = (row, col) of one pixel to ring."""
     _show(ax, patch)
     for i in range(patch.shape[0]):
         for j in range(patch.shape[1]):
             dark = float(np.dot(patch[i, j], (0.299, 0.587, 0.114))) > 150
-            ax.text(j, i, _rgb_text(patch[i, j]), ha="center", va="center", fontsize=FS - 1, linespacing=1.15, color=BACKGROUND if dark else TEXT)
+            ax.text(j, i, _rgb_text(patch[i, j]), ha="center", va="center", fontsize=fontsize, linespacing=1.15, color=BACKGROUND if dark else TEXT)
     if outline is not None:
         for colour, width in ((BACKGROUND, 6), (TEXT, 3)):
             ax.add_patch(Rectangle((outline[1] - 0.5, outline[0] - 0.5), 1, 1, fill=False, edgecolor=colour, lw=width))
@@ -96,15 +99,19 @@ def _camera_to_masks(path, clean):
     fig.savefig(path, dpi=100)
 
 
+FRAME_GRID_DIGIT = 31  # font size of the RGB digits in frame_grid: they must stay at least 9 px tall when the PNG is shown 330 px wide
+
+
 def _frame_grid(path, clean):
-    fig = Figure(figsize=(11, 4.8))
-    full, zoom = fig.subplots(1, 2, gridspec_kw={"width_ratios": [1.35, 1]})
+    r, c = PATCH_ROWS, PATCH_COLS
+    fig = Figure(figsize=(11, 15.2))
+    full, zoom = fig.subplots(2, 1, gridspec_kw={"height_ratios": [0.2, 1], "hspace": 0.17})
+    fig.subplots_adjust(left=0.13, right=0.97, top=0.975, bottom=0.04)
     _show(full, clean, "frame: 180 rows x 320 columns x 3 colours")
     _patch_box(full)
     full.set(xlabel="column index", ylabel="row index (row 0 is the top)")
-    r, c = PATCH_ROWS, PATCH_COLS
-    _show_patch(zoom, clean[r, c], f"the box, frame[{r.start}:{r.stop}, {c.start}:{c.stop}]: red, green, blue")
-    fig.tight_layout()
+    _show_patch(zoom, clean[r, c], f"the box: rows {r.start}\u2013{r.stop - 1}, columns {c.start}\u2013{c.stop - 1}", fontsize=FRAME_GRID_DIGIT)
+    zoom.tick_params(labelsize=FS + 4)
     fig.savefig(path, dpi=100)
 
 
@@ -115,6 +122,7 @@ def _row_col(path, clean):
     ax.set_yticks([0, 75, 179])
     ax.set_xticks([0, 160, 319])
     ax.xaxis.tick_top()
+    ax.tick_params(pad=26)  # keeps the 0 ticks clear of the frame[0, 0] circle that overhangs the corner
     ax.xaxis.set_label_position("top")
     ax.set(xlabel="column index (0 at the left)", ylabel="row index (0 at the top)")
     pixels = ((0, 0, (36, 24)), (179, 160, (200, 128)), (*MARK, (110, 105)))
@@ -154,6 +162,9 @@ def _slices(path, clean):
     fig.savefig(path, dpi=100)
 
 
+ROW_TICKS = [80, 100, 120, 140, 160, 179]
+
+
 def _line_width(path, clean, labels):
     rows = np.arange(79, 180)
     widths = np.array([np.count_nonzero(labels[r] == WHITE) for r in rows])
@@ -164,11 +175,13 @@ def _line_width(path, clean, labels):
     _show(frame_ax, clean, "the road part of the frame, rows 79 to 179")
     ax.plot(widths, rows, marker="o", markersize=3, color=BASE, lw=1.5)
     ax.set(xlim=(0, 20), ylim=(179.5, 78.5), xlabel="width of the white line (pixels)")
+    ax.set_yticks(ROW_TICKS)
+    ax.tick_params(labelleft=True)  # the shared axis hides these by default: the rows must be readable on this panel too
     ax.set_title("how wide the 0.2 m line looks", fontsize=FS + 1, pad=8)
-    frame_ax.set(ylabel="row index (row 0 is the top)", xlabel="column index")
-    for row, at in ((179, (0.4, 168)), (80, (6.0, 92))):
+    frame_ax.set(ylabel="row index (row 0 is the top)", xlabel="column index", yticks=ROW_TICKS)
+    for row, at in ((179, (0.4, 168)), (80, (8.0, 92))):
         w = widths[row - 79]
-        ax.annotate(f"row {row}: {w} px, about {ahead[row]:.0f} m ahead", xy=(w, row), xytext=at, fontsize=FS, va="center", ha="left",
+        ax.annotate(f"row {row}: {w} px (\u2248{ahead[row]:.0f} m)", xy=(w, row), xytext=at, fontsize=FS, va="center", ha="left",
                     arrowprops={"arrowstyle": "->", "color": TEXT, "lw": 1.5})
     fig.tight_layout()
     fig.savefig(path, dpi=100)
@@ -177,8 +190,9 @@ def _line_width(path, clean, labels):
 def _rgb_cube(path):
     fig = Figure(figsize=(8.5, 7))
     ax = fig.add_subplot(projection="3d")
+    ax.patch.set_alpha(0)
     for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
-        axis.set_pane_color(PANEL)
+        axis.pane.set_alpha(0)  # no grey pane boxes on the dark background
         axis._axinfo["grid"]["color"] = BORDER
     ax.set(xlim=(0, 255), ylim=(0, 255), zlim=(0, 255), xticks=[0, 128, 255], yticks=[0, 128, 255], zticks=[0, 128, 255])
     ax.set(xlabel="red", ylabel="green", zlabel="blue")
@@ -186,7 +200,7 @@ def _rgb_cube(path):
         axis.label.set_fontsize(FS + 2)
     ax.set_box_aspect((1, 1, 1))
     ax.view_init(elev=22, azim=-62)
-    offsets = {"sky": (0, 0, 14), "grass": (-4, 0, -24), "road": (-26, 0, 26), "yellow": (0, 0, -26), "white": (-50, 0, -16)}
+    offsets = {"sky": (0, 0, 24), "grass": (-4, 0, -24), "road": (-26, 0, 26), "yellow": (0, 0, -26), "white": (-50, 0, -16)}
     for name, colour in zip(NAMES, PALETTE.astype(int)):
         ax.scatter(*colour, s=170, color=SCENE[name], edgecolor=TEXT, linewidth=1.2, depthshade=False)
         dx, dy, dz = offsets[name]
@@ -213,7 +227,7 @@ def _distance_build(path):
 
     def triangle(origin, run, rise, run_text, rise_text, hyp_text):
         x, y = origin
-        ax.plot([x, x + run, x + run], [y, y, y + rise], color=TEXT, lw=2.5, solid_capstyle="round")
+        ax.plot([x, x + run, x + run], [y, y, y + rise], color=DIM, lw=2.5, solid_capstyle="round")
         ax.plot([x, x + run], [y, y + rise], color=BASE, lw=3.5)
         s = 9
         ax.plot([x + run - s, x + run - s, x + run], [y, y + s, y + s], color=TEXT, lw=1.5)  # the right angle
@@ -229,7 +243,7 @@ def _distance_build(path):
 
 def _nearest_bars(path):
     fig = Figure(figsize=(11, 3.9))
-    faded, strong = shades(BASE, 3)[2], BASE
+    faded, strong = DIM, BASE
     for k, (paint, left) in enumerate(((YELLOW, 0.17), (WHITE, 0.68))):
         ax = fig.add_axes([left, 0.2, 0.29, 0.62])
         others = [i for i in (2, 1, 0, 3, 4) if i != paint]
@@ -237,7 +251,7 @@ def _nearest_bars(path):
         nearest = int(np.argmin(values))
         y = np.arange(len(others))[::-1]
         ax.barh(y, values, height=0.62, color=[strong if i == nearest else faded for i in range(len(others))])
-        ax.set(xlim=(0, 330), ylim=(-0.6, 3.6), yticks=[], xlabel="colour distance", title=f"from {NAMES[paint]} paint to ...")
+        ax.set(xlim=(0, 360), ylim=(-0.6, 3.6), yticks=[], xlabel="colour distance", title=f"from {NAMES[paint]} paint to ...")
         ax.set_title(ax.get_title(), fontsize=FS + 1, pad=8)
         for yi, v, i in zip(y, values, others):
             ax.text(v + 6, yi, f"{v:.1f}" + ("  nearest" if i == others[nearest] else ""), va="center", fontsize=FS + 1)
@@ -253,13 +267,14 @@ def _noise_bell(path, clean, noisy):
     values = np.arange(-edge, edge + 1)
     counts = np.array([np.count_nonzero(nudge == v) for v in values])
     inner, outer = (np.count_nonzero(np.abs(nudge) <= k) / nudge.size for k in (6, 18))
-    faint, mid, strong = shades(BASE, 3)[::-1]
+    faint, mid, strong = DIMMER, DIM, BASE
     colours = [strong if abs(v) <= 6 else mid if abs(v) <= 18 else faint for v in values]
     fig = Figure(figsize=(11, 4.4))
     ax = fig.subplots()
     ax.bar(values, counts, width=1.0, color=colours, edgecolor=BACKGROUND, linewidth=0.4)
     top = counts.max()
     ax.set(xlim=(-edge - 1, edge + 1), ylim=(0, top * 1.42), xlabel="nudge added to one channel", ylabel="number of values (of 172,800)")
+    ax.yaxis.set_major_formatter(THOUSANDS)
     for half, share, height in ((6.5, inner, 1.08), (18.5, outer, 1.24)):
         ax.annotate("", xy=(-half, top * height), xytext=(half, top * height), arrowprops={"arrowstyle": "<->", "color": TEXT, "lw": 1.5})
         ax.text(0, top * (height + 0.015), f"from −{int(half)} to +{int(half)}: {share * 100:.1f}%".replace("6.5", "6").replace("18.5", "18"),
@@ -283,7 +298,7 @@ def _exact_fails(path, clean, noisy):
     for ax, frame, name in zip(fig.subplots(1, 2), (clean, noisy), ("clean", "noisy")):
         found = np.all(frame == yellow, axis=-1)
         _show(ax, _mask_picture(yellow=found), f"{name}: {found.sum()} found")
-        ax.set_xlabel("np.all(frame == yellow, axis=-1)", fontsize=FS, family="monospace")
+        ax.set_xlabel(f"pixels equal to {tuple(int(v) for v in yellow)}", fontsize=FS + 1)
         ax.set_xticks([])
         ax.set_yticks([])
     fig.tight_layout()
@@ -298,12 +313,12 @@ def _exact_odds(path):
     sliver = erf(0.5 / (sigma * sqrt(2)))
     fig = Figure(figsize=(11, 4.2))
     ax = fig.subplots()
-    ax.plot(x, pdf(x), color=BASE, lw=2.5)
+    ax.plot(x, pdf(x), color=DIM, lw=2.5)
     inside = np.abs(x) <= 0.5
-    ax.fill_between(x[inside], pdf(x[inside]), color=QUANTITY["psi"], linewidth=0)
-    ax.set(xlim=(-20, 20), ylim=(0, pdf(0) * 1.25), xlabel="nudge", ylabel="how common (share per 1 of nudge)")
-    ax.annotate(f"−0.5 to +0.5: {sliver * 100:.1f}%", xy=(0, pdf(0) * 0.5), xytext=(7, pdf(0) * 0.95), fontsize=FS + 2, va="center", color=QUANTITY["psi"],
-                arrowprops={"arrowstyle": "->", "color": QUANTITY["psi"], "lw": 2})
+    ax.fill_between(x[inside], pdf(x[inside]), color=BASE, linewidth=0)
+    ax.set(xlim=(-20, 20), ylim=(0, pdf(0) * 1.25), xlabel="nudge", ylabel="how common (bell height)")
+    ax.annotate(f"−0.5 to +0.5: {sliver * 100:.1f}%", xy=(0, pdf(0) * 0.5), xytext=(7, pdf(0) * 0.95), fontsize=FS + 2, va="center", color=BASE,
+                arrowprops={"arrowstyle": "->", "color": BASE, "lw": 2})
     ax.text(-3, pdf(6) * 1.06, "σ = 6", ha="center", fontsize=FS + 1)
     ax.annotate("", xy=(-6, pdf(6)), xytext=(0, pdf(6)), arrowprops={"arrowstyle": "<->", "color": TEXT, "lw": 1.2})
     fig.tight_layout()
@@ -330,11 +345,13 @@ def _broadcast_shapes(path):
     fig = Figure(figsize=(11, 5.6))
     ax = fig.subplots()
     ax.set(xlim=(0, 11), ylim=(0, 6.2))
+    ax.set_aspect("equal")
     ax.axis("off")
     big = (3.2, 1.8)  # 320 wide, 180 tall
     # row 1: frame - yellow -> a frame-sized array
     _box(ax, (1.7, 4.6), big, "frame (180, 320, 3)", depth=True)
-    ax.text(3.95, 4.7, "−", fontsize=26, ha="center", va="center")
+    ax.add_patch(Circle((3.95, 4.7), 0.3, facecolor=PANEL, edgecolor=TEXT, lw=1.8))
+    ax.text(3.95, 4.7, "\u2212", fontsize=26, ha="center", va="center")
     _box(ax, (4.9, 4.7), (0.45, 0.14), "yellow (3,)")
     _arrow(ax, (5.5, 4.7), (6.7, 4.7), "stretched")
     _box(ax, (8.6, 4.6), big, "(180, 320, 3)", depth=True)
@@ -358,13 +375,14 @@ def _colour_distance(path, noisy, labels):
         ax.hist(d[~is_paint], bins=bins, color=TEXT, alpha=0.55, edgecolor=BACKGROUND, linewidth=0.4)
         ax.hist(d[is_paint], bins=bins, color=SCENE[NAMES[paint]], edgecolor=BACKGROUND, linewidth=0.4)
         ax.axvline(PAINT_DISTANCE, color=TEXT, linewidth=2, linestyle="--")
-        ax.set(yscale="log", xlim=(0, top), ylim=(0.7, 3e5), xlabel=f"distance to {NAMES[paint]} paint {tuple(int(v) for v in PALETTE[paint])}", title=f"distance to {NAMES[paint]}, every pixel")
+        ax.set(yscale="log", xlim=(0, top + 8), ylim=(0.7, 3e5), xlabel=f"distance to {NAMES[paint]} paint {tuple(int(v) for v in PALETTE[paint])}", title=f"distance to {NAMES[paint]}, every pixel")
         ax.set_title(ax.get_title(), fontsize=FS + 1, pad=8)
+        ax.yaxis.set_major_formatter(THOUSANDS)
         gap_lo, gap_hi = d[is_paint].max(), d[~is_paint].min()
         ax.text(PAINT_DISTANCE - 3, 1e5, f"τ = {PAINT_DISTANCE:g}", fontsize=FS + 1, ha="right", va="center")
         ax.text(2, 3e3, f"paint\n≤ {gap_lo:.1f}", fontsize=FS, ha="left", va="center")
         ax.text(PAINT_DISTANCE + 6, 3e4, f"nearest other pixel: {gap_hi:.1f}", fontsize=FS, ha="left", va="center")
-    fig.axes[0].set_ylabel("number of pixels (log scale)")
+    fig.axes[0].set_ylabel("number of pixels (each step up is 10 times more)")
     fig.tight_layout()
     fig.savefig(path, dpi=100)
 
@@ -384,7 +402,7 @@ def _tau_sweep(path, noisy, labels):
         _show(ax, picture, title)
         _bare(ax)
     fig.tight_layout()
-    fig.savefig(path, dpi=100)
+    fig.savefig(path, dpi=100, bbox_inches="tight", pad_inches=0.15)  # crop the empty band under the three masks
 
 
 def _accuracy_trap(path, labels):
@@ -396,11 +414,11 @@ def _accuracy_trap(path, labels):
     _show(second, _mask_picture(yellow=np.zeros_like(truth)), "a mask that marks nothing")
     for ax in (first, second):
         _bare(ax)
-    heights, colours = (right, 0.0), (QUANTITY["psi"], QUANTITY["delta"])
+    heights, colours = (right, 0.0), (BASE, BASE)
     third.bar([0, 1], heights, width=0.6, color=colours)
     third.set(xlim=(-0.6, 1.6), ylim=(0, 1.25), xticks=[], yticks=[0, 0.5, 1])
     third.set_title("two scores", fontsize=FS + 1, pad=8)
-    for x, text, h, colour in ((0, f"share right\n{right:.3f}", right, colours[0]), (1, "IoU\n0", 0.0, colours[1])):
+    for x, text, h, colour in ((0, f"share right\n{right * 100:.1f}%", right, colours[0]), (1, "IoU\n0", 0.0, colours[1])):
         third.text(x, h + 0.04, text, ha="center", va="bottom", fontsize=FS + 1, color=colour)
     fig.tight_layout()
     fig.savefig(path, dpi=100)
@@ -422,7 +440,7 @@ def _iou_grid(path):
     fig = Figure(figsize=(11, 4.9))
     ax = fig.subplots()
     ax.set_aspect("equal")
-    ax.set(xlim=(-6.5, 15.5), ylim=(7.5, -0.5), title=f"IoU = {both.sum()} / {(marked | truth).sum()} = {both.sum() / (marked | truth).sum():.3f}")
+    ax.set(xlim=(-6.5, 15.5), ylim=(7.5, -0.5), title=f"score = {both.sum()} / {(marked | truth).sum()} = {both.sum() / (marked | truth).sum():.3f}")
     ax.set_title(ax.get_title(), fontsize=FS + 4, pad=10)
     ax.axis("off")
     for r in range(8):
@@ -433,10 +451,10 @@ def _iou_grid(path):
         ax.add_patch(Rectangle((c - 0.5, r - 0.5), 1, 1, facecolor=QUANTITY["perception"], edgecolor=BORDER, lw=1))
     for r, c in zip(*np.nonzero(truth)):
         ax.add_patch(Rectangle((c - 0.5, r - 0.5), 1, 1, fill=False, edgecolor=TEXT, lw=3))
-    for text, xy, at, ha in ((f"both: {both.sum()}", (5.3, 3.0), (9.3, 2.5), "left"), (f"missed: {missed.sum()}", (0.8, 3.5), (-1.2, 1.0), "right"),
+    for text, xy, at, ha in ((f"both: {both.sum()}", (5.3, 3.0), (9.3, 2.6), "left"), (f"missed: {missed.sum()}", (0.8, 3.5), (-1.2, 1.0), "right"),
                              (f"wrongly marked: {wrong.sum()}", (5.3, 5.0), (9.3, 5.0), "left")):
         ax.annotate(text, xy=xy, xytext=at, fontsize=FS + 3, va="center", ha=ha, arrowprops={"arrowstyle": "->", "color": TEXT, "lw": 1.5, "shrinkA": 4, "shrinkB": 0})
-    ax.text(-6.4, 7.9, "outlined: the 10 true paint pixels     filled: the 12 pixels the mask marks", fontsize=FS, va="top", ha="left")
+    ax.text(9.3, 3.7, f"either: {(marked | truth).sum()}  ({truth.sum()} true + {wrong.sum()} wrong)", fontsize=FS + 3, va="center", ha="left")
     fig.tight_layout()
     fig.savefig(path, dpi=100)
 

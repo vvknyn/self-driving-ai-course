@@ -9,6 +9,7 @@ from _course import REPO, load_yaml, parse_lab, syllabus_units
 from zero2fsd.car import Car, provided, run
 from zero2fsd.car.runner import COLUMNS
 from zero2fsd.grade import _drive as grade_drive
+from zero2fsd.grade._report import exercise_label
 from zero2fsd.grade.units.u0_1_2 import NOISE_SIGMA
 from zero2fsd.palette import SCENE
 from zero2fsd.sim.camera import PALETTE
@@ -170,7 +171,7 @@ def test_a_wrong_return_type_is_a_plain_error_naming_the_exercise(shim, exercise
     with pytest.raises(TypeError) as caught:
         shim.preview_run(shim.learner_object(code, name), exercise, "straight", lambda row: None)
     message = str(caught.value)
-    assert message.startswith(f"{exercise}: ") and expected in message and got in message and "numpy" not in message.lower()
+    assert message.startswith(f"{exercise_label(exercise)}: ") and expected in message and got in message and "numpy" not in message.lower()
 
 
 def test_the_learners_own_type_error_keeps_its_own_message_and_line(shim):
@@ -260,7 +261,7 @@ def test_a_stats_exercise_on_another_road_gets_that_roads_drive(shim, monkeypatc
 def test_a_stats_function_returning_the_wrong_type_is_a_plain_error(shim, exercise, code, name, what, got):
     with pytest.raises(TypeError) as caught:
         shim.preview_stats(shim.learner_object(code, name), exercise)
-    assert str(caught.value) == f"{exercise}: expected {what}, {got}"
+    assert str(caught.value) == f"{exercise_label(exercise)}: expected {what}, {got}"
 
 
 def test_a_stats_function_that_edits_its_input_leaves_the_shared_drive_alone(shim):
@@ -327,7 +328,7 @@ def test_no_camera_colour_is_near_the_markers_the_registry_paints_masks_in(shim)
 def test_a_wrong_mask_answer_is_a_plain_error_naming_the_exercise(shim, code, expected):
     with pytest.raises(TypeError) as caught:
         shim.preview_image(shim.learner_object(code, "paint_masks"), "0.1.2.a")
-    assert str(caught.value) == f"0.1.2.a: {expected}"
+    assert str(caught.value) == f"Exercise A (Images are arrays): {expected}"
 
 
 def test_an_error_in_the_mask_function_keeps_the_learners_own_line(shim):
