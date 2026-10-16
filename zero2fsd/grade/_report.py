@@ -41,17 +41,41 @@ class Failure(Exception):
 EXERCISES: dict[str, Callable[[Any, bool, StepHook | None], Result]] = {}
 
 
-def fmt(value) -> str:
+SIGNIFICANT_DIGITS = 6
+MAX_DIGITS = 17  # a float64 is told apart from its neighbour by 17 significant digits
+
+
+def fmt(value, digits: int = SIGNIFICANT_DIGITS) -> str:
     if isinstance(value, np.generic):  # a NumPy scalar such as np.int64(872): show the plain number
         value = value.item()
     if isinstance(value, np.ndarray):
-        return np.array2string(value, precision=4, threshold=8, edgeitems=3)
+        return np.array2string(value, precision=digits - 2, threshold=8, edgeitems=3)
     if type(value) in (tuple, list):  # a plain container, such as a (forward, left) point: format each item
-        items = ", ".join(fmt(v) for v in value)
+        items = ", ".join(fmt(v, digits) for v in value)
         return f"({items})" if isinstance(value, tuple) else f"[{items}]"
     if isinstance(value, float | np.floating):
-        return f"{value:.6g}"
+        return f"{value:.{digits}g}"
     return value if isinstance(value, str) else repr(value)
+
+
+def fmt_pair(expected, got) -> tuple[str, str]:
+    """`fmt` of an expected/got pair.  When two different numbers read alike (same text, or the same 6 significant digits, whatever
+    container each is in), print digits until they differ and give the gap with `got`."""
+    try:
+        want, have = np.asarray(expected, float), np.asarray(got, float)
+        gap = float(np.max(np.abs(want - have))) if want.shape == have.shape else 0.0
+    except (TypeError, ValueError):  # not numbers: nothing to tell apart
+        return fmt(expected), fmt(got)
+    if not gap > 0:  # equal, nan or a shape mismatch the grader names itself
+        return fmt(expected), fmt(got)
+    plain = lambda a: a if a.ndim else float(a)  # noqa: E731  the same text for the same numbers, whatever container each came in
+    for digits in range(SIGNIFICANT_DIGITS, MAX_DIGITS + 1):
+        alike = (fmt(expected, digits) == fmt(got, digits) or fmt(plain(want), digits) == fmt(plain(have), digits)
+                 or [f"{x:.{digits}g}" for x in want.ravel()] == [f"{x:.{digits}g}" for x in have.ravel()])
+        if not alike:
+            break
+    shown = fmt(expected, digits), fmt(got, digits)
+    return shown if digits == SIGNIFICANT_DIGITS else (shown[0], f"{shown[1]} (off by {gap:.2g})")
 
 
 def is_real(value) -> bool:
@@ -137,10 +161,13 @@ _SHOWN_LABELS = {"given": "input", "expected": "expected", "got": "got"}
 
 
 def _lines(failure: Failure, label, checked, hint) -> list[str]:
-    fields = [("checked", failure.checked or checked),
-              *((label, failure.shown[key]) for key, label in _SHOWN_LABELS.items() if key in failure.shown),
-              ("hint", hint)]
-    return [f"\N{BALLOT X} {label}: {failure.headline}", *(f"    {name + ':':<10}{fmt(value)}" for name, value in fields)]
+    shown = {key: fmt(value) for key, value in failure.shown.items()}
+    if "expected" in shown and "got" in shown:
+        shown["expected"], shown["got"] = fmt_pair(failure.shown["expected"], failure.shown["got"])
+    fields = [("checked", fmt(failure.checked or checked)),
+              *((name, shown[key]) for key, name in _SHOWN_LABELS.items() if key in shown),
+              ("hint", fmt(hint))]
+    return [f"\N{BALLOT X} {label}: {failure.headline}", *(f"    {name + ':':<10}{text}" for name, text in fields)]
 
 
 def exercise(exercise_id: str, *, checked: str, section: str):

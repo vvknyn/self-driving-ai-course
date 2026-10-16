@@ -1,3 +1,4 @@
+import ast
 import dataclasses
 import math
 import re
@@ -9,13 +10,14 @@ import pytest
 import yaml
 
 import zero2fsd.grade as grade_pkg
+from _course import REPO, parse_lab
 from zero2fsd import geom
 from zero2fsd.car import Car, LaneEstimate, provided, run
 from zero2fsd.car.runner import COLUMNS
 from zero2fsd.grade import _drive, check
 from zero2fsd.grade._drive import GATE_SCENARIO
 from zero2fsd.grade._poses import LOOKAHEAD, sample_poses
-from zero2fsd.grade._report import EXERCISES, LESSON_TITLES, NOT_IMPLEMENTED, REPORT, exercise_label, lesson_titles
+from zero2fsd.grade._report import EXERCISES, LESSON_TITLES, NOT_IMPLEMENTED, REPORT, Failure, _lines, exercise_label, fmt, fmt_pair, lesson_titles
 from zero2fsd.sim.dynamics import MAX_STEER
 
 IDS = [e["id"] for p in sorted(Path("course").glob("*/unit.yaml")) for e in yaml.safe_load(p.read_text())["exercises"]]  # every unit.yaml, so a new unit adds no line here
@@ -392,3 +394,59 @@ def test_practice_prints_whether_an_ungraded_answer_is_right_and_never_raises(go
 def test_practice_prints_a_tuple_of_numpy_scalars_as_plain_numbers(capsys):
     grade_pkg.practice("point", (np.float64(2.5534472), np.float64(1.2742297)), (2.553, 1.274), tol=0.001)
     assert "point: (2.55345, 1.27423)" in capsys.readouterr().out
+
+
+# --- a near miss must not read "expected 3.14159, got 3.14159" ---------------------------------------------------
+
+
+def expected_got(failure):
+    lines = _lines(failure, "Exercise A", "checked", "hint")
+    return {line.split(":")[0].strip(): line.split(":", 1)[1].strip() for line in lines[1:]}
+
+
+def test_a_failure_whose_numbers_differ_in_the_7th_digit_shows_two_different_numbers_and_the_gap():
+    shown = expected_got(Failure("off", expected=3.14159265, got=3.14159))
+    assert shown["expected"] == "3.141593" and shown["got"] == "3.14159 (off by 2.7e-06)"
+    arrays = expected_got(Failure("off", expected=np.array([1234.5678, 2.0]), got=np.array([1234.56789, 2.0])))
+    assert arrays["expected"] != arrays["got"].split(" (")[0] and arrays["got"].endswith("(off by 9e-05)")
+    assert fmt_pair((4, 1), np.array([4.0000001, 1.0]))[1].endswith("(off by 1e-07)")  # a tuple against an array
+
+
+@pytest.mark.parametrize("expected, got", [(3.14159, 3.14159), (0.2, 0.25), (np.array([1.0, 2.0]), np.array([1.0, 2.0])), (np.nan, np.nan), ("a", 3)])
+def test_values_that_are_equal_or_already_read_differently_print_as_before(expected, got):
+    assert fmt_pair(expected, got) == (fmt(expected), fmt(got))
+
+
+def test_a_real_near_miss_from_1_1_2_shows_two_different_numbers():
+    result = check("1.1.2.a", lambda pose, p: geom.world_to_ego(pose, p) + 1e-7, show=False, report=False)
+    shown = {line.split(":")[0].strip(): line.split(":", 1)[1].strip() for line in result.details[1:] if ":" in line}
+    assert not result.passed and shown["expected"] != shown["got"].split(" (")[0] and "(off by 1e-07)" in shown["got"]
+
+
+# --- practice() shows float noise as 0 on a pass and the raw numbers on a fail ------------------------------------
+
+
+def test_a_passing_practice_prints_noise_below_the_tolerance_as_0_and_states_the_tolerance(capsys):
+    grade_pkg.practice("A", np.array([[0.0, 1.0], [-1.0, 6.1232e-17]]), [[0, 1], [-1, 0]], tol=1e-9)
+    out = capsys.readouterr().out
+    assert "e-17" not in out and "all within 1e-09" in out and "\N{CHECK MARK}" in out
+    grade_pkg.practice("pair", (6e-17, 0.5), (0, 0.5), tol=1e-9)
+    assert "pair: (0, 0.5) (shown as 0: all within 1e-09)" in capsys.readouterr().out
+
+
+def test_a_failing_practice_prints_its_raw_numbers(capsys):
+    grade_pkg.practice("A", np.array([6.1232e-17, 0.5]), np.array([0.0, 0.0]), tol=1e-9)
+    out = capsys.readouterr().out
+    assert "e-17" in out and "\N{BALLOT X}" in out and "shown as 0" not in out
+
+
+def test_a_real_1_1_2_lab_practice_prints_no_e_minus_17_noise(capsys):
+    """The lab's own `practice(...)` statement for R^T R - I, run on the reference rotation matrix."""
+    cells = parse_lab((REPO / "course" / "1.1.2-the-view-from-the-drivers-seat" / "lab.py").read_text())
+    statement = next(ast.get_source_segment(cell.source, node) for cell in cells if cell.kind == "code" and "R transposed times R" in cell.source
+                     for node in ast.walk(ast.parse(cell.source))
+                     if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "practice" and "R transposed times R" in ast.get_source_segment(cell.source, node))
+    assert float(np.abs(geom.rotation_matrix(2.2).T @ geom.rotation_matrix(2.2) - np.eye(2)).max()) > 0  # the noise is really there
+    eval(statement, {"practice": grade_pkg.practice, "np": np, "R": geom.rotation_matrix(2.2)})
+    out = capsys.readouterr().out
+    assert "e-17" not in out and "e-18" not in out and "\N{CHECK MARK}" in out and "all within 1e-12" in out
