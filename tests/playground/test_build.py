@@ -58,11 +58,13 @@ def link_in_lecture(root, folder, link):
 
 
 def add_planned_unit(root, exercise="0.1.2.a"):
-    """A folder for the fixture's planned unit 0.1.2: a unit.yaml declaring one exercise and a lecture, nothing else."""
+    """A full folder for the fixture's planned unit 0.1.2: unit.yaml declaring one exercise, a lecture, and a lab.py whose cell carries that
+    exercise's tag. Only its status keeps it out of the records, so flipping the status reaches the record-id assert, not a missing-file error."""
     folder = root / "course" / "0.1.2-not-written"
     folder.mkdir()
     (folder / "unit.yaml").write_text(f'id: "0.1.2"\ntitle: Not written\ncar_box: instruments\nexercises:\n  - {{id: "{exercise}", name: later}}\n')
     (folder / "lecture.md").write_text("# Not written\n")
+    (folder / "lab.py").write_text(f'# %% tags=["exercise:{exercise}"]\ndef later():\n    raise NotImplementedError\n')
     return folder
 
 
