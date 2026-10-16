@@ -21,6 +21,15 @@ def test_the_mount_projected_through_a_pinhole_is_the_renderers_camera():
     assert np.allclose(mounted.ground_to_pixel(F, L), cam.ground_to_pixel(F, L), atol=1e-6)
 
 
+def test_a_mounted_camera_renders_the_same_frames_as_the_default_along_a_whole_gentle_drive():
+    tel = run(Car(), "gentle")
+    road, mounted = make_scenario("gentle").road, Camera(T_ego_cam=geom.T_ego_cam(1.4, math.radians(5)))
+    steps = [*range(0, len(tel.t), 25), len(tel.t) - 1]  # every 25th state of the drive, and the last
+    for k in steps:
+        state = BicycleState(tel.x[k], tel.y[k], tel.yaw[k], tel.speed[k], tel.steer[k])
+        assert np.array_equal(mounted.render(road, state, noise_sigma=6.0, seed=k), Camera().render(road, state, noise_sigma=6.0, seed=k)), f"step {k}"
+
+
 def test_a_point_behind_the_lens_has_no_pixel_and_one_in_front_has():
     mounted = Camera(T_ego_cam=geom.T_ego_cam(1.4, math.radians(5)))
     u, v = mounted.ground_to_pixel(np.array([-5.0, 10.0]), np.array([1.0, 1.0]))
