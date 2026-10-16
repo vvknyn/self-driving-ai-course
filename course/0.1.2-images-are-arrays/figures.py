@@ -88,6 +88,11 @@ def _show_patch(ax, patch, title, outline=None):
         for j in range(patch.shape[1]):
             dark = float(np.dot(patch[i, j], (0.299, 0.587, 0.114))) > 150
             ax.text(j, i, _rgb_text(patch[i, j]), ha="center", va="center", fontsize=CELL, linespacing=0.9, color=BACKGROUND if dark else TEXT)
+    for edge in np.arange(-0.5, patch.shape[0], 1):  # a dark gap between pixels, so each pixel's three numbers read as one group
+        ax.axhline(edge, color=BACKGROUND, lw=5)
+    for edge in np.arange(-0.5, patch.shape[1], 1):
+        ax.axvline(edge, color=BACKGROUND, lw=5)
+    ax.text(patch.shape[1] - 0.4, 0, "← R\n← G\n← B", ha="left", va="center", fontsize=CELL, linespacing=0.9, color=TEXT)  # the key, level with the first row's three numbers
     if outline is not None:
         for colour, width in ((BACKGROUND, 6), (TEXT, 3)):
             ax.add_patch(Rectangle((outline[1] - 0.5, outline[0] - 0.5), 1, 1, fill=False, edgecolor=colour, lw=width))
@@ -137,7 +142,7 @@ def _row_col(path, clean):
     ax.tick_params(pad=24)  # keeps the 0 ticks clear of the frame[0, 0] circle that overhangs the corner
     ax.xaxis.set_label_position("top")
     ax.set(xlabel="column index (0 at the left)", ylabel="row index (0 at the top)")
-    pixels = ((0, 0, (30, 30)), (179, 160, (80, 232)), (*MARK, (100, 108)))
+    pixels = ((0, 0, (30, 30)), (179, 160, (170, 232)), (*MARK, (0, 232)))
     for row, col, text_at in pixels:
         ax.add_patch(Circle((col, row), 7, fill=False, edgecolor=TEXT, lw=2.5, clip_on=False))
         ax.annotate(f"frame[{row}, {col}]\n= {tuple(int(v) for v in clean[row, col])}", xy=(col, row), xytext=text_at, va="center",
@@ -167,14 +172,14 @@ def _slices(path, clean):
     ax.add_patch(Rectangle((-0.5, -0.5), width, 76, facecolor=BACKGROUND, alpha=0.6, edgecolor=TEXT, lw=2))
     ax.add_patch(Rectangle((-0.5, 99.5), width, 80, facecolor=TEXT, alpha=0.25, edgecolor=TEXT, lw=2))
     ax.text(160, 38, "frame[:76]\nshape (76, 320, 3), all sky", ha="center", va="center", bbox=LABEL_BOX)
-    ax.text(160, 140, "frame[100:180]\nshape (80, 320, 3)", ha="center", va="center", bbox=LABEL_BOX)
+    ax.text(165, 150, "frame[100:180]\n(80, 320, 3)", ha="center", va="center", bbox=LABEL_BOX)
     ax.set_yticks([0, 76, 100, 179])
     ax.set(xlabel="column index", ylabel="row index (0 at top)")
     fig.tight_layout()
     _save(fig, path)
 
 
-ROW_TICKS = [80, 100, 120, 140, 160, 179]
+ROW_TICKS = [79, 100, 120, 140, 160, 179]
 
 
 def _line_width(path, clean, labels):
@@ -185,7 +190,7 @@ def _line_width(path, clean, labels):
     fig = _fig(7.6)
     frame_ax, ax = fig.subplots(2, 1, gridspec_kw={"height_ratios": [0.55, 1]})
     _show(frame_ax, clean, "the road part of the frame,\nrows 79 to 179")
-    frame_ax.set(ylim=(179.5, 78.5), ylabel="row index", xlabel="column index", yticks=[80, 130, 179])
+    frame_ax.set(ylim=(179.5, 78.5), ylabel="row index", xlabel="column index", yticks=[79, 130, 179])
     ax.plot(widths, rows, marker="o", markersize=4, color=BASE, lw=1.5)
     ax.set(xlim=(0, 25), ylim=(179.5, 78.5), xlabel="width of the white line (pixels)", ylabel="row index")
     ax.set_yticks(ROW_TICKS)
@@ -206,11 +211,13 @@ def _rgb_cube(path):
         axis.pane.set_alpha(0)  # no grey pane boxes on the dark background
         axis._axinfo["grid"]["color"] = BORDER
     ax.set(xlim=(0, 255), ylim=(0, 255), zlim=(0, 255), xticks=[0, 255], yticks=[0, 255], zticks=[0, 255])
-    ax.set(xlabel="red", ylabel="green", zlabel="blue")
-    ax.set_box_aspect((1, 1, 1), zoom=0.8)
+    for name, setter in (("red", ax.set_xticklabels), ("green", ax.set_yticklabels), ("blue", ax.set_zticklabels)):
+        setter([f"{name} 0", f"{name} 255"])  # each axis name sits beside its own two end numbers
+    ax.set_box_aspect((1, 1, 1), zoom=0.7)
     ax.view_init(elev=22, azim=-62)
-    ax.tick_params(axis="y", pad=14)
-    ax.tick_params(axis="z", pad=6)
+    ax.tick_params(axis="x", pad=-4)
+    ax.tick_params(axis="y", pad=24)
+    ax.tick_params(axis="z", pad=26)
     offsets = {"sky": (-30, 0, 45), "grass": (-4, 0, -48), "road": (-50, 0, 45), "yellow": (10, 0, 62), "white": (-20, 0, -50)}
     for name, colour in zip(NAMES, PALETTE.astype(int)):
         ax.scatter(*colour, s=200, color=SCENE[name], edgecolor=TEXT, linewidth=1.2, depthshade=False)
@@ -326,7 +333,7 @@ def _exact_odds(path):
     ax.plot(x, pdf(x), color=DIM, lw=2.5)
     inside = np.abs(x) <= 0.5
     ax.fill_between(x[inside], pdf(x[inside]), color=BASE, linewidth=0)
-    ax.set(xlim=(-20, 20), ylim=(0, pdf(0) * 1.4), xlabel="nudge", ylabel="how common\n(bell height)")
+    ax.set(xlim=(-20, 20), ylim=(0, pdf(0) * 1.4), xticks=list(range(-18, 19, 6)), xlabel="nudge", ylabel="how common\n(bell height)")
     ax.annotate(f"−0.5 to +0.5:\n{sliver * 100:.1f}%", xy=(0, pdf(0) * 0.5), xytext=(10, pdf(0) * 1.0), va="center", ha="center", color=BASE,
                 arrowprops={"arrowstyle": "->", "color": BASE, "lw": 2})
     ax.text(-6.8, pdf(6), "σ = 6", ha="right", va="center")
@@ -350,13 +357,13 @@ def _step(ax, y_from, y_to, text):
 
 
 def _broadcast_shapes(path):
-    fig = _fig(7.4)
+    fig = _fig(7.95)
     ax = fig.subplots()
-    ax.set(xlim=(0, 6), ylim=(0, 7.4))
+    ax.set(xlim=(0, 6), ylim=(0, 7.95))
     ax.set_aspect("equal")
     ax.axis("off")
     big = (1.9, 1.07)  # 320 wide, 180 tall
-    tops = (7.1, 5.1, 3.1, 1.1)  # top edge of each box; boxes are 1.07 tall
+    tops = (7.7, 5.5, 3.3, 1.1)  # top edge of each box; boxes are 1.07 tall
     for top, label, depth in zip(tops, ("frame\n(180, 320, 3)", "(180, 320, 3)", "(180, 320)", "(180, 320)\nTrue / False"), (True, True, False, False)):
         _box(ax, (1.1, top - big[1] / 2), big, depth)
         ax.text(2.3, top - big[1] / 2, label, ha="left", va="center", family="monospace")
@@ -379,7 +386,7 @@ def _colour_distance(path, noisy, labels):
         ax.axvline(PAINT_DISTANCE, color=TEXT, linewidth=2, linestyle="--")
         ax.set(yscale="log", xlim=(0, top + 8), ylim=(0.7, 1.5e7), xlabel=f"distance to {NAMES[paint]} paint\n{tuple(int(v) for v in PALETTE[paint])}",
                ylabel="number of pixels\n(each step ×10)", title=f"every pixel, distance to {NAMES[paint]}")
-        ax.set_yticks([1, 100, 10_000, 1_000_000])
+        ax.set_yticks([10 ** k for k in range(8)])  # every decade, so the axis label's "each step ×10" is what the ticks show
         ax.yaxis.set_major_formatter(THOUSANDS)
         gap_lo, gap_hi = d[is_paint].max(), d[~is_paint].min()
         for y, text in ((4e6, f"τ = {PAINT_DISTANCE:g}"), (4e5, f"paint ≤ {gap_lo:.1f}"), (3e4, f"nearest other\npixel: {gap_hi:.1f}")):
@@ -510,10 +517,10 @@ def _next_lesson(path):
     fig = _fig(4.8)
     ax = fig.subplots()
     _show(ax, _mask_picture(yellow, white), "the two masks, with the car\n0.5 m left of the lane centre")
-    ax.set(ylim=(height + 26, -0.5), xlim=(-0.5, width - 0.5))
+    ax.set(ylim=(height + 30, -0.5), xlim=(-0.5, width - 0.5))
     ax.axis("off")
     ax.plot([width / 2], [height - 1], marker="^", markersize=18, color=TEXT, clip_on=False)
-    ax.text(width / 2, height + 12, "the car", ha="center", va="center", fontsize=TITLE)
+    ax.text(width / 2, height + 17, "the car", ha="center", va="center", fontsize=TITLE)
     ax.text(width / 2, 125, "?", ha="center", va="center", fontsize=60, color=TEXT)
     fig.tight_layout()
     _save(fig, path)

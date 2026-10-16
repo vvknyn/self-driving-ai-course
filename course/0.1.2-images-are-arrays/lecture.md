@@ -20,7 +20,7 @@ Your car's camera gives you a bigger grid. Each picture it takes is called a **f
 
 Multiply the three sizes: $180 \times 320 \times 3 = 172{,}800$ numbers, every 0.05 seconds. In the lab, a frame is a NumPy array with **shape** `(180, 320, 3)`. The shape lists how long the array is along each of its directions, which NumPy calls **axes**: 180 rows, 320 columns, 3 colour values.
 
-![Top: the camera frame on the straight road, with a small box where the road meets the yellow line. Bottom: the box, rows 148–153 and columns 55–60, drawn large, each of its 6 by 6 pixels labelled with its red, green and blue values.](figures/frame_grid.png)
+![Top: the camera frame on the straight road, with a small box where the road meets the yellow line. Bottom: the box, rows 148–153 and columns 55–60, drawn large, each of its 6 by 6 pixels labelled with its red, green and blue values, in that order from top to bottom, as the key beside the first row says.](figures/frame_grid.png)
 
 Zoom in on the box and the picture dissolves into its numbers. The grey road pixels are all `(90, 90, 95)`. The yellow paint pixels are all `(230, 200, 40)`. The edge between them is a staircase, because a slanted line drawn on a grid of squares always is.
 
@@ -93,7 +93,7 @@ A fraction becomes a percentage when you multiply it by 100: $0.02745 \times 100
 
 To find paint, you need a way to ask "how close is this pixel's colour to yellow?" Three numbers can be read as a position. Treat red, green and blue as three directions, like the length, width and height of a room. Then every colour is a point inside a cube whose sides run from 0 to 255, and similar colours are points close together.
 
-![The five colours of the simulator as points in a cube whose three edges are red, green and blue, each from 0 to 255. Each point is drawn in its own colour and labelled. A line joins road grey to yellow paint.](figures/rgb_cube.png)
+![The five colours of the simulator as points in a cube whose three edges are red, green and blue, each from 0 to 255. Each point is drawn in its own colour and labelled. A line joins road grey to yellow paint. Road grey and grass sit almost on top of each other in this view; they are different points, and the numbers beside them tell them apart.](figures/rgb_cube.png)
 
 How far apart are road grey, $(90, 90, 95)$, and yellow paint, $(230, 200, 40)$? Start with two of the three directions. In red they differ by $230 - 90 = 140$, and in green by $200 - 90 = 110$. Those two differences are the sides of a right-angled triangle, because the red and green directions meet at a right angle, like two walls of a room meeting in a corner. So Pythagoras' theorem gives the distance across:
 
@@ -232,7 +232,7 @@ The obvious score is the share of pixels your mask got right.
 
 **Guess first:** a lazy mask marks nothing at all. What share of the pixels does it get right, for yellow?
 
-![Top: the true yellow mask, 709 pixels. Middle: a mask that marks nothing. Bottom: two bars for the empty mask, the share of pixels it gets right, 98.8%, and the score this section builds, 0.](figures/accuracy_trap.png)
+![Top: the true yellow mask, 709 pixels. Middle: a mask that marks nothing. Bottom: two scores for the empty mask. The share of pixels it gets right is a tall bar, 98.8%; the score this section builds is 0, an empty bar.](figures/accuracy_trap.png)
 
 **Answer:** 98.8%. Yellow paint is only 1.2% of the frame, so a mask that marks nothing is right about every other pixel. A score that rates a useless mask at nearly 99% is no score at all.
 
