@@ -20,7 +20,7 @@ $$\begin{aligned}x &: 10 \times 0.7623\\ &\quad - 2 \times 0.6473 = 6.33\\ y &: 
 
 Then add the car's position:
 
-$$\begin{aligned}&(6.33 + 154.66,\ 8.00 + 19.85)\\ &= (160.99,\ 27.85)\end{aligned}$$
+$$\begin{aligned}x &= 6.33 + 154.66 = 160.99\\ y &= 8.00 + 19.85 = 27.85\end{aligned}$$
 
 ![Two panels stacked. Top: the world frame's axes in grey at the world origin, and a long grey arrow from there to the car at step 400, labelled (154.66, 19.85). Bottom: a 20 m square around the car, with its ego frame in purple, the forward axis 40.33° left of east, with a grey dashed line labelled east and an arc for the 40.33° between them. A purple arrow runs 10 m along the forward axis and a second one 2 m along the left axis, ending at the cone, labelled (160.99, 27.85).](figures/pose_frame.png)
 
@@ -243,13 +243,13 @@ Here `T_world_ego` holds the lap's 1778 poses, with shape (1778, 3, 3), and `@` 
 
 **Guess first:** on `gentle`'s bends the front axle rides about half a metre left of the lane centre, toward the inside of the bend (*Closing the loop*). Where does the rear axle ride: on the same line, nearer the lane centre, or further inside?
 
-![A stretch of the first bend, straightened out, with the sideways distances drawn 20 times larger, on axes of equal scale. The lane centre is in grey. The front axle's path in purple and the rear axle's path in light purple, with the car drawn at one step as a line 2.7 m long from rear axle to front axle at its real angle to the lane, 0.95°. Only the paths' offsets are stretched, not the car. The light purple path runs inside the purple one, toward the bend's centre.](figures/rear_axle_paths.png)
+![A stretch of the first bend, straightened out, with the sideways distances drawn 20 times larger, on axes of equal scale. The lane centre is in grey. The front axle's path in purple and the rear axle's path in light purple, with the car drawn at one step as a bar 2.7 m long from rear axle to front axle, so it runs from the light purple path to the purple one. The bar is stretched sideways by the same 20 times as the paths; its real angle to the lane is 0.95°. The light purple path runs inside the purple one, toward the bend's centre.](figures/rear_axle_paths.png)
 
 **Answer:** further inside. Measured the same way as $\color{#58C4DD}{e}$, at the rear axle instead of the front, the rear axle's mean lateral error in the middle of the first bend is 0.5746 m, against 0.5298 m for the front. The rear rides 0.045 m further in.
 
 *Closing the loop* drew the triangle a bend makes: the turning point, the rear axle and the front axle, with a right angle at the rear axle and the front axle's radius $R$ as the longest side. The side from the turning point to the rear axle is then the rear axle's radius, and by Pythagoras it is $\sqrt{R^2 - L^2}$, shorter than $R$. In the middle of the first bend the front axle rides 0.5298 m inside the 81.8 m lane centre, so $R = 81.27$ m:
 
-$$\begin{aligned}&R - \sqrt{R^2 - L^2}\\ &= 81.27 - \sqrt{81.27^2 - 2.7^2}\\ &= 0.0449\text{ m}\end{aligned}$$
+$$\begin{aligned}\sqrt{R^2 - L^2} &= \sqrt{81.27^2 - 2.7^2}\\ &= 81.225\text{ m}\\ R - 81.225 &= 0.045\text{ m}\end{aligned}$$
 
 That is the measured gap.
 

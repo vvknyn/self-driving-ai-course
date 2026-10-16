@@ -46,10 +46,6 @@ print(f"{len(poses)} poses; step 400 is x = {poses[400, 0]:.4f}, y = {poses[400,
 #
 # The lecture's section "A pose is a frame" puts a pose's axes and origin in the columns of a 3×3 matrix.
 #
-# ![](figures/pose_frame.png)
-#
-# ![](figures/pose_matrix.png)
-#
 # **Problem 1.** Write `pose_to_matrix`: from `(x, y, theta)` to the 3×3 matrix whose first two columns are the forward
 # and left axes and whose last column is `(x, y, 1)`. Use `rotation_matrix(theta)` for the top-left 2×2 block.
 #
@@ -70,12 +66,16 @@ def pose_to_matrix(pose):
 try:
     T400 = pose_to_matrix(tuple(poses[400]))
     R400 = rotation_matrix(poses[400, 2])
-    practice("the cone (10, 2, trailing 1) at step 400, in world metres", T400 @ [10, 2, 1], np.append(R400 @ [10, 2] + poses[400, :2], 1), tol=1e-9)
-    practice("the arrow (1, 0, trailing 0) at step 400", T400 @ [1, 0, 0], np.append(R400 @ [1, 0], 0), tol=1e-9)
+    practice("the cone (10, 2, trailing 1) at step 400, in world metres; a trailing 0 would leave the car's position out", T400 @ [10, 2, 1], np.append(R400 @ [10, 2] + poses[400, :2], 1), tol=1e-9)
+    practice("the arrow (1, 0, trailing 0) at step 400; it must keep only the turn, with no position", T400 @ [1, 0, 0], np.append(R400 @ [1, 0], 0), tol=1e-9)
 except NotImplementedError:
     print("Write pose_to_matrix above first, then run this cell again.")
 
 # %% [markdown]
+# ![](figures/pose_frame.png)
+#
+# ![](figures/pose_matrix.png)
+#
 # The cone is at (160.987, 27.8514): the car's position plus 10 forward axes plus 2 left axes. The arrow has no position
 # part at all: a trailing 0 skips the third column and keeps only the turn (lecture: "A pose is a frame").
 #
@@ -113,7 +113,7 @@ def matrix_to_pose(T):
 try:
     back = np.array([matrix_to_pose(T) for T in Tw])
     practice("worst x or y difference after the round trip, over the lap (m)", np.abs(back[:, :2] - poses[:, :2]).max(), 0.0, tol=1e-12)
-    practice("worst theta difference against the wrapped yaw, over the lap (rad)", np.abs(back[:, 2] - wrap_angle(poses[:, 2])).max(), 0.0, tol=1e-12)
+    practice("worst theta difference against the wrapped yaw, over the lap (rad); against the raw yaw it fails wherever the yaw is above π", np.abs(back[:, 2] - wrap_angle(poses[:, 2])).max(), 0.0, tol=1e-12)
 except NotImplementedError:
     print("Write matrix_to_pose above first, then run this cell again.")
 
@@ -121,10 +121,8 @@ except NotImplementedError:
 # No: `atan2` returns an angle between −π and π, so the round trip gives back the yaw *wrapped* into that range
 # (lecture: "A pose is a frame", the wrap trap).
 #
-# ![](figures/wrap_trap.png)
-#
-# **Break it, fix it.** Compare `theta` with the raw yaw instead of the wrapped one. **Guess first:** from which step
-# on do they disagree, and by how much?
+# **Break it, fix it.** Compare `theta` with the raw yaw instead of the wrapped one. **Guess first:** at which steps will
+# the raw comparison fail, and by how much?
 
 # %%
 try:
@@ -139,6 +137,8 @@ except NameError:
     print("Finish Problem 2 first.")
 
 # %% [markdown]
+# ![](figures/wrap_trap.png)
+#
 # Wherever the yaw is above π, the two differ by a full turn, 6.2832 rad, though both describe the same direction. The
 # yaw wobbles across π on the back straight, so the failures start there and then stay. Whenever you compare angles, wrap
 # the difference. The graders in this lab do.
@@ -226,8 +226,8 @@ print(f"slip: worst entry of the round trip minus the identity is {slip[400]:.3f
 def relative_pose(T_world_a, T_world_b):
     """Frame b seen from frame a: the odometry step from pose a to pose b.
 
-    Input:   T_world_a, T_world_b: two (3, 3) pose matrices, both written in world numbers.
-    Output:  a (3, 3) array, T_a←b: the forward part, the left part and the turn of the move from a to b.
+    Input:   T_world_a, T_world_b: two pose matrices of one size, (3, 3) on the road and (4, 4) in the next lesson, both in world numbers.
+    Output:  an array of the same size, T_a←b: the forward part, the left part and the turn of the move from a to b.
     Example: A = pose_to_matrix((1, 0, math.pi / 2)); B = pose_to_matrix((1, 0, 0))
              relative_pose(A, A @ B)  ->  the matrix of B, [[1, 0, 1], [0, 1, 0], [0, 0, 1]]
     """
@@ -238,7 +238,7 @@ def relative_pose(T_world_a, T_world_b):
 check("1.1.4.a", relative_pose)
 
 # %% [markdown]
-# A correct function passes all 44 cases (the four worked ones from the lecture and 40 seeded pairs of poses), every
+# A correct function passes all 46 cases (five worked ones from the lecture, one pair of 4×4 poses and 40 seeded pairs), every
 # entry far inside the limit of $10^{-9}$. Now it can turn the car's own record into the steps it felt:
 
 # %%
@@ -353,7 +353,7 @@ except (NameError, NotImplementedError):
 
 # %% [markdown]
 # Metres: one run of 1777 tiny errors ends 0.688 m from the truth. Change the seed and the number changes; over 500
-# seeds the typical end error is 0.608 m (the lecture's measurement).
+# seeds the RMS end error is 0.608 m (the lecture's measurement).
 #
 # ![](figures/drift_end.png)
 #

@@ -1,5 +1,6 @@
 """1.1.4 Poses you can chain: the skeleton fails, the reference passes, the two presets fail for the reasons the lab names."""
 import math
+import re
 
 import numpy as np
 import pytest
@@ -58,19 +59,54 @@ def test_adding_the_parts_of_each_step_is_far_off_at_the_end():
 
 @pytest.mark.parametrize("name, fn, named", [
     ("the arguments swapped", lambda a, b: geom.invert_pose(b) @ a, "the arguments swapped"),
+    ("R instead of R transposed", lambda a, b: slip_inverse(a) @ b, "the inverse built with R instead of its transpose"),
     ("the product the wrong way round", lambda a, b: b @ geom.invert_pose(a), "the product the wrong way round"),
     ("the world difference", lambda a, b: u1_1_4.matrix(b[0, 2] - a[0, 2], b[1, 2] - a[1, 2],
                                                         math.atan2(b[1, 0], b[0, 0]) - math.atan2(a[1, 0], a[0, 0])),
      "the difference of the two poses in world numbers"),
 ])
 def test_each_relative_pose_mistake_the_lesson_names_is_named_in_the_message(name, fn, named):
+    """Each is named alone: the first pair the check shows tells the mistakes apart (G-msg)."""
     details = failing_details("1.1.4.a", fn)
-    assert "That is what you get from" in details and named in details
+    assert "That is what you get from" in details and named in details and " or from " not in details
+
+
+def slip_inverse(T):
+    """The lab's invert_pose_slip: R where R transposed belongs, in both places."""
+    inverse = np.eye(3)
+    inverse[:2, :2], inverse[:2, 2] = T[:2, :2], -T[:2, :2] @ T[:2, 2]
+    return inverse
+
+
+def inverse_for_3x3_only(T):
+    """The closed form with the size 3 baked in."""
+    inverse = np.eye(3)
+    inverse[:2, :2], inverse[:2, 2] = T[:2, :2].T, -T[:2, :2].T @ T[:2, 2]
+    return inverse
+
+
+def test_an_invert_pose_written_for_3x3_only_fails_on_the_4x4_pair_and_says_so():
+    """The lab promises invert_pose works at any size and the next lesson uses it on 4x4 poses."""
+    details = failing_details("1.1.4.a", lambda a, b: inverse_for_3x3_only(a) @ b)
+    assert "4x4" in details and "works only for 3x3" in details
+    assert check("1.1.4.a", lambda a, b: geom.invert_pose(a) @ b, show=False).passed
+
+
+def test_a_dead_reckon_with_a_yaw_error_near_pi_reports_that_error_in_radians():
+    """Every angle a message prints is an angle: the rotation-entry gap here is 2, the yaw error is 3.13."""
+    def turned(T0, steps):
+        P = solution.dead_reckon(T0, steps).copy()
+        c, s = math.cos(3.13), math.sin(3.13)
+        P[:, :2, :2] = np.array([[c, -s], [s, c]]) @ P[:, :2, :2]
+        return P
+    details = failing_details("1.1.4.b", turned)
+    shown = float(re.search(r"([0-9.]+) rad of yaw off", details).group(1))
+    assert abs(shown - 3.13) < 0.01
 
 
 def test_a_wrong_relative_pose_that_matches_no_named_mistake_gets_no_guess():
     details = failing_details("1.1.4.a", lambda a, b: np.eye(3))
-    assert "A then B" in details and "That is what you get" not in details
+    assert "two poses away from the axes" in details and "That is what you get" not in details
 
 
 @pytest.mark.parametrize("break_it, words", [
@@ -133,11 +169,11 @@ def test_a_relative_pose_that_is_right_on_the_lap_but_wrong_off_it_still_fails()
 
 
 def test_the_trailing_one_and_the_wrapped_angle_the_lab_prints():
+    """The trailing 1 versus 0, and the wrap trap class-wide: the raw comparison fails at exactly the steps where the yaw is above pi."""
     poses, _ = u1_1_4.lap()
     T = geom.pose_to_matrix(tuple(poses[400]))
     assert np.allclose(T @ [10, 2, 1], (160.987, 27.8514, 1), atol=1e-3)
     assert np.allclose(T @ [10, 2, 0], (6.3282, 7.9971, 0), atol=1e-3)
     gap = np.array([geom.matrix_to_pose(geom.pose_to_matrix(tuple(p)))[2] for p in poses]) - poses[:, 2]
     assert math.isclose(abs(gap[1021]), 2 * math.pi, abs_tol=1e-9) and np.abs(gap[:1021]).max() < 1e-12
-    """The wrap trap, class-wide: the raw comparison fails at exactly the steps where the yaw is above pi, not only after one crossing."""
     assert np.array_equal(np.nonzero(np.abs(gap) > 1)[0], np.nonzero(poses[:, 2] > math.pi)[0])

@@ -196,13 +196,13 @@ def pose_frame(path):
     mid, tip = 10 * f, 10 * f + 2 * n
     _arrow(bottom, (0, 0), tuple(mid), EGO, lw=3.5)
     _arrow(bottom, tuple(mid), tuple(tip), EGO, lw=3.5)
-    _note(bottom, tuple(5.5 * f + 1.9 * n), "10 m forward", EGO, rotation=math.degrees(th))
+    _note(bottom, tuple(5.0 * f + 2.4 * n), "10 m forward", EGO, rotation=math.degrees(th))
     _note(bottom, tuple(mid + 2.9 * f), "2 m left", EGO)
     _dot(bottom, tuple(tip), TEXT, size=11)
     _note(bottom, (tip[0] - 3.2, tip[1] + 3.2), f"cone\n({cone[0]:.2f}, {cone[1]:.2f})")
     bottom.plot([0, 9], [0, 0], color=GREY, lw=1.5, ls="--")
     _note(bottom, (11.6, 0), "east", GREY)
-    bottom.add_patch(Arc((0, 0), 10, 10, theta1=0, theta2=math.degrees(th), color=GREY, lw=1.5))
+    bottom.add_patch(Arc((0, 0), 10, 10, theta1=0, theta2=math.degrees(th) - 1.5, color=GREY, lw=1.5))
     _note(bottom, (7.6, 1.6), f"{math.degrees(th):.2f}\u00b0", GREY)
     _save(fig, path)
 
@@ -659,7 +659,7 @@ def rear_axle_paths(path):
     ax.plot(s_rear[near], MAG * d["lat_r"][near], color=REAR, lw=3)
     car = np.array([d["s"][k] - s_rear[k], d["lat_f"][k] - d["lat_r"][k]])  # rear axle to front axle, real size and angle
     start = np.array([s_rear[k], MAG * d["lat_r"][k]])
-    ax.plot(*zip(start, start + car), color=TEXT, lw=6, solid_capstyle="round")
+    ax.plot(*zip(start, start + car * [1, MAG]), color=TEXT, lw=6, solid_capstyle="round")
     x0, x1 = float(s_rear[near].min()) - 1, float(d["s"][near].max()) + 1
     ax.set(xlabel="distance along the lane (m)", xlim=(x0, x1), ylim=(-2.5, 15.5))
     ax.set_aspect("equal")
@@ -668,7 +668,7 @@ def rear_axle_paths(path):
     _note(ax, (x0 + 5, 1.8), "lane centre", GREY)
     _note(ax, (x0 + 4, 13.4), "rear axle", REAR)
     _note(ax, (x1 - 5, 8.4), "front axle", EGO)
-    _note(ax, (start[0] + 1.5, 14.6), "car, 2.7 m", TEXT)
+    _note(ax, (start[0] + 1.5, 9.0), "car, 2.7 m", TEXT)
     _arrow(ax, (x0 + 1.5, 4.2), (x0 + 1.5, 8.6), TEXT, lw=1.5)
     _note(ax, (x0 + 14.5, 6.0), "toward the bend's centre", TEXT, fontsize=FS)
     fig.tight_layout()
@@ -768,7 +768,8 @@ def next_lesson(path):
     ax.plot([0, reach], [height, 0], color=CORAL, lw=2.5, ls="--")
     _note(ax, (reach, 0.65), "?", CORAL, fontsize=TITLE)
     r = 2.4  # the angle's arc, radius in inches
-    arc = [lens + np.array(inches(r * math.cos(a), -r * math.sin(a))) for a in np.linspace(0, pitch, 20)]
+    drawn = math.atan2(math.sin(pitch) * sy, math.cos(pitch) * sx)  # the ray's angle on the page, where heights are stretched
+    arc = [lens + np.array(inches(r * math.cos(a), -r * math.sin(a))) for a in np.linspace(0, drawn, 20)]
     ax.plot(*zip(*arc), color=THETA, lw=2.5)
     _label(ax, tuple(arc[-1]), (11.0, 2.7), f"{pitch_deg:g}\u00b0 down", THETA)
     _arrow(ax, (2.2, 0), (2.2, height), TEXT, lw=1.8, style="<|-|>", scale=10)

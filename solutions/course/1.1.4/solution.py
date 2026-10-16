@@ -5,10 +5,11 @@ __all__ = ["relative_pose", "dead_reckon"]
 
 
 def _inverse(T):
-    """Closed-form inverse of a pose matrix: [[R^T, -R^T t], [0, 1]]."""
-    inverse = np.eye(3)
-    inverse[:2, :2] = T[:2, :2].T
-    inverse[:2, 2] = -T[:2, :2].T @ T[:2, 2]
+    """Closed-form inverse of a pose matrix of any size: [[R^T, -R^T t], [0, 1]]."""
+    k = len(T) - 1
+    inverse = np.eye(k + 1)
+    inverse[:k, :k] = T[:k, :k].T
+    inverse[:k, k] = -T[:k, :k].T @ T[:k, k]
     return inverse
 
 
