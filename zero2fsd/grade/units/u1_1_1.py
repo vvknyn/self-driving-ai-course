@@ -72,19 +72,19 @@ def _why_wrong(got, v) -> str:
     with np.errstate(all="ignore"):
         slope = float(np.arctan(y / x)) if x else math.nan
     if near(math.pi / 2 - want) and not near(want):
-        return "dx and dy look swapped: np.arctan2 takes dy first"
+        return "Δx and Δy look swapped: np.arctan2 takes Δy first"
     if near(math.degrees(want)):
         return "this looks like degrees: give radians"
     if near(slope):
-        return "this is np.arctan of the slope, which cannot tell an arrow from its opposite: use np.arctan2 or fix the angle where dx < 0"
+        return "this is np.arctan of the slope, which cannot tell an arrow from its opposite: use np.arctan2 or fix the angle where Δx < 0"
     if abs(wrap_angle(got - want)) <= TOL:
-        return "the right direction in another angle range: direction_angle must give np.arctan2's range, -pi to pi, with west as +pi"
+        return "the right direction in another angle range: direction_angle must give np.arctan2's range, −π to π, with west as +π"
     return "wrong direction for an arrow"
 
 
 @exercise(
     "1.1.1.a",
-    checked=(f"{len(NAMED)} named arrows (each quarter, each axis, and just either side of the cut at pi) and 30 seeded arrows (one of them the zero arrow) against "
+    checked=(f"{len(NAMED)} named arrows (each quarter, each axis, and just either side of the cut at π) and 30 seeded arrows (one of them the zero arrow) against "
              f"np.arctan2 to {TOL}; the zero arrow gives nan; many arrows give one angle each; and on `gentle` every step arrow "
              f"against np.arctan2, and within {LAP_TOL} rad of the car's yaw (difference wrapped)"),
     section="Which way is it pointing",
@@ -135,8 +135,8 @@ def _parts_mistake(theta: float, v, got) -> str:
     c, s, vx, vy = math.cos(theta), math.sin(theta), float(v[0]), float(v[1])
     forward = c * vx + s * vy
     mistakes = [  # (what the left part would be, the message)
-        (vx * s - vy * c, "the left part has the wrong sign: it is h x v = cos(theta)*v_y - sin(theta)*v_x, not v x h"),
-        (s * vx + c * vy, "the left arrow is (-sin theta, cos theta), not (sin theta, cos theta)"),
+        (vx * s - vy * c, "the left part has the wrong sign: it is ĥ × v = cos θ · v_y − sin θ · v_x, not v × ĥ"),
+        (s * vx + c * vy, "the left arrow is n̂ = (−sin θ, cos θ), not (sin θ, cos θ)"),
     ]
     for left, message in mistakes:
         if abs(got[0] - forward) <= PARTS_TOL and abs(got[1] - left) <= PARTS_TOL:
@@ -169,7 +169,7 @@ def _forward_left(fn, show, on_step):
         if not np.all(np.abs(got - want) <= PARTS_TOL):
             bad = int(np.argmax(np.where(np.abs(got - want) <= PARTS_TOL, -1.0, np.abs(got - want)).max(axis=1)))
             raise Failure(_parts_mistake(pose[2], arrows[bad], got[bad]), given=f"yaw {pose[2]:.4f} rad and arrow {fmt(arrows[bad])}", expected=want[bad], got=got[bad])
-    given = "40 yaws, one arrow each: theta of shape (40,), v of shape (40, 2)"
+    given = "40 yaws, one arrow each: θ of shape (40,), v of shape (40, 2)"
     got = _as_floats(call(fn, poses[:, 2].copy(), (points[:, 0] - poses[:, :2]).copy(), given=given), given)
     want = np.stack([_parts(pose, p[0]) for pose, p in zip(poses, points)])
     if np.shape(got) != want.shape or not np.all(np.abs(got - want) <= PARTS_TOL):

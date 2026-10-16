@@ -71,7 +71,7 @@ def np_where_without_the_zero_dim_fix(v):  # a correct answer; for one arrow np.
 
 @pytest.mark.parametrize("answer, said", [
     (preset("1.1.1.a", "naive_arctan"), "np.arctan of the slope"),
-    (arguments_swapped, "dx and dy look swapped"),
+    (arguments_swapped, "Δx and Δy look swapped"),
     (full_turns, "another angle range"),
     (wrapped_to_the_cut, "another angle range"),
     (in_degrees, "degrees"),
@@ -132,8 +132,8 @@ def forward_negated(theta, v):  # a mistake the lab does not list
 
 
 @pytest.mark.parametrize("answer, said", [
-    (cross_the_wrong_way, "wrong sign"),
-    (left_arrow_as_sin_cos, "(-sin theta, cos theta), not (sin theta, cos theta)"),
+    (cross_the_wrong_way, "ĥ × v"),
+    (left_arrow_as_sin_cos, "n̂ = (−sin θ, cos θ), not (sin θ, cos θ)"),
     (forward_negated, "wrong forward or left part"),  # unnamed, but still honest
     (first_heading_only, "row i must use yaw i"),
 ])

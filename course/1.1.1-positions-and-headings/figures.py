@@ -356,13 +356,14 @@ def _raw_diff(path):  # [raw] [jumps] [raw_after]
     _text(ax, 1.0, -2.8, f"{far} of {len(raw)} steps\nmore than 1 rad\nfrom 0", THETA, ha="left", box=True)
     lo, hi = 48.0, 50.0  # a 2 s window of the back straight, where the steps flip between the two lines
     ax.axvspan(lo, hi, fc=THETA, alpha=0.25, lw=0, zorder=0)
-    zoom = fig.add_axes([0.66, 0.46, 0.29, 0.30])
+    zoom = fig.add_axes([0.70, 0.46, 0.26, 0.30])
     window = (t >= lo) & (t <= hi)
     zoom.plot(t[window], raw[window], color=THETA, lw=0.8, alpha=0.5)
     zoom.scatter(t[window], raw[window], s=14, color=THETA, linewidths=0)
     for y in (0.0, -2 * PI):
         zoom.axhline(y, color=BORDER, ls=(0, (5, 3)), lw=1.8, zorder=1)
-    zoom.set(xlim=(lo, hi), ylim=(-2 * PI - 0.8, 0.8), xticks=[lo, hi], yticks=[])
+    zoom.set(xlim=(lo, hi), ylim=(-2 * PI - 0.8, 0.8), xticks=[lo, hi])
+    zoom.set_yticks([0, -2 * PI], ["0", "−2π"])
     zoom.set_title("zoom: 2 s", fontsize=FS, pad=4)
     _save(fig, path)
 
