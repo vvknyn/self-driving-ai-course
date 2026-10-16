@@ -249,7 +249,6 @@ def test_a_seeded_clipped_trace_is_flagged_and_a_zoom_inset_or_an_axhline_is_not
 
 
 KNOWN_CLIPPING = {  # unit -> what still clips: other units' figures, listed in the 0.1.1 fix report rather than reshaped here
-    "0.1.4-closing-the-loop": "open_vs_closed, gain_sweep (a 20 s window of an 89 s trace)",
 }
 
 
