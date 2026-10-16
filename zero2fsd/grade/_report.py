@@ -105,8 +105,12 @@ def learner_code(given: str):
 
 
 def call(fn, *args, given: str, **kwargs):
+    """Run a learner function and return its result.  None means the learner forgot `return` (no grader's function may answer None)."""
     with learner_code(given):
-        return fn(*args, **kwargs)
+        result = fn(*args, **kwargs)
+    if result is None:
+        raise Failure(f"your function {getattr(fn, '__name__', repr(fn))} returned None: it needs a `return` line giving its answer", given=given)
+    return result[()] if isinstance(result, np.ndarray) and result.ndim == 0 else result  # np.where(..) on a scalar gives a 0-d array: graders get its NumPy scalar, which is_real and fmt already handle
 
 
 LESSON_TITLES: dict[str, str] = {}  # unit id -> title, filled by grade/__init__ from each unit module's LESSON (a test keeps them equal to unit.yaml)
