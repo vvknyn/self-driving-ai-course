@@ -179,6 +179,11 @@ def test_the_lecture_s_own_s_only_error_gets_the_s_hint():
     assert "d matches but s is 1 m out" in verdict("1.1.3.a", off_by_a_metre)
 
 
+def test_a_d_only_error_gets_the_d_hint():
+    off_by_a_metre = lambda line, closed, p: (SOLUTION.to_road_frame(line, closed, p)[0], SOLUTION.to_road_frame(line, closed, p)[1] + 1.0)  # noqa: E731
+    assert "s matches but d is 1 m out" in verdict("1.1.3.a", off_by_a_metre)
+
+
 def _lane(psi_of):
     """A learner's lane_errors whose psi is `psi_of(yaw, heading)`, the heading being the nearest segment's (the later of two at a tie when `last`)."""
     def fn(line, closed, pose):

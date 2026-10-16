@@ -236,7 +236,7 @@ def naive_y(path):
     bot.plot(lap.t[keep], lap.e[keep], color=BLUE, lw=2)
     bot.axvline(12.5, color=DIM, ls="--", lw=2)
     _tag(bot, 11.5, 3.9, "first bend")
-    for gap_m, text, where in ((0.01, "0.01 m apart at 12.70 s", (11.1, 1.0)), (0.1, "0.1 m apart at 13.05 s", (11.4, 2.1)), (1.0, "1 m apart at 14.10 s", (13.5, 3.4))):
+    for gap_m, text, where in ((0.01, "0.01 m apart\nat 12.70 s", (11.0, 0.95)), (0.1, "0.1 m apart\nat 13.05 s", (11.3, 2.2)), (1.0, "1 m apart\nat 14.10 s", (13.8, 3.4))):
         k = int(np.argmax(diff > gap_m))
         _dot(bot, lap.t[k], naive[k], TEXT, 9)
         _pointer(bot, text, (lap.t[k], naive[k]), where)
@@ -764,18 +764,19 @@ def challenge_setup(path):
     road_dir = np.array([math.cos(yaw - 0.04), math.sin(yaw - 0.04)])
     stretch = 10.0  # 0.04 rad is invisible at true size: the pink ray and arc are drawn this many times too wide, as in vertex_tie
     wide = yaw - 0.04 + stretch * 0.04
-    ax.plot(*zip(car, car + 2.6 * road_dir), color=DIM, lw=2, ls="--", zorder=3)
-    ax.plot(*zip(car, car + 2.6 * np.array([math.cos(wide), math.sin(wide)])), color=PINK, lw=2, ls="--", zorder=3)
+    ax.plot(*zip(car, car + 3.0 * road_dir), color=DIM, lw=2, ls="--", zorder=3)
+    ax.plot(*zip(car, car + 3.0 * np.array([math.cos(wide), math.sin(wide)])), color=PINK, lw=2, ls="--", zorder=3)
     theta = np.linspace(yaw - 0.04, wide, 12)
-    ax.plot(car[0] + 2.0 * np.cos(theta), car[1] + 2.0 * np.sin(theta), color=PINK, lw=3, zorder=5)
+    ax.plot(car[0] + 2.5 * np.cos(theta), car[1] + 2.5 * np.sin(theta), color=PINK, lw=3, zorder=5)
     _brace(ax, lane, car, BLUE, lw=4)
     _car(ax, (x, y, yaw), length=1.5)  # behind the front axle, so the ego frame's x axis ahead of it does not hide it
     _frame(ax, (x, y, yaw), QUANTITY["ego"], "", length=1.6)
     left_of = np.array([-ahead[1], ahead[0]])
     ax.text(*(car + 0.5 * (left_of - ahead)), "ego", color=QUANTITY["ego"], ha="center", va="center")
     _pointer(ax, "e = +0.3 m", 0.5 * (lane + car), (car[0] + 1.3, car[1] - 1.5), colour=BLUE)
-    _pointer(ax, "ψ = +0.04 rad,\ndrawn 10 times too wide", car + 2.0 * np.array([math.cos(wide - 0.2), math.sin(wide - 0.2)]), (car[0] + 1.3, car[1] + 2.0), colour=PINK)
+    _pointer(ax, "ψ = +0.04 rad,\ndrawn 10 times too wide", car + 2.5 * np.array([math.cos(wide - 0.2), math.sin(wide - 0.2)]), (car[0] + 1.3, car[1] + 2.0), colour=PINK)
     _xy_axes(ax)
+    ax.set_xticks([172.0, 174.0, 176.0])  # 177.0 would be cut off at the figure's edge
     _save(fig, path)
 
 

@@ -48,19 +48,19 @@ class _Segments:
 
 
 def tie_headings(road: Road, x: float, y: float) -> np.ndarray:
-    """The headings of every segment whose foot is as near to (x, y) as the nearest one (within TOL): two, at a vertex tie."""
+    """The directions of every segment whose foot is as near to (x, y) as the nearest one (within TOL): two, at a vertex tie."""
     return _Segments(road.centerline, road.closed).tie_headings((x, y))
 
 
 def _wrapped_truths(road: Road, pose) -> list[float]:
-    """Every heading error the pose's nearest segments allow, in [-pi, pi); a truth of exactly -pi also allows +pi (`arctan2` gives that one)."""
+    """Every ψ the pose's nearest segments allow, in [-pi, pi); a truth of exactly -pi also allows +pi (`arctan2` gives that one)."""
     x, y, yaw = pose
     truths = [float(wrap_angle(yaw - h)) for h in tie_headings(road, x, y)]
     return truths + [np.pi for w in truths if abs(w + np.pi) <= TOL]
 
 
 def psi_misfit(road: Road, pose, psi: float) -> float:
-    """How far `psi` is from the truth in rad; at a vertex tie the truth is any of the tied segments' headings, and a turn out is a whole 2*pi off."""
+    """How far `psi` is from the truth in rad; at a vertex tie the truth is any of the tied segments' directions, and a turn out is a whole 2*pi off."""
     return min(abs(psi - w) for w in _wrapped_truths(road, pose))
 
 
@@ -182,6 +182,7 @@ def _to_road_frame(fn, show, on_step):
             s_gap, d_gap = s_misfit(road, s, want_s), d_misfit(d, want_d, left)
             hint = (f"; this is the answer for {named}" if named else
                     f": d matches but s is {s_gap:.6g} m out" if d_gap <= TOL else
+                    f": s matches but d is {d_gap:.6g} m out" if s_gap <= TOL else
                     f": s is {s_gap:.6g} m out and d is {d_gap:.6g} m out")
             raise Failure("s or d does not match the simulator" + hint, given=given,
                           expected=f"s {want_s:.6f} m, d {want_d:+.6f} m", got=f"s {s:.6f} m, d {d:+.6f} m")

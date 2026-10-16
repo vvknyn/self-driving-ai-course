@@ -4,7 +4,7 @@ You are the referee. The provided car is driving its lap of `gentle` at 8 m/s, a
 
 How far along the road is the car, and how far from its lane centre?
 
-By the end you will write `to_road_frame` and `lane_errors`, two short functions that turn a position in the world into the road's own pair of coordinates. They will reproduce the simulator's lateral error and heading at every one of the 1778 steps of a lap, with a difference of exactly zero.
+By the end you will write `to_road_frame` and `lane_errors`, two short functions that turn a position in the world into the road's own pair of coordinates. They will reproduce the simulator's lateral error and the heading ψ of *Your first perception box* at every one of the 1778 steps of a lap, with a difference of exactly zero.
 
 ![Two stacked panels of the provided car on gentle at step 400, 20.00 s into its lap, seen from above. Top: the road from its start into the first bend, where a grey line follows the yellow line from the start of the road to the point on it nearest the car, labelled 159.011 m along the road. Bottom: a zoom on a few metres around the car, where a blue brace from the lane centre to the car's front axle is labelled 0.528 m left of the lane centre.](figures/result_first.png)
 
@@ -46,7 +46,7 @@ In the simulator a road is a list of points along the middle of its yellow paint
 
 Take one segment, from vertex $\mathbf{a}$ to vertex $\mathbf{b}$, and a point $\mathbf{p}$. Which point of the segment is nearest $\mathbf{p}$, and how far away is it?
 
-Work it with hand numbers: $\mathbf{a} = (2, 1)$, $\mathbf{b} = (10, 7)$ and $\mathbf{p} = (5, 7)$. The segment's arrow is $\mathbf{b} - \mathbf{a} = (8, 6)$. Its length, by Pythagoras, is $\sqrt{8^2 + 6^2} = 10$. Divide the arrow by its length and you get an arrow 1 m long along the segment, $\hat{u} = (0.8, 0.6)$, read "u-hat". It is a unit vector, like the heading arrow of *Positions and headings*: it is the heading arrow of someone standing at $\mathbf{a}$ and facing $\mathbf{b}$.
+Work it with hand numbers: $\mathbf{a} = (2, 1)$, $\mathbf{b} = (10, 7)$ and $\mathbf{p} = (5, 7)$. The segment's arrow is $\mathbf{b} - \mathbf{a} = (8, 6)$. Its length, by Pythagoras, is $\sqrt{8^2 + 6^2} = 10$. Divide the arrow by its length and you get an arrow 1 m long along the segment, $\hat{u} = (0.8, 0.6)$, read "u-hat". It is a unit vector, like the yaw arrow of *Positions and headings*: it is the yaw arrow of someone standing at $\mathbf{a}$ and facing $\mathbf{b}$.
 
 Now ask, as *Positions and headings* did for a cone, how far ahead of that someone $\mathbf{p}$ is, and how far to the left. The arrow from $\mathbf{a}$ to $\mathbf{p}$ is $\mathbf{p} - \mathbf{a} = (3, 6)$. Its forward part is a dot product with $\hat{u}$, and its left part a 2D cross product:
 
@@ -157,7 +157,7 @@ At step 400, $\theta = 0.7040$ rad and $\theta_{\text{road}} = 0.7379$ rad, so $
 
 Both errors are what a driver standing at the foot, facing along the road, would see. That driver's pose is the foot with the angle $\theta_{\text{road}}$.
 
-![The car at step 400 seen from a frame placed at the foot on the yellow line, with its x axis along the road and its y axis to the road's left, both drawn in grey. The car's front axle sits at forward 0, left −1.2717, labelled (0, d). Its heading arrow is turned 0.0339 rad clockwise from the frame's x axis, labelled ψ = −0.0339 rad, in pink.](figures/foot_frame.png)
+![The car at step 400 seen from a frame placed at the foot on the yellow line, with its x axis along the road and its y axis to the road's left, both drawn in grey. The car's front axle sits at forward 0, left −1.2717, labelled (0, d). Its yaw arrow is turned 0.0339 rad clockwise from the frame's x axis, labelled ψ = −0.0339 rad, in pink.](figures/foot_frame.png)
 
 From that frame, `world_to_ego` puts the car at ($-6 \times 10^{-15}$, −1.2717). The first number is zero up to rounding, because the foot is level with the car by construction, and the second is $d$. The road frame is the driver's-seat view taken from the road's nearest point, wherever the car is.
 

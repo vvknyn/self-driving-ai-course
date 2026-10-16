@@ -295,8 +295,8 @@ def lane_errors(centerline, closed, pose):
 try:
     mine = np.array([lane_errors(centerline, True, (x, y, th)) for x, y, th in zip(tel.x, tel.y, tel.yaw)])
     practice("max |e − lat| (m)", float(np.abs(mine[:, 0] - tel.lat).max()), 0.0, tol=1e-9)
-    misfit = max(psi_misfit(road, pose, psi) for pose, psi in zip(zip(tel.x, tel.y, tel.yaw), mine[:, 1]))  # 0 for either tied segment's heading
-    practice("max |ψ − head_err| (rad)", misfit, 0.0, tol=1e-9)
+    misfit = max(psi_misfit(road, pose, psi) for pose, psi in zip(zip(tel.x, tel.y, tel.yaw), mine[:, 1]))  # 0 for either tied segment's direction
+    practice("largest ψ misfit (rad), either tied segment right", misfit, 0.0, tol=1e-9)
 except NotImplementedError:
     print("Write lane_errors above first, then run this cell again.")
 
@@ -372,7 +372,7 @@ practice("segments, worst |d| error (m)", p, 0.0391, tol=1e-4)
 #
 # ## What's next
 #
-# You can now turn a position and a heading into `s`, `d`, `e` and `psi`, the two numbers the controller steers on. In the
+# You can now turn a position and a yaw into `s` and `d`, and from them `e` and `psi`, the two numbers the controller steers on. In the
 # next lesson, *Poses you can chain*, the car loses the outside world and has to find out where it is from how it moved.
 #
 # ![](figures/next_lesson.png)
