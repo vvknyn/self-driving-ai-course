@@ -4,7 +4,7 @@
 
 ---
 
-## 🏛️ The Academic & Open-Source Lineage
+## 🏛️ The Academic & Community Lineage
 This course cuts through the overwhelming noise of the autonomous driving industry by distilling the foundational curriculum from four legendary open-education programs:
 
 ```

@@ -10,7 +10,7 @@ In traditional engineering courses, students face a frustrating binary:
 1. **The Pop-Science / Marketing Fluff**: High-level hand-waving with cartoon diagrams, zero code, and zero math. You finish the course feeling entertained but incapable of implementing a single algorithm.
 2. **The Inaccessible Academic Monograph**: Dense graduate-level textbooks that plunge straight into measure-theoretic probability, differential forms, or unannotated 5,000-line C++ codebases without explaining *why* any of it matters.
 
-This course pioneers the **Just-In-Time (JIT) 5-Tier Architecture**, blending the teaching styles of five legendary educators and open-source programs:
+This course pioneers the **Just-In-Time (JIT) 5-Tier Architecture**, blending the teaching styles of five legendary educators and freely available programs:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────────┐
