@@ -377,7 +377,9 @@ practice("segments, worst |d| error (m)", p, 0.0391, tol=1e-4)
 #
 # ![](figures/next_lesson.png)
 #
-# ## Stretch (optional, not graded): the challenge problems
+# ## Stretch: the challenge problems
+#
+# Optional, not graded.
 #
 # The lecture's three challenge problems, each with a cell that checks your numbers.
 #

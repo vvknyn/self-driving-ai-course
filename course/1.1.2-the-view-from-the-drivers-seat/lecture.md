@@ -103,7 +103,7 @@ $$
 
 So a matrix–vector product can be read two ways. Row by row, it is dot products, which is how you compute it. Column by column, it is the first column scaled by a, plus the second column scaled by b, which is the walk. Both readings give the same numbers.
 
-![Two stacked panels at the scene. Top: the two columns of R(θ) at θ = 0.5958 rad, (0.8277, 0.5612) and (−0.5612, 0.8277), drawn in purple from the car's front axle. They are the ego frame's x and y axes. The world's x and y axes are drawn in grey for comparison. Bottom: start at the car, (147.839, 14.299), walk 10.189 m along the first column and then 0.453 m along the second, and you arrive at the lane-centre point (156.018, 20.391). A magnified inset shows the second leg.](figures/columns_axes.png)
+![Two stacked panels at the scene. Top: the two columns of R(θ) at θ = 0.5958 rad, (0.8277, 0.5612) and (−0.5612, 0.8277), drawn in purple from the car's front axle. They are the ego frame's x and y axes. The world's x and y axes are drawn in white for comparison. Bottom: start at the car, (147.839, 14.299), walk 10.189 m along the first column and then 0.453 m along the second, and you arrive at the lane-centre point (156.018, 20.391). A magnified inset shows the second leg.](figures/columns_axes.png)
 
 Multiplying by R(θ) takes the world's x axis, (1, 0), to the heading arrow, and the world's y axis, (0, 1), to the left arrow. Both are turned by θ anticlockwise, both are still 1 m long, and they are still a quarter turn apart. Any arrow, a times (1, 0) plus b times (0, 1), goes to a times the heading arrow plus b times the left arrow: the same arrow, turned by θ. So R(θ) is called a **rotation matrix**. Multiplying by it turns any arrow by the angle θ.
 
@@ -128,7 +128,7 @@ R(\theta)^{\mathsf T} &= \\
 \end{aligned}
 $$
 
-![The same arrow turned out and back, in two stacked panels, with the car's front axle at the origin and the world's x and y axes in grey. Top: R(θ) turns the arrow (10.189, 0.453) by 0.5958 rad anticlockwise, to (8.179, 6.093). Bottom: R(θ)ᵀ turns (8.179, 6.093) by the same angle clockwise, back to (10.189, 0.453).](figures/undo.png)
+![The same arrow turned out and back, in two stacked panels, with the car's front axle at the origin and the world's x and y axes in white. Top: R(θ) turns the arrow (10.189, 0.453) by 0.5958 rad anticlockwise, to (8.179, 6.093). Bottom: R(θ)ᵀ turns (8.179, 6.093) by the same angle clockwise, back to (10.189, 0.453).](figures/undo.png)
 
 So `world_to_ego` computes $R(\theta)^{\mathsf T}(\mathbf{p} - \mathbf{t})$: subtract the car's position, then take the two dot products. `ego_to_world` computes $R(\theta)\,\mathbf{q} + \mathbf{t}$: walk along the columns, then add the car's position. Confusion is normal here. The same two arrows are rows in one matrix and columns in the other, and the whole difference between the two directions is which.
 
@@ -170,7 +170,7 @@ The order inside `world_to_ego` matters. Turn first and subtract afterwards, $R(
 
 **Guess first:** take 2109 points along the yellow line, the lane centre and the white line of the lap, 1 m apart, and send them into the ego frame and back out to the world. Do it at 41 poses: the scene's and 40 random ones. How far from where they started do the points land?
 
-![Two stacked panels. Top: the lap of gentle in the world frame, its 2109 points in grey, and the same points after world_to_ego and then ego_to_world at the scene's pose, in purple as rings on a sample of the points, landing on top of them. Bottom: at each of the 41 poses, the largest coordinate error after the round trip, on a scale where each grid line is ten times the one below. Every pose is below the dashed line at 10 to the minus 12 m. The largest error is 1.4 times ten to the minus 13 m going world to ego to world, and 8.5 times ten to the minus 14 m going ego to world to ego.](figures/round_trip.png)
+![Two stacked panels. Top: the lap of gentle in the world frame, its 2109 points in grey, and the same points after world_to_ego and then ego_to_world at the scene's pose, in white as rings on a sample of the points, landing on top of them. Bottom: at each of the 41 poses, the largest coordinate error after the round trip, on a scale where each grid line is ten times the one below. Every pose is below the dashed line at 10 to the minus 12 m. The largest error is 1.4 times ten to the minus 13 m going world to ego to world, and 8.5 times ten to the minus 14 m going ego to world to ego.](figures/round_trip.png)
 
 **Answer:** within $1.4\times10^{-13}$ m. Going the other way, ego to world to ego, the points land within $8.5\times10^{-14}$ m. Neither is exactly 0, because every multiply-and-add rounds in the last digit. The lab's check uses a tolerance of $1\times10^{-9}$ m, thousands of times bigger than either, while the two mistakes at the end of this lesson miss it by hundreds of metres.
 
@@ -269,7 +269,7 @@ The start of the lap is the worst place to test a transform. The yaw is 0 there,
 
 Why does the swap fail where the road is straight? θ is where the car points; ψ, the heading from *Your first perception box*, is the yaw minus the road's direction, wrapped. On `straight` the road points east, so θ is ψ itself, and once the car moves it is small but never exactly 0. Swap the signs of the sin θ entries and you have the right transform for a car pointing at −θ. So the perception box sees the lane as if the car pointed the other way.
 
-![What the perception box reads as the heading, against the car's true heading ψ, at the 53 steps of the swapped car's run on straight where ψ is more than 0.001 rad from 0. Red dots, read through the swap: the box's heading is the true ψ with its sign flipped, a median ratio of −0.994. Grey dots, the same moments read through the right transform, 49 of them with a valid reading: a median ratio of +1.011.](figures/heading_flip.png)
+![What the perception box reads as the heading, against the car's true heading ψ, at the 53 steps of the swapped car's run on straight where ψ is more than 0.001 rad from 0. Coral dots, read through the swap: the box's heading is the true ψ with its sign flipped, a median ratio of −0.994. Grey dots, the same moments read through the right transform, 49 of them with a valid reading: a median ratio of +1.011.](figures/heading_flip.png)
 
 Park the car on `straight` 50 m from the start, 0.3 m left of the lane centre, pointing 0.05 rad right. Through the right transform the box reads an offset of 0.3063 m and a heading of −0.0517 rad. Through the swap it reads 0.2964 m and +0.0506 rad. The offset hardly changes; the heading's sign flips.
 
@@ -278,7 +278,10 @@ Park the car on `straight` 50 m from the start, 0.3 m left of the lane centre, p
 The controller steers by the rule from *Closing the loop*, with the box's heading in place of ψ:
 
 $$
-\delta = -(k_{\text{off}} \cdot \text{offset} + k_{\text{head}}\,\psi)
+\begin{aligned}
+\delta = -(&k_{\text{off}}\cdot\text{offset}\\
+&+ k_{\text{head}}\,\psi)
+\end{aligned}
 $$
 
 With that sign flipped, a car pointing a little to one side is told it points to the other, so it steers further the way it already points and the error feeds itself. After the first step e is $2.51\times10^{-5}$ m. It changes sign and grows to 0.0382 m at 1.00 s and 0.2724 m at 2.00 s; then it swings back across the lane centre and leaves the lane at 2.95 s.
@@ -305,12 +308,12 @@ Both problems explain the swapped car's run on `straight`.
 
 1. **Why the swap flips the heading.** For small angles cos θ ≈ 1 and sin θ ≈ θ, an approximation; at 0.02 rad, cos θ = 0.9998 and sin θ = 0.0200.
    - (a) Show that R(θ) = R(−θ)ᵀ for every θ. Write R(θ)ᵀ and R(θ) for a small θ, and explain why, on `straight`, the swapped box reads the heading as −ψ while the offset hardly changes. Compare with the parked car's numbers above, and with a second parked car pointing 0.02 rad left.
-   - (b) On a straight, the car's yaw changes at $v\,\delta / L$ radians per second, with v = 8.0 m/s and L = 2.7 m, the wheelbase from *Meet your car*. Leave out the offset term and show that, with the swap, ψ grows by a factor of $\mathrm{e}$ every 0.125 s, where $\mathrm{e}$ is the number 2.718 from *Closing the loop*, not the offset $e$, while the right transform shrinks it just as fast. Fitting the swapped car's own steps gives a growth of 2.387 per second instead. Which part of the answer is right, and which is not?
+   - (b) On a straight, the car's yaw changes at $v\,\delta / L$ radians per second, with v = 8.0 m/s and L = 2.7 m, the wheelbase from *Meet your car*. Leave out the offset term and show that, with the swap, ψ grows by a factor of $\mathrm{e}$ every 0.125 s, where $\mathrm{e}$ is the number 2.718 from *Closing the loop*, not the lateral error $e$, while the right transform shrinks it just as fast. Fitting the swapped car's own steps gives a growth of 2.387 per second instead. Which part of the answer is right, and which is not?
    - (c) Optional.
      <details>
      <summary>Optional (c): the matrix form, with the fact it needs</summary>
 
-     Keep both terms. Using the front-axle model, the offset changes at $v(\psi + \delta)$ metres per second. Write both rates as a matrix times (e, ψ), and use this fact, stated without proof, to find how fast the swapped car's error grows and how often it swings. For a matrix [[a, b], [c, d]], write tr = a + d and det = ad − bc. If (tr/2)² is less than det, the motion is a swing whose size grows like $\mathrm{e}^{(\mathrm{tr}/2)\,\text{time}}$ and which repeats every 2π/√(det − (tr/2)²) seconds. If (tr/2)² is bigger than det, there is no swing: the motion is two exponentials, with rates tr/2 + √((tr/2)² − det) and tr/2 − √((tr/2)² − det) per second. Compare with the fit.
+     Keep both terms. Using the front-axle model, the lateral error $e$ changes at $v(\psi + \delta)$ metres per second. Write both rates as a matrix times (e, ψ), and use this fact, stated without proof, to find how fast the swapped car's error grows and how often it swings. For a matrix [[a, b], [c, d]], write tr = a + d and det = ad − bc. If (tr/2)² is less than det, the motion is a swing whose size grows like $\mathrm{e}^{(\mathrm{tr}/2)\,\text{time}}$ and which repeats every 2π/√(det − (tr/2)²) seconds. If (tr/2)² is bigger than det, there is no swing: the motion is two exponentials, with rates tr/2 + √((tr/2)² − det) and tr/2 − √((tr/2)² − det) per second. Compare with the fit.
 
      </details>
 2. **Turns add up.** Using the angle-sum rules, cos(a + b) = cos a cos b − sin a sin b and sin(a + b) = sin a cos b + cos a sin b, show that R(a)R(b) = R(a + b). Then show that the car's heading arrow, sent into its own ego frame, is (1, 0) at every pose.

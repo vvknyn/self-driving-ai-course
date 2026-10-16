@@ -211,7 +211,9 @@ By Pythagoras and by cancelling,
 $$
 \begin{aligned}
 \hat{h}\cdot\hat{h} &= \cos^2\theta + \sin^2\theta = 1\\
-\hat{n}\cdot\hat{h} &= -\sin\theta\cos\theta + \cos\theta\sin\theta = 0
+\hat{n}\cdot\hat{h} &= -\sin\theta\cos\theta\\
+&\quad + \cos\theta\sin\theta\\
+&= 0
 \end{aligned}
 $$
 

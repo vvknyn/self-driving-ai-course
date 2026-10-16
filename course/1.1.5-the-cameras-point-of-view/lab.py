@@ -342,16 +342,16 @@ except NotImplementedError:
 #
 # ![](figures/height_scale.png)
 #
-# ## 9. What comes next
+# ## What's next
 #
 # Every lap so far ran at 8 m/s. Who chose it, and how would the car change speed? That is the next module,
 # *Longitudinal control and vehicle motion*.
 #
 # ![](figures/next_lesson.png)
 #
-# ## 10. Challenge problems
+# ## Stretch: the challenge problems
 #
-# Not graded; the answers are in the lecture (lecture: "Challenge problems"). Four marks painted on the road, at (3, ±1)
+# Optional, not graded; the answers are in the lecture (lecture: "Challenge problems"). Four marks painted on the road, at (3, ±1)
 # and (8, ±1) m, let you recover the camera's pitch and height from one picture, with neither known.
 #
 # **Guess first:** the near marks sit in row 147.789 and the far marks in row 103.291. If a mark found one pixel too low in every row

@@ -322,7 +322,7 @@ Every lap in this course, on every road, has run at 8 m/s. The scenario starts t
 
 ![The pitch recovered by 500 calibrations from the four marks, each with random row errors of standard deviation 0.5 px, as a histogram. They centre on 0.0877 rad, next to the true 0.0873 rad, with a standard deviation of 0.0044 rad, 0.7 of one row's angle.](figures/calibration_spread.png)
 
-**3.** With w = 1 the ray picks up **t**, so its height part is $1.4 - (\sin\varphi + b\cos\varphi)$. That is negative only when b > (1.4 − sin φ) / cos φ, which is row 300.4. The bottom row, 179.5, has b = 0.5625, so no pixel's ray points down.
+**3.** With w = 1 the ray picks up **t**, so its height part is $1.4 - (\sin\varphi + b\cos\varphi)$. That is negative only when b > (1.4 − sin φ) / cos φ, which is row 300.4. The picture's bottom edge, row 179.5, has b = 0.5625, so no pixel's ray points down.
 
 **4.** The box computes λ from its assumed 1.4 m, so its ground point is $(1.4/h)$ times the one the ray truly reaches, and both the forward and the sideways parts scale by the same factor. Over 200 random road points the box's forward and sideways distances are 1.166667 times the truth for h = 1.2 and 0.875 times for h = 1.6, with no exceptions. Scaling a picture keeps its angles, which is why the heading survives.
 

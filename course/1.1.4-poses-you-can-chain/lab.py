@@ -400,9 +400,9 @@ practice("mean lateral error e in the first bend, rear axle (m)", e_rear[bend].m
 #
 # ![](figures/next_lesson.png)
 #
-# ## Challenges
+# ## Stretch: the challenge problems
 #
-# The lecture also has four paper-and-pencil challenge problems on how drift grows with the number of steps, and why
+# Optional, not graded. The lecture also has four paper-and-pencil challenge problems on how drift grows with the number of steps, and why
 # the wrong order ends so near the truth. Their answers are measured with `dead_reckon` and the steps above.
 #
 # ![](figures/levers.png)

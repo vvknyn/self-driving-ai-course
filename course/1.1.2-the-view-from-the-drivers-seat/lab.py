@@ -358,9 +358,17 @@ practice("yaws where the simulator's transform fails", len(fails_at(geom.world_t
 # %% [markdown]
 # While `test_yaws` is empty the first line shows a red cross: that is the cell waiting for you. A test that catches both
 # mistakes and passes the right transform is what Exercise A is built from. Your `world_to_ego` passed Exercise A and the
-# picture test, so the camera now draws through your code. The lecture's last figure shows what the next lesson is about.
+# picture test, so the camera now draws through your code.
+
+# %% [markdown]
+# ## What's next
+#
+# The next lesson, *The road's own coordinates*, is about what the lecture's last figure shows.
 #
 # ![](figures/next_lesson.png)
+
+# %% [markdown]
+# ## Stretch: the challenge problems
 #
 # The two challenges of the lecture end with a figure each: the swap seen through time, then how fast its error grows.
 #

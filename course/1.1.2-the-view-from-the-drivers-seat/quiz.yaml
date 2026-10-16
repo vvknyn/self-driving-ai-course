@@ -13,11 +13,11 @@
   type: mcq
   prompt: What are the two columns of $R(\theta)$?
   choices:
-  - the car's heading arrow and its left arrow, written in world coordinates
   - its two rows, the same arrows written sideways
   - the world's east and north arrows
   - (1, 0) and (0, 1), whatever the yaw
-  answer: 0
+  - the car's heading arrow and its left arrow, written in world coordinates
+  answer: 3
   explain: The first column is $(\cos\theta, \sin\theta)$, the heading arrow, and the second is $(-\sin\theta, \cos\theta)$, the left arrow. At $\theta = 0$ they are (1, 0) and (0, 1), but at the scene's $\theta = 0.5958$ rad they are (0.8277, 0.5612) and (-0.5612, 0.8277).
   section: the-rotation-matrix
 - id: q3
@@ -26,9 +26,9 @@
   choices:
   - '0'
   - $\pi$
-  - $\pi/2$
   - the start line of `gentle`, where the car points along east
-  answer: 2
+  - $\pi/2$
+  answer: 3
   explain: At yaw 0 the matrix is the identity, and at $\pi$ it is $-I$, which is its own transpose, so the swap passes both. At $\pi/2$ the swap gives (-4, -1) where the answer is (4, 1). The start line of `gentle` is yaw 0, where the swap changes 0.0% of the picture.
   section: a-test-at-yaw-0-proves-nothing
 - id: q4

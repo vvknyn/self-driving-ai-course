@@ -299,11 +299,16 @@ practice("largest left per step (m)", (D * teammate_left_arrow(yaw[:-1])).sum(ax
 # and its worst miss is 3.142 rad. Then fix it.
 
 # %% [markdown]
-# The next lesson turns these four functions into a change of frame:
+# ## What's next
+#
+# You can now put any position and direction on the road's map, and say how far ahead of the car and how far to its left
+# an object is. In the next lesson, *The view from the driver's seat*, you use these parts to write every lane line in the
+# car's own coordinates, so the camera can draw it.
 #
 # ![](figures/next_lesson.png)
-#
-# ## 8. Stretch: the challenge problems
+
+# %% [markdown]
+# ## Stretch: the challenge problems
 #
 # **Challenge 1.** Take the car's path on the `straight` road, add a random error of standard deviation
 # $\sigma = 0.05$ m to each coordinate of each position, and take the direction from the fix at step $i$ to the fix at step
@@ -339,10 +344,3 @@ probes = np.vstack([[[0.0, 1.0], [0.0, -1.0], [-1.0, 0.0], [0.0, 0.0]], np.rando
 if atan2_by_hand(probes) is not None:
     want = np.where((probes == 0).all(axis=1), np.nan, np.arctan2(probes[:, 1], probes[:, 0]))
     practice("atan2_by_hand matches np.arctan2 on all 34 probes, nan for the zero arrow", float(np.allclose(atan2_by_hand(probes), want, rtol=0, atol=1e-12, equal_nan=True)), 1.0, tol=0)
-
-# %% [markdown]
-# ## What's next
-#
-# You can now put any position and direction on the road's map, and say how far ahead of the car and how far to its left
-# an object is. In the next lesson, *The view from the driver's seat*, you use these parts to write every lane line in the
-# car's own coordinates, so the camera can draw it.

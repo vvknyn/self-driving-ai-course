@@ -46,7 +46,7 @@ In the simulator a road is a list of points along the middle of its yellow paint
 
 Take one segment, from vertex $\mathbf{a}$ to vertex $\mathbf{b}$, and a point $\mathbf{p}$. Which point of the segment is nearest $\mathbf{p}$, and how far away is it?
 
-Work it with hand numbers: $\mathbf{a} = (2, 1)$, $\mathbf{b} = (10, 7)$ and $\mathbf{p} = (5, 7)$. The segment's arrow is $\mathbf{b} - \mathbf{a} = (8, 6)$. Its length, by Pythagoras, is $\sqrt{8^2 + 6^2} = 10$. Divide the arrow by its length and you get an arrow 1 m long along the segment, $\hat{u} = (0.8, 0.6)$, read "u-hat". It is a unit vector, like the yaw arrow of *Positions and headings*: it is the yaw arrow of someone standing at $\mathbf{a}$ and facing $\mathbf{b}$.
+Work it with hand numbers: $\mathbf{a} = (2, 1)$, $\mathbf{b} = (10, 7)$ and $\mathbf{p} = (5, 7)$. The segment's arrow is $\mathbf{b} - \mathbf{a} = (8, 6)$. Its length, by Pythagoras, is $\sqrt{8^2 + 6^2} = 10$. Divide the arrow by its length and you get an arrow 1 m long along the segment, $\hat{u} = (0.8, 0.6)$, read "u-hat". It is a unit vector, like the heading arrow of *Positions and headings*: it is the heading arrow of someone standing at $\mathbf{a}$ and facing $\mathbf{b}$.
 
 Now ask, as *Positions and headings* did for a cone, how far ahead of that someone $\mathbf{p}$ is, and how far to the left. The arrow from $\mathbf{a}$ to $\mathbf{p}$ is $\mathbf{p} - \mathbf{a} = (3, 6)$. Its forward part is a dot product with $\hat{u}$, and its left part a 2D cross product:
 
@@ -58,7 +58,7 @@ $$\begin{aligned}\text{forward} &= (\mathbf{p}-\mathbf{a})\cdot\hat{u}\\ &= 3(0.
 
 **Answer:** 6 m along the segment from $\mathbf{a}$, at $\mathbf{a} + 6\,\hat{u} = (6.8, 4.6)$, and 3.0 m away, exactly the left part. Walking 6 m forward from $\mathbf{a}$ brings you level with $\mathbf{p}$, and what is left is a step straight to the left.
 
-That nearest point is called the **foot**, because the line from it to $\mathbf{p}$ stands at a right angle on the segment, like a foot on the ground. Its distance along the segment from $\mathbf{a}$ is written $t$, read "tee". Here $t = 6.0$.
+That nearest point is called the **foot**, because the line from it to $\mathbf{p}$ stands at a right angle on the segment, like a foot on the ground. Its distance along the segment from $\mathbf{a}$ is written $t$, read "tee", not the bold **t** of *The view from the driver's seat*. Here $t = 6.0$.
 
 <details>
 <summary>How we got: the foot is the nearest point</summary>
@@ -97,7 +97,7 @@ A road has thousands of segments, and each one gives the point its own foot. The
 
 **Answer:** the second. Its foot, (10, 3), is 2.0 m away, against 3.0 m for the first segment's foot at (8, 0). You do not need to know in advance which segment is nearest. Project the point onto every segment, then pick the smallest distance. The position of the smallest number in a list is called its **argmin**, read "arg min", and NumPy's `np.argmin` finds it. The second segment runs north, so its left is west, and $\mathbf{p}$ is west of it: the left part is positive, and the point is 2.0 m to the left.
 
-That signed distance from the nearest point of the centreline is the road's sideways coordinate. It is written $\color{#58C4DD}{d}$, read "dee": metres to the left of the centreline, negative to the right. Careful: in *Your first perception box*, $d_1$ and $d_2$ were distances **forward**, from the car to the two lane-centre points ahead of it. This $d$ is **sideways**. On `gentle`, $d = 0$ is the middle of the yellow line, your lane centre is $d = -1.8$ m, and the white line is $d = -3.6$ m.
+That signed distance from the nearest point of the centreline is the road's sideways coordinate. It is written $d$, read "dee": metres to the left of the centreline, negative to the right. Careful: in *Your first perception box*, $d_1$ and $d_2$ were distances **forward**, from the car to the two lane-centre points ahead of it. This $d$ is **sideways**. On `gentle`, $d = 0$ is the middle of the yellow line, your lane centre is $d = -1.8$ m, and the white line is $d = -3.6$ m.
 
 ![The car at the start of gentle, seen from above, facing east along the first straight on its lane centre. Two coral dots on the lane centre ahead mark the perception box's two lane-centre points, with coral braces along the lane labelled d₁ = 2.64 m and d₂ = 7.19 m: distances forward. A blue brace across the road, from the yellow line to the car, is labelled d = −1.8 m: a distance sideways.](figures/d_sideways.png)
 
@@ -157,7 +157,7 @@ At step 400, $\theta = 0.7040$ rad and $\theta_{\text{road}} = 0.7379$ rad, so $
 
 Both errors are what a driver standing at the foot, facing along the road, would see. That driver's pose is the foot with the angle $\theta_{\text{road}}$.
 
-![The car at step 400 seen from a frame placed at the foot on the yellow line, with its x axis along the road and its y axis to the road's left, both drawn in grey. The car's front axle sits at forward 0, left −1.2717, labelled (0, d). Its yaw arrow is turned 0.0339 rad clockwise from the frame's x axis, labelled ψ = −0.0339 rad, in pink.](figures/foot_frame.png)
+![The car at step 400 seen from a frame placed at the foot on the yellow line, with its x axis along the road and its y axis to the road's left, both drawn in grey. The car's front axle sits at forward 0, left −1.2717, labelled (0, d). Its heading arrow is turned 0.0339 rad clockwise from the frame's x axis, labelled ψ = −0.0339 rad, in pink.](figures/foot_frame.png)
 
 From that frame, `world_to_ego` puts the car at ($-6 \times 10^{-15}$, −1.2717). The first number is zero up to rounding, because the foot is level with the car by construction, and the second is $d$. The road frame is the driver's-seat view taken from the road's nearest point, wherever the car is.
 
