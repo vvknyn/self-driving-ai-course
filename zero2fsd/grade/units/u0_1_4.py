@@ -59,5 +59,5 @@ def _my_car(car, show, on_step):
     require_car(car)
     require_own(car)
     passed = gate(car, show, on_step)
-    curvy = drive(car, "curvy", "your cliffhanger on curvy", show)
-    return f"{passed}; cliffhanger (not graded): {outcome(curvy)}"
+    curvy = drive(car, "curvy", "curvy (not graded)", show)
+    return f"{passed}; curvy (not graded): {outcome(curvy)}"

@@ -288,9 +288,9 @@ def test_a_working_all_yours_car_passes_gentle_and_shows_the_curvy_cliffhanger(c
     car = Car(perception=own_perception, controller=lambda est, obs: provided.steer_p(est))
     result = check("0.1.4.b", car, show=False)
     assert result.passed, text(result)
-    assert "cliffhanger (not graded): left the lane after" in text(result)
+    assert "curvy (not graded): left the lane after" in text(result)
     out = capsys.readouterr().out
-    assert "your car on gentle" in out and "your cliffhanger on curvy" in out
+    assert "your car on gentle" in out and "curvy (not graded)" in out
 
 
 def test_a_working_perception_passes_the_gate_when_placed_in_the_provided_car():
