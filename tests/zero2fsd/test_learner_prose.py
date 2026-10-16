@@ -66,14 +66,7 @@ def test_a_dotted_id_in_lecture_prose_is_named_with_its_line(tmp_path):
     assert len(hits) == 1 and hits[0].endswith("lecture.md:6: 1.1.2.b")
 
 
-KNOWN_DOTTED = {  # unit folder -> why it still shows a dotted id: a pending-ship unit, fixed by its own branch rather than edited here
-    "0.1.2-images-are-arrays": "unit.yaml outcomes[2].proof shows 0.1.2.a; 0.1.x is in a pending ship",
-}
-
-
-@pytest.mark.parametrize("folder", [
-    pytest.param(p, marks=pytest.mark.xfail(strict=True, reason=KNOWN_DOTTED[p.name]) if p.name in KNOWN_DOTTED else ())
-    for p in sorted(p for p in (REPO / "course").iterdir() if p.is_dir() and p.name != "dist")], ids=lambda p: p.name)
+@pytest.mark.parametrize("folder", sorted(p for p in (REPO / "course").iterdir() if p.is_dir() and p.name != "dist"), ids=lambda p: p.name)
 def test_no_unit_shows_a_dotted_exercise_id_to_the_learner(folder):
     assert dotted_ids_in_prose(folder) == []
 
