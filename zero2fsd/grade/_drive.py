@@ -7,6 +7,7 @@ from ..car import Car, Telemetry, run
 from ..car.runner import StepHook
 from ..dashboard import dashboard
 from ..score import driving_score, metrics, metrics_table
+from ..sim import Camera
 from ._report import REPORT, Failure, learner_code, vs_limit
 
 GATE_SCENARIO, GATE_MEAN_LAT = "gentle", 0.5  # the car must complete the scenario with mean |lat| below this (m)
@@ -30,12 +31,12 @@ def outcome(tel: Telemetry) -> str:
     return f"{how} after {tel.progress_m[-1]:.0f} of {tel.route_length:.0f} m of {tel.scenario}"
 
 
-def drive(car: Car, scenario: str, label: str, show: bool, on_step: StepHook | None = None) -> Telemetry:
+def drive(car: Car, scenario: str, label: str, show: bool, on_step: StepHook | None = None, camera: Camera | None = None) -> Telemetry:
     """Run the car on a scenario (learner exceptions become a Failure), print its metrics and maybe the dashboard.
 
     `on_step` receives each telemetry row as the car drives (see `run`)."""
     with learner_code(f"your car driving {scenario!r}"):
-        tel = run(car, scenario, on_step=on_step)
+        tel = run(car, scenario, on_step=on_step, camera=camera)
     if REPORT.get():
         print(metrics_table(tel, labels=[label]))
     if show:
@@ -58,9 +59,9 @@ def require_car(car) -> Car:
     return car
 
 
-def gate(car: Car, show: bool, on_step: StepHook | None = None) -> str:
+def gate(car: Car, show: bool, on_step: StepHook | None = None, camera: Camera | None = None) -> str:
     """Fail unless the car completes the gate scenario with mean |lat| under the limit; else say how it did."""
-    tel = drive(car, GATE_SCENARIO, f"your car on {GATE_SCENARIO}", show, on_step)
+    tel = drive(car, GATE_SCENARIO, f"your car on {GATE_SCENARIO}", show, on_step, camera)
     mean_lat = metrics(tel)["mean_abs_lat"]
     # an unfinished run fails on completion, so a thin mean |lat| did not decide it and earns no borderline sentence
     seen = f"mean |lat| {mean_lat:.3f} m {vs_limit(mean_lat, GATE_MEAN_LAT, 'm', decisive=tel.completed)}"

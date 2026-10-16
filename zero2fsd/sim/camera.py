@@ -7,10 +7,12 @@ on integer values, so the optical centre of a 320x180 image is (159.5, 89.5).
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 
 import numpy as np
 from PIL import Image, ImageDraw
 
+from .. import geom
 from .world import LINE_HALF_WIDTH, ROAD_HALF_WIDTH, WHITE_LINE_LATERAL
 
 SKY, GRASS, ROAD, YELLOW, WHITE = range(5)
@@ -45,13 +47,23 @@ def _strip(road, s0, s1, d_lo, d_hi):
 
 def to_vehicle(state, x, y):
     """World point(s) (x, y) in the car's frame: (forward, left) metres from the car, left positive."""
-    c, s = math.cos(state.yaw), math.sin(state.yaw)
-    dx, dy = x - state.x, y - state.y
-    return dx * c + dy * s, -dx * s + dy * c
+    ego = geom.world_to_ego((state.x, state.y, state.yaw), np.stack(np.broadcast_arrays(x, y), axis=-1))
+    return ego[..., 0], ego[..., 1]
 
 
 class Camera:
-    def __init__(self, width=320, height=180, hfov_deg=90.0, height_m=1.4, pitch_deg=5.0):
+    """A pinhole camera on the car.
+
+    `world_to_ego(pose, points)` is the transform `render` draws the road with (default `geom.world_to_ego`), and
+    `T_ego_cam`, when given, is the 4x4 mount `ground_to_pixel` projects through; `pixel_to_ground` always measures
+    with the analytic inverse of (`height_m`, `pitch_deg`). A camera whose drawing and whose measuring disagree is
+    a mis-calibrated camera.
+    """
+
+    def __init__(self, width=320, height=180, hfov_deg=90.0, height_m=1.4, pitch_deg=5.0,
+                 world_to_ego: Callable[[geom.Pose, np.ndarray], np.ndarray] | None = None, T_ego_cam: np.ndarray | None = None):
+        self.world_to_ego = geom.world_to_ego if world_to_ego is None else world_to_ego
+        self._cam_from_ego = None if T_ego_cam is None else geom.invert_pose(T_ego_cam)
         self.width, self.height, self.mount_height = width, height, height_m
         self.f = (width / 2) / math.tan(math.radians(hfov_deg) / 2)
         self.cx, self.cy = (width - 1) / 2, (height - 1) / 2
@@ -61,6 +73,10 @@ class Camera:
     def ground_to_pixel(self, forward_m, left_m):
         """Pixel (u, v) of a ground point in the vehicle frame; NaN for points behind the camera."""
         F, L = np.asarray(forward_m, dtype=float), np.asarray(left_m, dtype=float)
+        if self._cam_from_ego is not None:
+            x, y, z = np.moveaxis(geom.transform_points(self._cam_from_ego, np.stack([F, L, np.zeros_like(F)], axis=-1)), -1, 0)
+            z = np.where(z > 0, z, np.nan)  # a point behind the lens has no pixel
+            return (self.cx + self.f * x / z)[()], (self.cy + self.f * y / z)[()]
         depth = F * self._cos + self.mount_height * self._sin
         depth = np.where(depth > 0, depth, np.nan)
         u = self.cx - self.f * L / depth
@@ -104,7 +120,8 @@ class Camera:
 
     def _polygons(self, quads, state):
         """Near-plane clip world quads in the vehicle frame and project them to flat pixel lists."""
-        F, L = to_vehicle(state, quads[..., 0], quads[..., 1])
+        ego = self.world_to_ego((state.x, state.y, state.yaw), quads)
+        F, L = ego[..., 0], ego[..., 1]
         inside = F >= NEAR_PLANE
         whole = inside.all(axis=1)
         polys = self._flatten(F[whole], L[whole])
