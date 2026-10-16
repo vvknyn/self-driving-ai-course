@@ -178,7 +178,7 @@ practice("same as the simulator's wrap", None if wrap_angle(probe) is None else 
 #
 # ## 5. Ahead and to the left
 #
-# The cone is 12 m further along the road than the car at step 700 and 4.3 m to the right of the road's centre line. The
+# The cone is near the road, 12 m further along than the car at step 700 and a few metres off the road's centre line. The
 # next cell finds it from the road; the lecture rounds it to $(159.131, 140.083)$ but the lab keeps the exact values.
 
 # %%
@@ -187,16 +187,16 @@ cone = road.offset(s_car + 12.0, -4.3)
 print("cone:", cone)
 
 # %% [markdown]
-# **Guess first:** the car at step 700 faces north-west, and the cone is ahead and to its right. Facing exactly north,
+# **Guess first:** the car at step 700 faces north-west. For a different car, facing exactly north,
 # $\theta = \pi/2$, an arrow of 2 m east and 3 m north: how far ahead is it, and how far to the left?
 #
 # ![](figures/north_hand.png)
 #
 # ![](figures/left_arrow.png)
 #
-# **Exercise B.** Write `forward_left(theta, v)`: the forward part $\vec v \cdot \hat h$ and the left part
-# $\hat h \times \vec v = \cos\theta\, v_y - \sin\theta\, v_x$ of the world arrow `v`, for a car heading `theta`. It must
-# work for one heading and one arrow, and for arrays: `theta` of shape `(N,)` with `v` of shape `(N, 2)` gives `(N, 2)`.
+# **Exercise B.** Write `forward_left(theta, v)`: the forward part $\mathbf{v} \cdot \hat h$ and the left part
+# $\hat h \times \mathbf{v} = \cos\theta\, v_y - \sin\theta\, v_x$ of the world arrow `v`, for a car with yaw `theta`. It must
+# work for one yaw and one arrow, and for arrays: `theta` of shape `(N,)` with `v` of shape `(N, 2)` gives `(N, 2)`.
 
 # %% tags=["exercise:1.1.1.b"]
 def forward_left(theta, v):
@@ -265,7 +265,7 @@ except NotImplementedError:
 #
 # Each cell below holds a teammate's function with one bug. Run it, read what `practice` expected, find the bug and fix it.
 #
-# **Bug 1.** A teammate wrote `wrap` with `math.fmod`. The wrap of $-3.5$ should be $+2.783185$.
+# **Bug 1.** A teammate's `wrap` gives the wrong answer for $-3.5$ (it should be $+2.783185$). Find out why.
 
 # %%
 def teammate_wrap(a):
@@ -297,6 +297,9 @@ practice("largest left per step (m)", (D * teammate_left_arrow(yaw[:-1])).sum(ax
 # **Bug 4.** The playground offers a wrong answer to Exercise A under the preset name `naive_arctan`: the lecture's first
 # try, `np.arctan(dy / dx)`. Run it there and read the verdict: it misses the yaw by more than 0.1 rad on 888 steps,
 # and its worst miss is 3.142 rad. Then fix it.
+
+# %% [markdown]
+# The next lesson turns these four functions into a change of frame:
 #
 # ![](figures/next_lesson.png)
 #
@@ -316,24 +319,26 @@ fixes = np.stack([straight.x, straight.y], axis=-1)
 errors = []
 for seed in range(500):
     noisy = fixes + np.random.default_rng(seed).normal(0.0, sigma, fixes.shape)
-    errors.append(None)  # your code: wrap(direction_angle(noisy[k:] - noisy[:-k]) - straight.yaw[:-k])
+    errors.append(None)  # your code: wrap_angle(direction_angle(noisy[k:] - noisy[:-k]) - straight.yaw[:-k])
 
 if errors[0] is not None:
-    practice("spread of the heading error at k = 18 (rad)", np.concatenate(errors).std(), 0.00980, tol=1e-4)
+    practice("spread of the yaw error at k = 18 (rad)", np.concatenate(errors).std(), 0.00980, tol=1e-4)
 
 # %% [markdown]
 # **Challenge 2.** Write `atan2_by_hand(v)` using only `np.arctan` of the slope and `np.where`. The cell compares it with
-# `np.arctan2` on 30 seeded arrows.
+# `np.arctan2` on four probe arrows, (0, 1), (0, -1), (-1, 0) and (0, 0), then on 30 seeded arrows. The zero arrow has no
+# direction, so its answer must be `nan`.
 
 # %%
 def atan2_by_hand(v):
     """The direction of v from np.arctan and np.where only: all four quarters, +-pi/2 when v_x = 0, nan for (0, 0)."""
     return None  # your code
 
-seeded = np.random.default_rng(1111).normal(0, 5, (30, 2))
+probes = np.vstack([[[0.0, 1.0], [0.0, -1.0], [-1.0, 0.0], [0.0, 0.0]], np.random.default_rng(1111).normal(0, 5, (30, 2))])
 
-if atan2_by_hand(seeded) is not None:
-    practice("atan2_by_hand on 30 seeded arrows, largest difference", np.abs(atan2_by_hand(seeded) - np.arctan2(seeded[:, 1], seeded[:, 0])).max(), 0.0, tol=1e-12)
+if atan2_by_hand(probes) is not None:
+    want = np.where((probes == 0).all(axis=1), np.nan, np.arctan2(probes[:, 1], probes[:, 0]))
+    practice("atan2_by_hand matches np.arctan2 on all 34 probes, nan for the zero arrow", float(np.allclose(atan2_by_hand(probes), want, atol=1e-12, equal_nan=True)), 1.0, tol=0)
 
 # %% [markdown]
 # ## What's next

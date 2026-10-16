@@ -51,7 +51,7 @@
     - "forward 3 m, left −2 m, that is, 2 m to the right"
     - "forward −2 m, left 3 m"
   answer: 2
-  explain: "Facing north, ahead is north and left is west. The cone is 3 m north, so 3 m ahead, and 2 m east, so 2 m to the right: left = −2 m. Formally, $\\hat{h} = (0, 1)$, forward = $\\hat{h} \\cdot \\vec{v} = 3$ and left = $\\hat{h} \\times \\vec{v} = 0 \\cdot 3 - 1 \\cdot 2 = -2$. Writing the left arrow as (sin θ, cos θ) instead of (−sin θ, cos θ) would give +2."
+  explain: "Facing north, ahead is north and left is west. The cone is 3 m north, so 3 m ahead, and 2 m east, so 2 m to the right: left = −2 m. Formally, $\\hat{h} = (0, 1)$, forward = $\\hat{h} \\cdot \\mathbf{v} = 3$ and left = $\\hat{h} \\times \\mathbf{v} = 0 \\cdot 3 - 1 \\cdot 2 = -2$. Writing the left arrow as (sin θ, cos θ) instead of (−sin θ, cos θ) would give +2."
   section: ahead-and-to-the-left
 - id: q6
   type: mcq
@@ -73,5 +73,5 @@
     - "0.0198 rad"
     - "0 rad"
   answer: 2
-  explain: "Wrap the difference: −6.2634 + 2π = +0.0198 rad. The yaw (6.2237) is the car's heading counted past a full turn, while atan2 (−0.0397) is the same direction counted from −π to π; they are 0.0198 rad apart, a small and ordinary gap."
+  explain: "Wrap the difference: −6.2634 + 2π = +0.0198 rad. The yaw (6.2237) is the car's yaw counted past a full turn, while atan2 (−0.0397) is the same direction counted from −π to π; they are 0.0198 rad apart, a small and ordinary gap."
   section: angles-go-round

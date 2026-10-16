@@ -6,9 +6,9 @@ The car is on `gentle`'s first bend. Its GPS, the receiver that reports where th
 
 By the end of this lesson you will answer both questions with four short functions of your own, `heading_vector`, `direction_angle`, `wrap_angle` and `forward_left`, and you will know the trap each one avoids. The rest of this module builds on them.
 
-![The car on the first bend of gentle at step 700, seen from above. Two dots mark the car's front axle at steps 700 and 701, 0.40 m apart. An arrow from the front axle shows the way the car points, up and to the left in this picture. A cone stands on the grass to the right of the road. Two braces split the distance to it: the cone is 12.66 m ahead of the car and 1.67 m to its right.](figures/result_first.png)
+![The car on the first bend of gentle at step 700, seen from above. Two dots mark the car's front axle at steps 700 and 701, 0.40 m apart. An arrow from the front axle shows the way the car points, up and to the left in this picture. A cone stands on the grass to the right of the road. Two braces split the distance to it, one labelled "? m ahead" and one labelled "? m to the side".](figures/result_first.png)
 
-Those two numbers, 12.66 m ahead and 1.67 m to the right, come from the car's logged position and yaw, the cone's position, and a few lines of arithmetic. The simulator plays the GPS: the telemetry columns `tel.x` and `tel.y` give the front axle's position at every step, exact to the last digit, like a perfect GPS. A real GPS is off by a little at every reading; the Challenge problems at the end deal with that.
+Those two numbers, how far ahead and how far to the side, come from the car's logged position and yaw, the cone's position, and a few lines of arithmetic. The simulator plays the GPS: the telemetry columns `tel.x` and `tel.y` give the front axle's position at every step, exact to the last digit, like a perfect GPS. A real GPS is off by a little at every reading; the Challenge problems at the end deal with that.
 
 ## Points and arrows
 
@@ -35,7 +35,7 @@ $$
 
 That is the car's speed, 8 m/s, times the 0.05 s step. All 1777 arrows between the lap's 1778 positions are between 0.39999947 m and 0.40000000 m long.
 
-![A zoom on the first bend around step 700. Two dots mark the front axle at steps 700 and 701, and an arrow joins them. Its x part, −0.241 m, and its y part, +0.319 m, are drawn as the two short sides of a right-angled triangle, and the arrow is 0.400 m long. The same arrow is drawn twice more, unchanged, at two other places on the picture.](figures/step_arrow.png)
+![Zoomed in on the front axle at steps 700 and 701. Two dots mark the front axle at steps 700 and 701, and an arrow joins them. Its x part, −0.241 m, and its y part, +0.319 m, are drawn as the two short sides of a right-angled triangle, and the arrow is 0.400 m long. The same arrow is drawn twice more, unchanged, at two other places on the picture.](figures/step_arrow.png)
 
 An arrow says how far and which way, but not from where. The step from 700 to 701 and an arrow with the same Δx and Δy drawn anywhere else are the same arrow, which is why the picture can draw it three times. A pair of numbers that means a move like this is called a **vector**. This lesson writes one in bold, $\mathbf{v}$, read "v", to tell it from the speed $v$ of *Closing the loop*, and writes its length $|\mathbf{v}|$, read "the length of v".
 
@@ -45,13 +45,13 @@ So a position says where, and a vector says how far and which way. The differenc
 
 Position says where the car is. The telemetry also says where it points, in the column `tel.yaw`. The car's **yaw** is the angle from east to the direction its body points, in radians, counted anticlockwise, so turning left makes it grow. It is written θ (theta, read "thee-ta", the usual letter for an angle, as in *Your first perception box*). The lap starts at θ = 0, facing east. Facing north is θ = π/2 = 1.5708 rad, and facing west is θ = π = 3.1416 rad.
 
-θ is where the car points; ψ, from *Closing the loop*, is how far that is from the road's direction. On the first straight, where the road runs east, the two are the same angle. At step 700, on the bend, θ = 2.1812 rad while ψ = −0.0325 rad.
+θ is where the car points. ψ, from *Your first perception box*, is the car's yaw minus the road's direction at its position, wrapped into a half-turn either side of zero; the lane-following lessons call it "the heading". On the first straight, where the road runs east, the two are the same angle. At step 700, on the bend, θ = 2.1812 rad while ψ = −0.0325 rad.
 
 ![The car at step 700 on the first bend, seen from above. A thin line from the front axle points east, and a curved arrow from it to the way the car points is labelled θ = 2.1812 rad, more than a quarter turn. A dashed line shows the road's direction there, and the small angle from it to the way the car points is labelled ψ = −0.0325 rad, drawn larger than it is.](figures/theta_psi.png)
 
 Draw the arrow 1 m long that points where the car points. Facing east, θ = 0, it is (1, 0): 1 m east and 0 m north. Facing north, θ = π/2, it is (0, 1). Facing west, θ = π, it is (−1, 0). In between, its east part shrinks as its north part grows.
 
-**Guess first:** at step 700 the car points at θ = 2.1812 rad, which is 125.0°: past north, toward west. Is the arrow's east part positive or negative, and which part is bigger?
+**Guess first:** at step 700 the car points at θ = 2.1812 rad, which is 125.0°. Is the arrow's east part positive or negative, and which part is bigger?
 
 ![A circle of radius 1 m around the front axle, with east to the right and north up. Three thin arrows point at θ = 0, π/2 and π and end at (1, 0), (0, 1) and (−1, 0). A thick arrow points at θ = 2.1812, the car's yaw at step 700. Its east part, −0.5732 m, and its north part, +0.8194 m, are drawn as the two short sides of a right-angled triangle.](figures/unit_circle.png)
 
@@ -85,7 +85,7 @@ Work it at step 700. The slope is $0.3192 / (-0.2410) = -1.3245$, and $\arctan(-
 
 **Guess first:** over the whole lap, on what share of the steps will the angle from arctan of the slope point more than 1 rad away from where the car points?
 
-![The angle between the arrow that arctan of the slope gives and the car's heading arrow, at every step of the gentle lap, plotted against the time into the lap. It is never more than 0.041 rad while the car moves with an east part, and close to π, pointing backwards, on every step that moves west. A dashed line marks 1 rad.](figures/naive_lap.png)
+![The angle between the arrow that arctan of the slope gives and the car's heading arrow, at every step of the gentle lap, plotted against the time into the lap. It is small on every step that moves with an east part, and close to π, pointing backwards, on every step that moves west. A dashed line marks 1 rad.](figures/naive_lap.png)
 
 **Answer:** 49.97 %, 888 of the 1777 steps. They are exactly the 888 steps on which Δx is negative, the car moving west, and every one of them is between 3.1013 rad and 3.14159 rad off. On the other 889 steps the formula is never more than 0.041 rad off.
 
@@ -115,7 +115,7 @@ A full turn is 2π = 6.2832 rad, and it changes nothing: θ and θ + 2π point t
 
 **Guess first:** on what share of the lap is atan2's answer minus the yaw, subtracted plainly, more than 1 rad from 0?
 
-![The plain difference, atan2's answer minus the yaw, at every step of the gentle lap. It stays near 0 until the back straight, where the car points west. There it jumps back and forth between near 0 and near −2π, −6.28, and after it stays near −2π: 722 of the 1777 steps are more than 1 rad from 0.](figures/raw_diff.png)
+![The plain difference, atan2's answer minus the yaw, at every step of the gentle lap, with thin lines joining neighbouring steps. It stays near 0 until the back straight, where the car points west. There it jumps back and forth between near 0 and near −2π, −6.28, and after it stays near −2π: 722 of the 1777 steps are more than 1 rad from 0.](figures/raw_diff.png)
 
 **Answer:** 40.63 %, 722 of the 1777 steps, though the two arrows never differ by more than 0.041 rad. The trouble starts on the back straight. Away from its two ends the yaw there stays between 3.1213 and 3.1421 rad, a hair either side of west, π = 3.1416. The step's arrow wobbles either side of west too, so atan2's answer flips between nearly +π and nearly −π 79 times. After the back straight the car turns through south back to east: atan2 answers between −π and 0 while the yaw keeps growing from π toward 2π, so the plain difference sits near −2π on 660 of the remaining 661 steps.
 
@@ -124,7 +124,10 @@ A full turn is 2π = 6.2832 rad, and it changes nothing: θ and θ + 2π point t
 To compare two angles, bring their difference back into one turn. This is called **wrapping** an angle:
 
 $$
-\text{wrap}(a) = (a + \pi) \bmod 2\pi - \pi
+\begin{aligned}
+&\text{wrap}(a)\\
+&= (a + \pi) \bmod 2\pi - \pi
+\end{aligned}
 $$
 
 Here $a \bmod 2\pi$, read "a mod two pi", is the remainder left after taking away as many whole turns as fit. In Python it is `a % (2 * np.pi)`. For a positive divisor, Python's `%` always lands between 0 and the divisor, even for a negative `a`: `-0.3584 % 6.2832` is 5.9248.
@@ -145,7 +148,7 @@ The ends of the range need care. wrap(π) is −π, and wrap(−π) is −π too
 
 ![The function wrap plotted for angles from −10 to 10 rad: a saw-tooth that climbs with slope 1 and drops by 2π each time it reaches π, so every output lies from −π up to, but not including, π. Dots mark wrap of 6.2264, which is −0.0568, and wrap of π, which is −π.](figures/wrap_saw.png)
 
-The rule for the rest of the course: wrap every difference of two angles. Wrapped, atan2's answer minus the yaw is never more than 0.040994 rad over the whole lap. Your third function, `wrap_angle(a)`, does this. It must match the simulator's own wrap digit for digit, and it does if you write the formula above: on 100021 random test angles, drawn with seed 1111, the two agree exactly.
+The rule for the rest of the course: wrap every difference of two angles. Wrapped, atan2's answer minus the yaw is never more than 0.040994 rad over the whole lap. Your third function, `wrap_angle(a)`, does this. It must match the simulator's own wrap digit for digit, and it does if you write the formula above: on 100000 random angles from −40 to 40 (seed 1111) plus π, −π, 0 and every multiple of π from −8π to 8π, the two agree exactly.
 
 ## Ahead and to the left
 
@@ -203,7 +206,16 @@ $$
 \end{aligned}
 $$
 
-$\hat{h}\cdot\hat{h} = \cos^2\theta + \sin^2\theta = 1$, by Pythagoras. $\hat{n}\cdot\hat{h} = -\sin\theta\cos\theta + \cos\theta\sin\theta = 0$. So $\mathbf{v}\cdot\hat{h} = a$: the dot product with the heading arrow is the forward part. The same steps with $\hat{n}$ give $\mathbf{v}\cdot\hat{n} = b$, the left part.
+By Pythagoras and by cancelling,
+
+$$
+\begin{aligned}
+\hat{h}\cdot\hat{h} &= \cos^2\theta + \sin^2\theta = 1\\
+\hat{n}\cdot\hat{h} &= -\sin\theta\cos\theta + \cos\theta\sin\theta = 0
+\end{aligned}
+$$
+
+So $\mathbf{v}\cdot\hat{h} = a$: the dot product with the heading arrow is the forward part. The same steps with $\hat{n}$ give $\mathbf{v}\cdot\hat{n} = b$, the left part.
 
 </details>
 
@@ -211,9 +223,9 @@ Written in the other order, the left part is $\cos\theta\,v_y - \sin\theta\,v_x$
 
 **Guess first:** the cone at step 700 is 12.77 m from the front axle. Is its forward part more or less than 12.77 m, and is its left part positive or negative?
 
-![The car at step 700 with its heading arrow and left arrow drawn from the front axle, and the arrow to the cone, 12.77 m long, whose east part is −5.889 m and north part +11.328 m. A dashed line from the cone meets the line of the heading arrow at a right angle, splitting the arrow to the cone into a forward part of 12.66 m along the heading arrow and a left part of −1.67 m, 1.67 m to the right.](figures/cone_parts.png)
+![The car at step 700 with its heading arrow and left arrow drawn from the front axle, and the arrow to the cone, 12.77 m long, whose east part is −5.889 m and north part +11.328 m. A short bar from the cone meets the dashed line along the heading arrow at a right angle, splitting the arrow to the cone into a forward part of 12.66 m along the heading arrow and a left part of −1.67 m, 1.67 m to the right.](figures/cone_parts.png)
 
-**Answer:** less, 12.66 m, and negative, −1.67 m. With the cone arrow $(-5.8893, +11.3279)$ and the heading arrow $(-0.5732, +0.8194)$, the forward part is
+**Answer:** less, 12.66 m, and negative, −1.67 m. With the cone arrow $(-5.8893, +11.3279)$ and the heading arrow $(-0.5732, +0.8194)$, the forward part is (the products are from the unrounded values, shown to 4 places)
 
 $$
 \begin{aligned}
@@ -235,7 +247,7 @@ $$
 \end{aligned}
 $$
 
-The two parts are the short sides of a right-angled triangle whose long side is the cone arrow, so $12.6579^2 + (-1.6678)^2$ should equal $|\mathbf{v}|^2$. Both are 163.0043. The simulator's camera does this sum for every piece of road it draws, in its function `to_vehicle`, and for the cone it gives the same 12.6579 and −1.6678.
+The two parts are the short sides of a right-angled triangle whose long side is the cone arrow, so $12.6579^2 + (-1.6678)^2$ should equal $|\mathbf{v}|^2$. Both are 163.0043. The simulator has the same sum in `to_vehicle`, which its camera uses for every piece of road it draws; for the cone it gives the same 12.6579 and −1.6678.
 
 Your fourth function, `forward_left(theta, v)`, returns the pair $(\mathbf{v}\cdot\hat{h},\ \hat{h}\times\mathbf{v})$ for any yaw and any world arrow.
 
@@ -266,11 +278,11 @@ In the simulator's step function this is one line: the step moves the front axle
 
 **Guess first:** over the whole lap, how closely does the rule θ + δ + ½Δθ match atan2's answer?
 
-![Over the gentle lap, the angle from the car's yaw to its GPS step, and the steering angle plus half the step's turn, drawn as two curves against the time into the lap. They lie on top of each other. The gap is at most 0.0091 rad on the straights, near 0.036 rad through the middles of both bends, and 0.041 rad at most anywhere.](figures/move_vs_point.png)
+![Over the gentle lap, the angle from the car's yaw to its GPS step, and the steering angle plus half the step's turn, drawn as two curves against the time into the lap. They lie on top of each other. The angle between where the car moves and where it points is at most 0.0091 rad on the straights, about 0.036 rad through the middles of both bends, and 0.041 rad at most anywhere.](figures/move_vs_point.png)
 
-**Answer:** to 13 decimal places at every one of the 1777 steps, the largest miss is $4.4\times10^{-14}$ rad. In the bend middles the gap is 0.0358 rad: a steering angle of 0.0333 plus half a turn of 0.00247. On the straights, where the wheels are nearly straight, it is never more than 0.0091 rad. If you check this yourself, use the wheel angle the step actually used. The telemetry row for step k records the wheels before that step's steering command, so the angle used from step k to k+1 is `tel.steer[k + 1]`; with `tel.steer[k]` the rule misses by up to 0.011 rad.
+**Answer:** to 13 decimal places at every one of the 1777 steps, the largest miss is $4.4\times10^{-14}$ rad. In the bend middles the angle between moving and pointing is typically 0.0358 rad (the median): a steering angle of 0.0333 plus half a turn of 0.00247. On the straights, where the wheels are nearly straight, it is never more than 0.0091 rad. If you check this yourself, use the wheel angle the step actually used. The telemetry row for step k records the wheels before that step's steering command, so the angle used from step k to k+1 is `tel.steer[k + 1]`; with `tel.steer[k]` the rule misses by up to 0.011 rad.
 
-![The car on a left bend, seen from above, with three directions drawn from the front axle: the body's yaw θ, the front wheel at θ + δ, and the chord of the step at θ + δ + ½Δθ. The angles are drawn far larger than they are, and not to scale with each other: at step 700, δ is 0.0338 rad and ½Δθ is 0.0025 rad.](figures/move_point_diagram.png)
+![Three directions drawn from the front axle, east at the bottom for reference: the body's yaw θ, the front wheel at θ + δ, and the chord of the step at θ + δ + ½Δθ. The angles are drawn far larger than they are, and not to scale with each other: at step 700, δ is 0.0338 rad and ½Δθ is 0.0025 rad.](figures/move_point_diagram.png)
 
 So a GPS track tells you the direction the car moves, not the direction it points. On a straight the two agree to within 0.0091 rad; on a bend they differ by the wheel angle plus half a step's turn, about 0.036 rad. Run `forward_left` on every step's arrow with the yaw at its start, and the moves come out 0.3998 m forward on average and never more than 0.0164 m to the left.
 
@@ -292,7 +304,7 @@ That is the next lesson, *The view from the driver's seat*.
 
 Optional and hard, using only this lesson.
 
-1. **Heading from a noisy GPS.** A real GPS reading is off by a random amount in x and another in y, each from a normal distribution with standard deviation σ = 0.05 m, as in *Images are arrays*, independent from reading to reading. On a straight road at 8 m/s you take the direction from the fix at step i to the fix at step i + k, k steps of 0.4 m later. Show that, for small errors, the standard deviation of the direction's error is about $\sqrt{2}\,\sigma / (0.4\,k)$ rad. What is the smallest k that brings it down to 0.01 rad? Then explain why that k fails on `gentle`'s bends even with a perfect GPS, and how large the error is there.
+1. **Yaw from a noisy GPS.** A real GPS reading is off by a random amount in x and another in y, each from a normal distribution with standard deviation σ = 0.05 m, as in *Images are arrays*, independent from reading to reading. On a straight road at 8 m/s you take the direction from the fix at step i to the fix at step i + k, k steps of 0.4 m later. Show that, for small errors, the standard deviation of the direction's error is about $\sqrt{2}\,\sigma / (0.4\,k)$ rad. What is the smallest k that brings it down to 0.01 rad? Then explain why that k fails on `gentle`'s bends even with a perfect GPS, and how large the error is there.
 2. **atan2 from arctan.** Write `atan2_by_hand(v)` using only `np.arctan` of the slope and `np.where`. It must agree with `np.arctan2` in all four quarters of the circle, give ±π/2 when Δx = 0, and return `nan` for the zero arrow.
 
 <details>
@@ -309,9 +321,9 @@ $$
 
 Setting it to 0.01 gives $k \ge 0.0707 / 0.004 = 17.68$, so k = 18, 0.9 s apart. A simulation on `straight` (seeds 0 to 499, every start step) agrees with the formula to within 0.5 % for every k from 2 to 40, and within 1.5 % at k = 1. It measures 0.01035 rad at k = 17 and 0.00980 rad at k = 18.
 
-![The standard deviation of the heading error against the fix spacing k, from 1 to 40, on the straight road with sigma 0.05 m. A curve shows the formula, the square root of 2 times sigma over 0.4 k, and dots show the simulation over 500 seeds; the dots sit on the curve. A dashed line marks 0.01 rad, which the curve crosses between k = 17 and k = 18.](figures/gps_law.png)
+![The standard deviation of the yaw error against the fix spacing k, from 1 to 40, on the straight road with sigma 0.05 m. A curve shows the formula, the square root of 2 times sigma over 0.4 k, and dots show the simulation over 500 seeds; the dots sit on the curve. A dashed line marks 0.01 rad, which the curve crosses between k = 17 and k = 18.](figures/gps_law.png)
 
-On a bend, the chord over 18 steps is not the heading. With a perfect GPS on `gentle`'s bends, the direction from fix i to fix i + 18 is, in the median, 0.0776 rad left of the yaw at fix i, nearly eight times the target. It is this lesson's rule over 18 steps: the steering angle, 0.0332 rad, plus half of the 18 steps' turn, 0.0443 rad. Comparing the chord with the yaw at the middle fix, i + 9, removes the turn and leaves 0.0332 rad, the steering angle, which no amount of GPS can see. Bigger k beats noise and loses to bends.
+On a bend, the chord over 18 steps is not the yaw. With a perfect GPS on `gentle`'s bends, the direction from fix i to fix i + 18 is, in the median, 0.0776 rad left of the yaw at fix i, nearly eight times the target. It is this lesson's rule over 18 steps: the steering angle, 0.0332 rad, plus half of the 18 steps' turn, 0.0443 rad. Comparing the chord with the yaw at the middle fix, i + 9, removes the turn and leaves 0.0332 rad, the steering angle, which no amount of GPS can see. Bigger k beats noise and loses to bends.
 
 2. One answer: start from `np.arctan(dy / dx)`. Where dx < 0, add π if dy ≥ 0 and take away π if dy < 0. Where dx = 0, give π/2 for dy > 0, −π/2 for dy < 0, and `nan` for dy = 0. On the lab's 30 random test arrows, seed 1111, it differs from `np.arctan2` by at most $4.4\times10^{-16}$ rad, the last digit of a float.
 

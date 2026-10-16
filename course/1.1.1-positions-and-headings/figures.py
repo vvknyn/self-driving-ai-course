@@ -21,7 +21,7 @@ from zero2fsd.sim.scenarios import TARGET_SPEED
 from zero2fsd.sim.world import EGO_LANE_CENTER, LANE_WIDTH, ROAD_HALF_WIDTH
 
 TEXT, PANEL, BORDER = CHROME["text"], CHROME["panel"], CHROME["border"]
-EGO, THETA, PSI, DELTA, PERCEPTION = (QUANTITY[k] for k in ("ego", "theta", "psi", "delta", "perception"))
+EGO, THETA, PSI, DELTA = (QUANTITY[k] for k in ("ego", "theta", "psi", "delta"))
 LABEL_BOX = {"boxstyle": "round,pad=0.2", "fc": PANEL, "ec": PANEL}  # keeps a painted line from running through a label
 W = 5.5  # inches: every figure is this wide
 FS, TITLE = 15, 16
@@ -80,7 +80,6 @@ def _canvas(height, xlim, ycentre):
     ax = fig.add_axes([0, 0, 1, 1])
     ax.set_axis_off()
     ax.set(xticks=[], yticks=[])  # hidden axes still own tick labels, and the legibility gate counts them
-    ax.set_gid(ZOOM_INSET)  # a window onto the road: the road and its markings run on past the edges
     half = (xlim[1] - xlim[0]) / 2 * height / W
     ax.set(xlim=xlim, ylim=(ycentre - half, ycentre + half), aspect="equal")
     return fig, ax
@@ -88,6 +87,7 @@ def _canvas(height, xlim, ycentre):
 
 def _scene(ax, road, s0, s1, ds=0.25):
     """Tarmac, yellow centre line and white edge lines of `road` between arc lengths s0 and s1, on grass."""
+    ax.set_gid(ZOOM_INSET)  # a window onto the road: the road and its markings run on past the edges
     ax.add_patch(Rectangle((0, 0), 1, 1, transform=ax.transAxes, fc=SCENE["grass"], ec=SCENE["grass"], lw=0, zorder=0))
     s = np.arange(s0, s1 + ds, ds)
     left, right = road.offset(s, ROAD_HALF_WIDTH), road.offset(s, -ROAD_HALF_WIDTH)
@@ -148,11 +148,12 @@ def _result_first(path):  # [s700] [cone] [cone_dot] [cone_cross]
         ax.plot(*p, marker="o", color=EGO, ms=7, zorder=5)
     _text(ax, p0[0] + 1.9, p0[1] - 1.3, "step 700", EGO, box=True)
     _text(ax, p1[0] + 0.6, p1[1] + 0.5, "701", EGO, ha="left", box=True)
-    ax.plot(*cone, marker="^", color=SCENE["white"], mec=BORDER, mew=2, ms=17, zorder=6)
+    ax.plot(*cone, marker="^", color=SCENE["white"], mec=BORDER, mew=2, ms=11, zorder=6)
     _span(ax, p0 + 0.9 * n, foot + 0.9 * n, TEXT)
-    _text(ax, *(p0 + foot) / 2 + 2.3 * n, f"{ahead:.2f} m ahead", TEXT, box=True)
+    _text(ax, *(p0 + foot) / 2 + 2.3 * n, "? m ahead", TEXT, box=True)
     _span(ax, foot + 0.9 * h, cone + 0.9 * h, TEXT)
-    _text(ax, *(foot + cone) / 2 + 2.3 * h, f"{-left:.2f} m right", TEXT, box=True)
+    _text(ax, *(foot + cone) / 2 + 2.3 * h, "? m to the side", TEXT, box=True)
+    _text(ax, 171.2, 142.3, NORTH_EAST, TEXT, ha="right")
     _save(fig, path)
 
 
@@ -202,6 +203,7 @@ def _step_arrow(path):  # [s700arrow]
     _text(ax, q[0] - 0.03, q[1] / 2, f"Δy = {_minus(q[1], 3)} m", TEXT, ha="right", box=True)
     mid = q / 2
     _text(ax, mid[0] + 0.07, mid[1] + 0.05, f"{np.hypot(*q):.3f} m", TEXT, ha="left", box=True)
+    _text(ax, 0.78, -0.57, NORTH_EAST, TEXT, ha="right")
     _save(fig, path)
 
 
@@ -247,6 +249,8 @@ def _unit_circle(path):  # [hand] [s700yaw]
     _text(ax, h[0] - 0.15, h[1] * 0.85, f"north part\n{_minus(h[1], 4)}", TEXT, ha="right", box=True)
     _span(ax, (0.0, -0.08), (h[0], -0.08), TEXT)
     _text(ax, h[0] / 2, -0.17, f"east part\n{_minus(h[0], 4)}", TEXT, va="top", box=True)
+    _text(ax, 0.62, -0.1, "1 m long", TEXT, va="top")
+    _text(ax, 2.1, -1.95, NORTH_EAST, TEXT, ha="right")
     _save(fig, path)
 
 
@@ -259,8 +263,10 @@ def _naive_700(path):  # [s700arrow] [s700naive]
     _arrow(ax, a0, a0 + dd, TEXT, lw=3, scale=20)
     _text(ax, -1.05, 0.55, f"step 700:\n({_minus(dd[0], 3)}, {_minus(dd[1], 3)})", TEXT, ha="left")
     b0 = np.array([0.2, 0.45])
-    _arrow(ax, b0, b0 + heading_vector(naive), PERCEPTION, lw=3, scale=22)
-    _text(ax, 0.5, -0.62, f"arctan(Δy/Δx)\n= {_minus(naive, 4)} rad", PERCEPTION)
+    tip = b0 + heading_vector(naive)
+    _arrow(ax, b0, tip, TEXT, lw=3, ls=(0, (5, 3)), style="-")  # a dashed shaft, then a solid head
+    _arrow(ax, tip - 0.02 * heading_vector(naive), tip, TEXT, lw=3, scale=22)
+    _text(ax, 0.5, -0.7, f"arctan of the slope\narctan(Δy/Δx)\n= {_minus(naive, 4)} rad", TEXT)
     _text(ax, 1.05, 0.92, NORTH_EAST, TEXT, ha="right")
     _save(fig, path)
 
@@ -278,13 +284,13 @@ def _naive_lap(path):  # [naive] [naive_ok]
     t = d["t"]
     fig = _fig(4.0)
     ax = fig.add_axes([0.13, 0.16, 0.84, 0.78])
-    ax.scatter(t, miss, s=6, color=PERCEPTION, linewidths=0, zorder=3)
+    ax.scatter(t, miss, s=6, color=TEXT, alpha=0.6, linewidths=0, zorder=3)
     ax.axhline(1.0, color=BORDER, ls=(0, (5, 3)), lw=1.8, zorder=1)
-    ax.set(xlabel="time into the lap (s)", ylabel="angle off the heading (rad)", ylim=(-0.2, PI + 0.4))
+    ax.set(xlabel="time into the lap (s)", ylabel="angle off the yaw (rad)", ylim=(-0.2, PI + 0.4))
     ax.set_yticks([0, 1, 2, PI], ["0", "1", "2", "π"])
     _text(ax, 3.0, 1.0, "1 rad", TEXT, ha="left", va="bottom")
-    _text(ax, 44, 2.35, f"moving west: {int((d['D'][:, 0] < 0).sum())} steps,\nabout π off", PERCEPTION, box=True)
-    _text(ax, 44, 0.55, "moving east: at most 0.041 rad", PERCEPTION, box=True)
+    _text(ax, 44, 2.35, f"arctan of the slope, moving\nwest: {int((d['D'][:, 0] < 0).sum())} steps, about π off", TEXT, box=True)
+    _text(ax, 44, 0.55, "moving east: near 0", TEXT, box=True)
     _save(fig, path)
 
 
@@ -294,7 +300,8 @@ def _opposite_arrows(path):  # [opp]
     for v, label, pos, va in (((1.0, 1.0), "(1, 1)\nslope 1", (1.0, 1.3), "bottom"), ((-1.0, -1.0), "(−1, −1)\nslope 1", (-1.0, -1.3), "top")):
         _arrow(ax, o, np.array(v), TEXT, lw=3, scale=22)
         _text(ax, *pos, label, TEXT, va=va)
-    _text(ax, -1.0, 1.0, f"arctan gives {math.atan(1.0):.4f} rad\nfor both", PERCEPTION)
+    _text(ax, -1.0, 1.0, f"arctan of the slope gives\n{math.atan(1.0):.4f} rad for both", TEXT)
+    _text(ax, 1.95, -1.7, NORTH_EAST, TEXT, ha="right")
     ax.plot(0, 0, marker="o", color=TEXT, ms=6, zorder=5)
     _save(fig, path)
 
@@ -306,12 +313,12 @@ def _atan2_lap(path):  # [atan2] [gap_bend] [gapmax]
     t, prog = d["t"], d["prog"]
     fig = _fig(7.0)
     top, bottom = fig.subplots(2, 1, gridspec_kw={"height_ratios": [1, 1]})
-    top.scatter(t, miss, s=5, color=PERCEPTION, alpha=0.3, linewidths=0, zorder=2)
+    top.scatter(t, miss, s=5, color=TEXT, alpha=0.4, linewidths=0, zorder=2)
     top.scatter(t, gap, s=5, color=THETA, linewidths=0, zorder=3)
     top.set(ylabel="angle off (rad)", ylim=(-0.2, PI + 0.3))
     top.set_yticks([0, 1, 2, PI], ["0", "1", "2", "π"])
     _text(top, 44, 0.5, "atan2", THETA, box=True)
-    _text(top, 44, 2.5, "arctan of the slope", PERCEPTION, box=True)
+    _text(top, 44, 2.5, "arctan of the slope", TEXT, box=True)
     bottom.scatter(t, gap, s=5, color=THETA, linewidths=0, zorder=3)
     bottom.set(xlabel="time into the lap (s)", ylabel="angle off (rad)", ylim=(0, 0.052))
     bend = np.zeros(len(t), bool)
@@ -338,6 +345,7 @@ def _raw_diff(path):  # [raw] [jumps] [raw_after]
     ax = fig.add_axes([0.18, 0.17, 0.79, 0.77])
     back = (prog >= BACK_STRAIGHT[0]) & (prog <= BACK_STRAIGHT[1])
     ax.axvspan(t[back].min(), t[back].max(), fc=TEXT, alpha=0.12, lw=0)
+    ax.plot(t, raw, color=THETA, lw=0.4, alpha=0.3, zorder=2)
     ax.scatter(t, raw, s=6, color=THETA, linewidths=0, zorder=3)
     for y in (0.0, -2 * PI):
         ax.axhline(y, color=BORDER, ls=(0, (5, 3)), lw=1.8, zorder=1)
@@ -444,6 +452,7 @@ def _left_arrow(path):  # [s700yaw] [cone_n]
     _arc(ax, o, 0.62, yaw, yaw + PI / 2, TEXT, lw=2.0)
     _text(ax, -2.0, 0.35, "quarter turn\nanticlockwise", TEXT, box=True)
     _text(ax, h[0] - 0.1, h[1] + 0.45, f"ĥ = ({_minus(h[0], 4)}, {_minus(h[1], 4)})", EGO)
+    _text(ax, 2.35, -2.45, NORTH_EAST, TEXT, ha="right")
     _text(ax, n[0] - 0.05, n[1] - 0.12, f"n̂ = ({_minus(n[0], 4)}, {_minus(n[1], 4)})", shades(EGO, 3)[2], ha="right", va="top")
     _save(fig, path)
 
@@ -469,6 +478,7 @@ def _cone_parts(path):  # [cone_v] [cone_dot] [cone_cross]
     _right_angle(ax, foot, -h, (v - foot) / np.hypot(*(v - foot)), 0.6)
     ax.plot(*np.array([o, foot]).T, color=EGO, lw=6, alpha=0.8, solid_capstyle="butt", zorder=2)
     ax.plot(*np.array([foot, v]).T, color=shades(EGO, 3)[2], lw=6, alpha=0.8, solid_capstyle="butt", zorder=2)
+    _text(ax, 4.9, -4.6, NORTH_EAST, TEXT, ha="right")
     _text(ax, v[0] - 0.5, v[1] + 1.6, f"({_minus(v[0], 3)}, {_minus(v[1], 3)}), {np.hypot(*v):.2f} m", TEXT)
     _text(ax, *(foot / 2) + [-0.8, 0.0], f"forward {ahead:.2f} m", EGO, ha="right", box=True)
     _text(ax, v[0] + 1.4, v[1] + 0.1, f"left {_minus(left, 2, sign=False)} m\n({-left:.2f} m right)", shades(EGO, 3)[2], ha="left", box=True)
@@ -496,18 +506,20 @@ def _move_point_diagram(path):
     fig, ax = _canvas(5.0, (-1.0, 5.4), 1.4)
     o = np.zeros(2)
     th, dl, hf = 0.28, 0.5, 0.2  # drawn angles, enlarged
-    _arrow(ax, o, 3.0 * heading_vector(th), EGO, lw=3, scale=22)
+    _arrow(ax, o, 3.0 * heading_vector(th), THETA, lw=3, scale=22)
     _arrow(ax, o, 3.0 * heading_vector(th + dl), DELTA, lw=3, scale=22)
     _arrow(ax, o, 3.0 * heading_vector(th + dl + hf), TEXT, lw=3, scale=22)
     _arrow(ax, o, 3.0 * np.array([1.0, 0.0]), BORDER, lw=1.6, ls=(0, (5, 3)), style="-")
     _arc(ax, o, 1.2, th, th + dl, DELTA, lw=2.2)
     _arc(ax, o, 1.7, th + dl, th + dl + hf, THETA, lw=2.2)
-    _text(ax, 3.05, 0.83, "θ (yaw)", EGO, ha="left")
+    _text(ax, 3.05, 0.83, "θ (yaw)", THETA, ha="left")
+    _text(ax, 5.35, -1.35, NORTH_EAST, TEXT, ha="right")
     _text(ax, 2.25, 3.0 * math.sin(th + dl) + 0.1, "θ + δ (wheel)", DELTA, ha="left", va="bottom")
     _text(ax, -0.5, 3.0, "θ + δ + ½Δθ (chord)", TEXT, ha="left", va="bottom")
     _text(ax, 1.5, 0.9, "δ", DELTA, ha="left")
     _text(ax, 0.85, 1.75, "½Δθ", THETA, ha="right")
-    _text(ax, 1.8, -0.4, "angles enlarged, not to scale", TEXT)
+    _text(ax, 2.85, -0.25, "east", TEXT)
+    _text(ax, 1.8, -0.85, "angles enlarged, not to scale", TEXT)
     _save(fig, path)
 
 
@@ -543,16 +555,16 @@ def _gps_law(path):  # the [gps] loop of measure.py
     fig = _fig(4.5)
     ax = fig.add_axes([0.2, 0.17, 0.77, 0.77])
     ax.plot(KS, law, color=TEXT, lw=2, zorder=2)
-    ax.scatter(KS, spread, s=22, color=PERCEPTION, linewidths=0, zorder=3)
+    ax.scatter(KS, spread, s=22, color=THETA, linewidths=0, zorder=3)
     ax.axhline(0.01, color=BORDER, ls=(0, (5, 3)), lw=1.8, zorder=1)
-    ax.set(yscale="log", xlabel="fix spacing k", ylabel="spread of heading error (rad)", ylim=(0.0035, 0.25))
+    ax.set(yscale="log", xlabel="fix spacing k (steps)", ylabel="spread of yaw error (rad)", ylim=(0.0035, 0.25))
     ticks = [0.005, 0.01, 0.02, 0.05, 0.1, 0.2]
     ax.set_yticks(ticks, [f"{v:g}" for v in ticks])
     ax.minorticks_off()
     ax.set_xticks([1, 10, 18, 30, 40], ["1", "10", "18", "30", "40"])
     _text(ax, 21, 0.0125, "0.01 rad", TEXT, ha="left", va="bottom")
     _text(ax, 12, 0.11, "√2 σ / (0.4 k)", TEXT, ha="left", box=True)
-    _text(ax, 12, 0.07, "dots: 500 seeds", PERCEPTION, ha="left", box=True)
+    _text(ax, 12, 0.07, "dots: 500 seeds", THETA, ha="left", box=True)
     _save(fig, path)
 
 

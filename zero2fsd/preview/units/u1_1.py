@@ -31,7 +31,7 @@ def _numbers(got, shape: tuple, what: str) -> np.ndarray:
 def _direction_angle(fn, tel):
     arrows, yaw = _steps(tel)
     miss = np.abs(wrap_angle(_numbers(fn(arrows), (len(arrows),), "one angle per step arrow") - yaw))
-    return {f"steps where your heading misses yaw by > {MISS_RAD} rad": float(np.sum(~(miss <= MISS_RAD))),  # a nan answer is a miss
+    return {f"steps where your direction misses the yaw by > {MISS_RAD} rad": float(np.sum(~(miss <= MISS_RAD))),  # a nan answer is a miss
             "worst miss (rad)": float(miss.max())}
 
 

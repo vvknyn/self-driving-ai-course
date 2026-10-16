@@ -18,10 +18,10 @@
   back: "$(a + \\pi) \\bmod 2\\pi - \\pi$ with Python's `%`. Wrap every difference of two angles. The final yaw 6.2264 wraps to −0.0568."
 - id: c7
   front: "How do you split an arrow into forward and left parts?"
-  back: "forward = $\\hat{h} \\cdot \\vec{v}$ (the dot product); left = $\\hat{h} \\times \\vec{v} = \\cos\\theta\\, v_y - \\sin\\theta\\, v_x$ (the 2D cross product). Positive left means left. The cone at step 700: 12.6579 m ahead, −1.6678 m left."
+  back: "forward = $\\hat{h} \\cdot \\mathbf{v}$ (the dot product); left = $\\hat{h} \\times \\mathbf{v} = \\cos\\theta\\, v_y - \\sin\\theta\\, v_x$ (the 2D cross product). Positive left means left. The cone at step 700: 12.6579 m ahead, −1.6678 m left."
 - id: c8
   front: "What is the left arrow $\\hat{n}(\\theta)$?"
-  back: "$(-\\sin\\theta, \\cos\\theta)$: the heading arrow turned a quarter turn anticlockwise. The left part is $\\vec{v} \\cdot \\hat{n}$, the same number as $\\hat{h} \\times \\vec{v}$."
+  back: "$(-\\sin\\theta, \\cos\\theta)$: the heading arrow turned a quarter turn anticlockwise. The left part is $\\mathbf{v} \\cdot \\hat{n}$, the same number as $\\hat{h} \\times \\mathbf{v}$."
 - id: c9
   front: "Why is a GPS step's direction not the car's yaw?"
   back: "A step points at $\\theta + \\delta + \\tfrac{1}{2}\\Delta\\theta$: the wheel angle plus half the step's turn. In gentle's bend middles that is 0.0333 + 0.00247 = 0.0358 rad. The rule holds to 4.4e-14 rad."

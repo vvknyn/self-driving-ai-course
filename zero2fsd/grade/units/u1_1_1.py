@@ -4,7 +4,6 @@ from __future__ import annotations
 import math
 import operator
 from functools import cache
-from numbers import Real
 
 import numpy as np
 
@@ -56,14 +55,36 @@ def _as_floats(got, given: str) -> np.ndarray:
 
 
 def _is_nan(value) -> bool:
-    return isinstance(value, Real) and not isinstance(value, bool) and bool(np.isnan(value))
+    """A single float answer (a 0-d array counts) that is nan; ints, bools, strings, None and containers are not."""
+    number = np.asarray(value)
+    return number.ndim == 0 and number.dtype.kind == "f" and bool(np.isnan(number))
+
+
+def _why_wrong(got, v) -> str:
+    """The headline for a wrong direction: names the mistake whose output `got` matches at the arrow `v` (G-msg), else the general one."""
+    if not is_real(got):
+        return "wrong direction for an arrow"
+    x, y = float(v[0]), float(v[1])
+    want = math.atan2(y, x)
+    near = lambda other: abs(got - other) <= TOL
+    with np.errstate(all="ignore"):
+        slope = float(np.arctan(y / x)) if x else math.nan
+    if near(math.pi / 2 - want) and not near(want):
+        return "dx and dy look swapped: np.arctan2 takes dy first"
+    if near(math.degrees(want)):
+        return "this looks like degrees: give radians"
+    if near(slope):
+        return "this is np.arctan of the slope, which cannot tell an arrow from its opposite: use np.arctan2 or fix the angle where dx < 0"
+    if abs(wrap_angle(got - want)) <= TOL:
+        return "the right direction in another angle range: direction_angle must give np.arctan2's range, -pi to pi, with west as +pi"
+    return "wrong direction for an arrow"
 
 
 @exercise(
     "1.1.1.a",
-    checked=(f"{len(NAMED)} named arrows (each quarter, each axis, and just either side of the cut at pi) and 30 seeded arrows against "
+    checked=(f"{len(NAMED)} named arrows (each quarter, each axis, and just either side of the cut at pi) and 30 seeded arrows (one of them the zero arrow) against "
              f"np.arctan2 to {TOL}; the zero arrow gives nan; many arrows give one angle each; and on `gentle` every step arrow "
-             f"within {LAP_TOL} rad of the car's yaw (difference wrapped)"),
+             f"against np.arctan2, and within {LAP_TOL} rad of the car's yaw (difference wrapped)"),
     section="Which way is it pointing",
 )
 def _direction_angle(fn, show, on_step):
@@ -71,25 +92,35 @@ def _direction_angle(fn, show, on_step):
         given = f"v = {v}"
         got = call(fn, np.array(v, dtype=float), given=given)
         if not is_real(got) or np.ndim(got) != 0 or abs(got - want) > TOL:
-            raise Failure("wrong direction for a single arrow", given=given, expected=want, got=got)
+            raise Failure(_why_wrong(got, v), given=given, expected=want, got=got)
     given = "v = (0, 0), the zero arrow"
     got = call(fn, np.zeros(2), given=given)
     if not _is_nan(got):
         raise Failure("the zero arrow has no direction: it must give nan", given=given, expected="nan", got=got)
     vectors = np.random.default_rng(1111).normal(0.0, 5.0, (30, 2))
-    given = f"{len(vectors)} seeded arrows of shape {vectors.shape}"
+    zero_row = 17
+    vectors[zero_row] = 0.0  # the zero arrow inside a batch: it must give nan too, not east
+    given = f"{len(vectors)} seeded arrows of shape {vectors.shape}, row {zero_row} the zero arrow"
     got = _as_floats(call(fn, vectors.copy(), given=given), given)
     want = np.arctan2(vectors[:, 1], vectors[:, 0])
+    want[zero_row] = np.nan
     if np.shape(got) != want.shape:
         raise Failure(f"expected one angle per arrow, shape {want.shape}", given=given, got=f"shape {np.shape(got)}")
-    if not np.all(np.abs(got - want) <= TOL):
-        worst = int(np.argmax(np.where(np.abs(got - want) <= TOL, -1.0, np.abs(got - want))))
-        raise Failure("wrong direction for an arrow in the batch", given=f"arrow {fmt(vectors[worst])}", expected=want[worst], got=got[worst])
+    right = np.where(np.isnan(want), np.isnan(got), np.abs(got - want) <= TOL)
+    if not right.all():
+        worst = int(np.argmin(right))
+        if worst == zero_row:
+            raise Failure(f"the zero arrow inside a batch has no direction: row {zero_row} must be nan", given=given, expected="nan", got=got[worst])
+        raise Failure(_why_wrong(got[worst], vectors[worst]), given=f"arrow {fmt(vectors[worst])}", expected=want[worst], got=got[worst])
     arrows, _ = _lap()
     given = f"the {len(arrows)} step arrows of the provided car's lap of gentle"
     got = _as_floats(call(fn, arrows.copy(), given=given), given)
     if np.shape(got) != (len(arrows),):
         raise Failure(f"expected one angle per arrow, shape {(len(arrows),)}", given=given, got=f"shape {np.shape(got)}")
+    want_lap = np.arctan2(arrows[:, 1], arrows[:, 0])
+    if not np.all(np.abs(got - want_lap) <= TOL):  # entry by entry first; the yaw miss below is extra evidence
+        worst = int(np.argmax(np.abs(got - want_lap)))
+        raise Failure(_why_wrong(got[worst], arrows[worst]), given=f"step arrow {worst}: {fmt(arrows[worst])}", expected=want_lap[worst], got=got[worst])
     miss = miss_from_yaw(got)
     if not miss < LAP_TOL:
         raise Failure(f"some step's direction is far from the car's yaw: worst miss {fmt(miss)} rad {vs_limit(miss, LAP_TOL, 'rad')}", given=given)

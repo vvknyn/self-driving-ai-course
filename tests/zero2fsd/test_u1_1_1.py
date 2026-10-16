@@ -51,16 +51,41 @@ def full_turns(v):  # an angle in [0, 2 pi) instead of [-pi, pi]
     return np.mod(SOLUTION.direction_angle(v), 2 * math.pi)
 
 
+def wrapped_to_the_cut(v):  # the lecture's own wrap puts west at -pi, not +pi
+    return wrap_angle(SOLUTION.direction_angle(v))
+
+
+def in_degrees(v):
+    return np.degrees(SOLUTION.direction_angle(v))
+
+
+def zero_only_when_all_zero(v):  # nan only when the whole input is the zero arrow: a zero row inside a batch comes out east
+    v = np.asarray(v, dtype=float)
+    return np.nan if not v.any() else np.arctan2(v[..., 1], v[..., 0])
+
+
+def np_where_without_the_zero_dim_fix(v):  # a correct answer; for one arrow np.where returns a 0-d array, not a float
+    v = np.asarray(v, dtype=float)
+    return np.where((v == 0).all(axis=-1), np.nan, np.arctan2(v[..., 1], v[..., 0]))
+
+
 @pytest.mark.parametrize("answer, said", [
-    (preset("1.1.1.a", "naive_arctan"), "wrong direction for a single arrow"),
-    (arguments_swapped, "wrong direction for a single arrow"),
-    (full_turns, "wrong direction for a single arrow"),
+    (preset("1.1.1.a", "naive_arctan"), "np.arctan of the slope"),
+    (arguments_swapped, "dx and dy look swapped"),
+    (full_turns, "another angle range"),
+    (wrapped_to_the_cut, "another angle range"),
+    (in_degrees, "degrees"),
     (zero_gives_east, "the zero arrow has no direction"),
+    (zero_only_when_all_zero, "the zero arrow inside a batch has no direction: row 17 must be nan"),
     (lambda v: float(SOLUTION.direction_angle(v)[0]) if np.ndim(v) == 2 else SOLUTION.direction_angle(v), "expected one angle per arrow"),
 ])
-def test_a_wrong_direction_angle_is_refused_with_the_reason(answer, said):
+def test_a_wrong_direction_angle_is_refused_with_the_mistake_it_matches(answer, said):
     result = check("1.1.1.a", answer, show=False)
     assert not result.passed and said in text(result), text(result)
+
+
+def test_an_np_where_answer_that_returns_a_zero_dim_array_is_correct_and_passes():  # needs the shared F0c fix (a 0-d array is a number)
+    assert check("1.1.1.a", np_where_without_the_zero_dim_fix, show=False).passed
 
 
 def test_the_naive_preset_fails_on_the_first_arrow_that_points_west_and_names_the_arrow():
@@ -73,6 +98,15 @@ def test_the_lap_check_wraps_the_difference_so_a_full_turn_more_is_not_a_miss():
     angles = SOLUTION.direction_angle(arrows)
     assert u1_1_1.miss_from_yaw(angles) == pytest.approx(u1_1_1.miss_from_yaw(angles + 2 * math.pi)) == pytest.approx(0.040994, abs=1e-6)
     assert u1_1_1.miss_from_yaw(angles + 0.2) > u1_1_1.LAP_TOL
+
+
+def test_a_wrong_answer_only_on_step_length_arrows_is_caught_by_the_direct_comparison():
+    def off_on_short_arrows(v):  # right everywhere except arrows shorter than 0.5 m, where it is 0.01 rad off: inside the yaw tolerance
+        out = np.asarray(SOLUTION.direction_angle(v), dtype=float)
+        short = np.hypot(*np.moveaxis(np.asarray(v, dtype=float), -1, 0)) < 0.5
+        return np.where(short & (np.hypot(*np.moveaxis(np.asarray(v, dtype=float), -1, 0)) > 0), out + 0.01, out)
+    result = check("1.1.1.a", off_on_short_arrows, show=False)
+    assert not result.passed and "step arrow" in text(result), text(result)
 
 
 # --- Exercise B: forward_left -------------------------------------------------------------------------------------
@@ -102,7 +136,7 @@ def test_a_wrong_forward_left_is_refused(answer):
 
 def test_the_direction_preview_counts_misses_and_reports_the_worst_for_the_solution_and_the_preset(lap):
     build = get("1.1.1.a").build
-    assert build(SOLUTION.direction_angle, lap) == {"steps where your heading misses yaw by > 0.1 rad": 0.0, "worst miss (rad)": pytest.approx(0.040994, abs=1e-6)}
+    assert build(SOLUTION.direction_angle, lap) == {"steps where your direction misses the yaw by > 0.1 rad": 0.0, "worst miss (rad)": pytest.approx(0.040994, abs=1e-6)}
     naive = build(preset("1.1.1.a", "naive_arctan"), lap)
     assert list(naive.values()) == [888.0, pytest.approx(3.142, abs=1e-3)]
 
@@ -121,7 +155,7 @@ def test_a_nan_direction_counts_as_a_miss_and_the_telemetry_is_never_changed(lap
 
     before = (lap.x.copy(), lap.y.copy(), lap.yaw.copy())
     values = get("1.1.1.a").build(scribble, lap)
-    assert values["steps where your heading misses yaw by > 0.1 rad"] == len(lap.x) - 1
+    assert values["steps where your direction misses the yaw by > 0.1 rad"] == len(lap.x) - 1
     assert all(np.array_equal(a, b) for a, b in zip(before, (lap.x, lap.y, lap.yaw)))
 
 

@@ -284,7 +284,7 @@ out("steps_fl", f"each step's arrow in forward/left parts: mean forward {fl_step
 
 # ---- lab previews on the canned gentle drive (the same telemetry) ----
 miss = np.abs(wrap_angle(A - yaw[:-1]))
-out("preview_a", f"provided direction_angle: steps where your heading misses yaw by > 0.1 rad: {int((miss > 0.1).sum())}; worst miss (rad): {miss.max():.3f}")
+out("preview_a", f"provided direction_angle: steps where your direction misses the yaw by > 0.1 rad: {int((miss > 0.1).sum())}; worst miss (rad): {miss.max():.3f}")
 out("preview_a_naive", f"preset naive_arctan.py: steps > 0.1 rad: {int((miss_naive > 0.1).sum())}; worst miss (rad): {miss_naive.max():.3f}")
 out("preview_b", f"provided forward_left: mean forward per step (m): {fl_steps[:, 0].mean():.4f}; largest left per step (m): {fl_steps[:, 1].max():.4f}")
 swapped = -fl_steps[:, 1]
