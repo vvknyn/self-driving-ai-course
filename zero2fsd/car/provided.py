@@ -1,7 +1,9 @@
 """The provided boxes of the Loop 0 car: colour-threshold perception and a P steering controller.
 
 Learners replace these one at a time.  The controller has no lookahead and no curvature
-feed-forward, which is deliberate: it holds a gentle bend and fails a tight one.
+feed-forward.  Fed the true offset and heading it completes `curvy` (mean |e| 0.348 m); the
+two-band box leaves the lane there at 48.3 m, because a straight line through two points is a
+chord that is biased on a bend.  The failure is mostly the perception box's, not the controller's.
 """
 from __future__ import annotations
 
@@ -18,8 +20,8 @@ PAINT_DISTANCE = 60.0  # RGB distance to a paint colour; the nearest other colou
 NEAR_ROWS, FAR_ROWS = (125, 180), (95, 116)  # image row bands [a, b) the lane is measured in
 MIN_PIXELS = 3  # paint pixels a band needs before its line counts as seen
 _CAMERA = Camera()
-# Tuned on the sim: with no curvature feed-forward the steady-state offset grows as 1/radius, so these
-# gains hold `gentle` (mean |lat| ~0.4 m) and cut the corner out of the lane on `curvy`.
+# Tuned on the sim: these gains hold `gentle` (mean |lat| 0.376 m with the two-band box, 0.113 m with
+# the truth) and complete `curvy` with the truth (0.348 m); the two-band box's chord bias is what fails there.
 K_OFF, K_HEAD = 0.35, 2.7
 
 
