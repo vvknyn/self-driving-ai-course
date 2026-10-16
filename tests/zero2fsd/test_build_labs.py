@@ -3,11 +3,13 @@ import re
 from html.parser import HTMLParser
 
 import nbformat
+from matplotlib import image
 import pytest
 
 import build_labs
 import make_figures
 from _course import REPO, REPO_SLUG, parse_lab
+from zero2fsd.palette import CHROME
 
 LAB = """\
 # %% [markdown]
@@ -81,6 +83,12 @@ def test_figures_are_byte_identical_across_runs(mini_repo):
     assert make_figures.main(["--root", str(mini_repo)]) == 0 and png.read_bytes() == first
 
 
+def test_figures_are_drawn_in_the_dark_figure_style(mini_repo):
+    assert make_figures.main(["--root", str(mini_repo)]) == 0
+    corner = image.imread(mini_repo / "course" / "0.1.1-mini" / "figures" / "curve.png")[0, 0, :3]
+    assert tuple(round(float(v) * 255) for v in corner) == tuple(int(CHROME["background"][i:i + 2], 16) for i in (1, 3, 5))
+
+
 def test_a_figures_module_without_make_fails_loudly(mini_repo):
     (mini_repo / "course" / "0.1.1-mini" / "figures.py").write_text("x = 1\n")
     with pytest.raises(AttributeError):
@@ -137,8 +145,8 @@ def test_every_lecture_figure_is_in_the_lab_with_its_caption_and_a_url_colab_can
         file = src[len(prefix):]
         assert (unit / "figures" / file).is_file(), f"{src} is not a file of this repo"
         assert file in lecture, f"{file} is not a figure of lecture.md"
-        number, lecture_alt = lecture[file]
-        assert (alt, caption) == (lecture_alt, f"Lecture figure {number}. {lecture_alt}")
+        number, plain = lecture[file][0], lecture[file][1].replace("`", "")  # a `code` span renders as <code>: no backticks reach the learner
+        assert (alt, caption) == (plain, f"Lecture figure {number}. {plain}")
     assert {src[len(prefix):] for src, _, _ in shown} == set(lecture)  # none of the lecture's figures is missing from the lab
 
 
@@ -192,3 +200,48 @@ def test_a_ref_to_a_lecture_figure_missing_from_figures_fails_the_build(mini_rep
 def test_a_lab_figure_with_its_own_alt_text_fails_the_build(mini_repo):
     with pytest.raises(ValueError, match="empty alt"):
         build_labs.compile_lab(mini_lab_showing(mini_repo, "![my own caption](figures/two.png)"))
+
+
+def lecture_with_alt(mini_repo, alt):
+    """The fixture lab showing two.png, whose lecture alt text for two.png is `alt`."""
+    lab = mini_lab_showing(mini_repo, "![](figures/two.png)")
+    lecture = lab.parent / "lecture.md"
+    lecture.write_text(lecture.read_text(encoding="utf-8").replace("![Second]", f"![{alt}]"), encoding="utf-8")
+    return lab
+
+
+def test_a_code_span_in_the_alt_is_code_in_the_caption_and_plain_text_in_the_img_alt(mini_repo):
+    cell = nbformat.reads(build_labs.compile_lab(lecture_with_alt(mini_repo, "Drive `a<b` on `gentle` & stop")), as_version=4).cells[0]
+    url = f"https://raw.githubusercontent.com/{REPO_SLUG}/{build_labs.FIGURE_REF}/course/0.1.1-mini/figures/two.png"
+    assert f'<img src="{url}" alt="Drive a&lt;b on gentle &amp; stop">' in cell.source
+    assert "<figcaption><em>Lecture figure 2. Drive <code>a&lt;b</code> on <code>gentle</code> &amp; stop</em></figcaption>" in cell.source
+    assert "`" not in cell.source
+    assert shown_images(cell.source) == [(url, "Drive a<b on gentle & stop", "Lecture figure 2. Drive a<b on gentle & stop")]
+
+
+def test_markdown_characters_inside_a_code_span_are_allowed(mini_repo):
+    cell = nbformat.reads(build_labs.compile_lab(lecture_with_alt(mini_repo, "mask `a[0] * 2` costs `$x`")), as_version=4).cells[0]
+    assert "Lecture figure 2. mask <code>a[0] * 2</code> costs <code>$x</code></em>" in cell.source
+
+
+@pytest.mark.parametrize("alt", ["*bold* roads", "a [link](x) here", "cost $5 each", "`open span", "two `a` and `b` and `c"],
+                         ids=["emphasis", "link", "maths", "unbalanced", "unbalanced-after-spans"])
+def test_markdown_outside_a_code_span_or_an_unbalanced_backtick_fails_the_build(mini_repo, alt):
+    with pytest.raises(ValueError, match="alt text"):
+        build_labs.compile_lab(lecture_with_alt(mini_repo, alt))
+
+
+@pytest.mark.parametrize(("first", "second"), [("two", "one"), ("one", "one")], ids=["reversed", "repeated"])
+def test_lab_figures_out_of_lecture_order_fail_the_build(mini_repo, first, second):
+    lab = mini_lab_showing(mini_repo, f"![](figures/{first}.png)")
+    lab.write_text(lab.read_text(encoding="utf-8") + f"\n# %% [markdown]\n# ![](figures/{second}.png)\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="out of lecture order"):
+        build_labs.compile_lab(lab)
+
+
+def test_lab_figures_in_lecture_order_across_cells_build(mini_repo):
+    lab = mini_lab_showing(mini_repo, "![](figures/one.png)")
+    lab.write_text(lab.read_text(encoding="utf-8") + "\n# %%\nx = 1\n\n# %% [markdown]\n# ![](figures/two.png)\n", encoding="utf-8")
+    cells = nbformat.reads(build_labs.compile_lab(lab), as_version=4).cells
+    shown = shown_images(cells[0].source) + shown_images(cells[2].source)
+    assert [url.rsplit("/", 1)[1] for url, _, _ in shown] == ["one.png", "two.png"]

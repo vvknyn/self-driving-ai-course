@@ -90,14 +90,14 @@ for sigma in (0.0, 0.3, 1.0, 3.0, 6.0):
 # $0.38^3 = 0.056$, and $0.056 \times 709 \approx 40$. The frame found 36. Noise too small to see still hides 95% of
 # the paint from `==`. Measured data is never exactly on its ideal value.
 #
-# ![](figures/exact_vs_threshold.png)
+# ![](figures/colour_distance.png)
 #
 # ## 3. Worked example: from a colour to a mask
 #
 # Here is the whole method from "Paint is a colour threshold", one step per line, for yellow on the noisy frame. Run it
 # and read the shapes: they are the point.
 #
-# ![](figures/colour_distance.png)
+# ![](figures/exact_vs_threshold.png)
 
 # %%
 yellow = PALETTE[YELLOW].astype(float)  # (3,): the three numbers of yellow paint, as floats

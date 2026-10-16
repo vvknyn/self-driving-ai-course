@@ -5,7 +5,7 @@ import re
 
 import pytest
 
-from zero2fsd.palette import CHROME, QUANTITY, SCENE, palette_dict
+from zero2fsd.palette import CHROME, QUANTITY, SCENE, palette_dict, shades
 from zero2fsd.sim.camera import GRASS, PALETTE, ROAD, SKY, WHITE, YELLOW
 
 HEX = re.compile(r"#[0-9A-Fa-f]{6}")
@@ -40,3 +40,13 @@ def test_palette_dict_names_its_three_groups_and_survives_json():
     palette = palette_dict()
     assert list(palette) == ["quantity", "scene", "chrome"]
     assert json.loads(json.dumps(palette)) == palette
+
+
+@pytest.mark.parametrize("n", [1, 2, 4])
+def test_shades_start_at_the_hue_and_step_evenly_toward_the_text_colour(n):
+    family = shades(QUANTITY["e_off"], n)
+    assert family[0] == QUANTITY["e_off"] and len(family) == n == len(set(family))
+    assert all(HEX.fullmatch(shade) for shade in family)
+    text = rgb(CHROME["text"])
+    distances = [sum(abs(a - b) for a, b in zip(rgb(shade), text)) for shade in family]
+    assert distances == sorted(distances, reverse=True)  # every later shade is nearer the text colour

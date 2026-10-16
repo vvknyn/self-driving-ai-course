@@ -7,6 +7,7 @@ from matplotlib.figure import Figure
 from zero2fsd.car import Car, LaneEstimate, provided, run
 from zero2fsd.car.runner import OFF_ROAD_OFFSET
 from zero2fsd.car.types import Action
+from zero2fsd.palette import CHROME, QUANTITY, shades
 from zero2fsd.score import metrics
 from zero2fsd.sim import BicycleState, make_scenario
 from zero2fsd.sim.dynamics import DT, WHEELBASE, step
@@ -32,10 +33,10 @@ def _lane_radius(radius, turn):
 
 
 def _shade_curvy_bends(ax):
-    for k in range(6):
+    for k in range(0, 6, 2):  # the left bends; the right bends stay unshaded
         a = CURVY_FIRST_ARC + k * CURVY_ARC
-        ax.axvspan(a, a + CURVY_ARC, color="tab:green" if k % 2 == 0 else "tab:purple", alpha=0.08)
-    ax.text(CURVY_FIRST_ARC + 1, 1.45, "green: left bend\npurple: right bend", fontsize=8)
+        ax.axvspan(a, a + CURVY_ARC, color=CHROME["text"], alpha=0.1)
+    ax.text(CURVY_FIRST_ARC + 1, 1.45, "shaded: left bend\nunshaded: right bend", fontsize=8)
 
 
 def _gains(k_off, k_head):
@@ -79,7 +80,7 @@ def _ends(tel):
 
 def _road_edges(ax):
     for edge in (-OFF_ROAD_OFFSET, OFF_ROAD_OFFSET):
-        ax.axhline(edge, color="0.5", ls="--", lw=1)
+        ax.axhline(edge, color=CHROME["text"], ls="--", lw=1)
 
 
 def open_vs_closed(path):
@@ -98,8 +99,8 @@ def open_vs_closed(path):
     )
     fig = Figure(figsize=(10, 4.2))
     ax = fig.subplots()
-    for (tel, label), style in zip(runs, ("-", ":", "-")):
-        ax.plot(tel.t, tel.lat, ls=style, lw=2, label=f"{label}: {_ends(tel)}")
+    for (tel, label), style, colour in zip(runs, ("-", ":", "-"), shades(QUANTITY["e_off"], len(runs))):
+        ax.plot(tel.t, tel.lat, ls=style, lw=2, color=colour, label=f"{label}: {_ends(tel)}")
     _road_edges(ax)
     ax.set_xlim(0, 20)
     ax.set(xlabel="time (s)", ylabel="offset from lane centre (m), left +",
@@ -114,18 +115,18 @@ def gain_sweep(path):
     fig = Figure(figsize=(12, 4.4))
     lat, steer = fig.subplots(1, 2, gridspec_kw={"width_ratios": [1.5, 1]})
     for i, (k, tel) in enumerate(runs.items()):
-        lat.plot(tel.t, tel.lat, color=f"C{i}", label=f"k_off = {k}: {_ends(tel)}, mean |lat| {metrics(tel)['mean_abs_lat']:.3f} m")
+        lat.plot(tel.t, tel.lat, color=shades(QUANTITY["e_off"], len(SWEEP))[i], label=f"k_off = {k}: {_ends(tel)}, mean |lat| {metrics(tel)['mean_abs_lat']:.3f} m")
     _road_edges(lat)
     bend = runs[K_OFF].t[np.argmax(runs[K_OFF].progress_m >= GENTLE_FIRST_BEND)]
-    lat.axvline(bend, color="0.7", lw=1)
-    lat.text(bend + 0.2, 1.6, "first bend", color="0.4", fontsize=9)
+    lat.axvline(bend, color=CHROME["text"], lw=1)
+    lat.text(bend + 0.2, 1.6, "first bend", fontsize=9)
     lat.set_xlim(0, 20)
     lat.set(xlabel="time (s)", ylabel="offset from lane centre (m), left +", title=f"gentle, k_head = {K_HEAD}")
     lat.legend(loc="lower right", fontsize=8)
     for i, k in ((2, 1.5), (3, 6.0)):
         tel = runs[k]
         limited = np.mean(np.abs(np.diff(tel.steer)) / DT > 0.999)
-        steer.plot(tel.t, tel.steer, color=f"C{i}", label=f"k_off = {k}: wheel turning at full speed in {limited:.0%} of steps")
+        steer.plot(tel.t, tel.steer, color=shades(QUANTITY["delta"], len(SWEEP))[i], label=f"k_off = {k}: wheel turning at full speed in {limited:.0%} of steps")
     steer.set_xlim(0, 4.5)
     steer.set(xlabel="time (s)", ylabel="wheel angle (rad), left +", title="the wheel: at most 1 rad/s")
     steer.legend(loc="lower left", fontsize=8)
@@ -137,18 +138,18 @@ def steady_state(path):
     gentle, curvy = perfect_run("gentle"), perfect_run("curvy")
     fig = Figure(figsize=(12, 4.2))
     left, right = fig.subplots(1, 2)
-    left.plot(gentle.progress_m, gentle.lat, color="C0", label=f"perfect lane values: settles at {np.abs(gentle.lat).max():.3f} m")
+    left.plot(gentle.progress_m, gentle.lat, color=QUANTITY["e_off"], label=f"perfect lane values: settles at {np.abs(gentle.lat).max():.3f} m")
     predicted = steady_offset(_lane_radius(GENTLE_RADIUS, +1), +1)
-    left.axhline(predicted, color="black", ls=":", label=f"predicted: {predicted:.3f} m")
+    left.axhline(predicted, color=CHROME["text"], ls=":", label=f"predicted: {predicted:.3f} m")
     left.set_ylim(-0.1, 0.3)
     left.set(xlabel="distance along the road (m)", ylabel="offset from lane centre (m), left +",
              title=f"gentle: two left bends of radius {_lane_radius(GENTLE_RADIUS, +1):.1f} m")
     left.legend(loc="upper left", fontsize=8)
     _shade_curvy_bends(right)
-    right.plot(curvy.progress_m, curvy.lat, color="C0", label=f"perfect lane values: max |lat| {metrics(curvy)['max_abs_lat']:.2f} m")
-    for turn, colour in ((+1, "tab:green"), (-1, "tab:purple")):
+    right.plot(curvy.progress_m, curvy.lat, color=QUANTITY["e_off"], label=f"perfect lane values: max |lat| {metrics(curvy)['max_abs_lat']:.2f} m")
+    for turn, ls in ((+1, ":"), (-1, "--")):
         radius = _lane_radius(CURVY_RADIUS, turn)
-        right.axhline(steady_offset(radius, turn), color=colour, ls=":",
+        right.axhline(steady_offset(radius, turn), color=CHROME["text"], ls=ls,
                       label=f"predicted for radius {radius:.1f} m: {steady_offset(radius, turn):+.3f} m")
     right.set_ylim(-1.9, 1.9)
     right.set(xlabel="distance along the road (m)", ylabel="offset from lane centre (m), left +", title="curvy: the bend changes direction every 31 m")
@@ -163,15 +164,15 @@ def curvy_box(path):
     fig = Figure(figsize=(12, 4.4))
     lat, head = fig.subplots(1, 2, gridspec_kw={"width_ratios": [1.5, 1]})
     _shade_curvy_bends(lat)
-    lat.plot(perfect.progress_m, perfect.lat, color="C0", label=f"perfect lane values: {_ends(perfect)}")
-    lat.plot(box.progress_m, box.lat, color="C3", label=f"the two-point box: {_ends(box)}")
+    lat.plot(perfect.progress_m, perfect.lat, color=QUANTITY["e_off"], label=f"perfect lane values: {_ends(perfect)}")
+    lat.plot(box.progress_m, box.lat, color=QUANTITY["perception"], label=f"the two-point box: {_ends(box)}")
     _road_edges(lat)
     lat.set(xlabel="distance along the road (m)", ylabel="offset from lane centre (m), left +",
             title=f"curvy, the same P law (k_off = {K_OFF}, k_head = {K_HEAD})")
     lat.legend(loc="lower left", fontsize=8)
-    head.axvspan(CURVY_FIRST_ARC, box.progress_m[-1], color="tab:green", alpha=0.08)
-    head.plot(box.progress_m, box.head_err, color="black", label="true heading")
-    head.plot(box.progress_m, box.est_heading, color="C3", label="what the box reported")
+    head.axvspan(CURVY_FIRST_ARC, box.progress_m[-1], color=CHROME["text"], alpha=0.1)
+    head.plot(box.progress_m, box.head_err, color=QUANTITY["psi"], label="true heading")
+    head.plot(box.progress_m, box.est_heading, color=QUANTITY["perception"], label="what the box reported")
     head.set(xlabel="distance along the road (m)", ylabel="heading (rad), left +", title="the two-point box's run: heading")
     head.legend(loc="lower left", fontsize=8)
     fig.tight_layout()
