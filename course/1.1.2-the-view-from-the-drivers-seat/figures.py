@@ -218,8 +218,8 @@ def _two_dots(d, path):
     fwd, left = forward_left(th, v)
     for hat, lo, hi in ((h, -1.5, 11.5), (n, -1.5, 7.0)):
         ax.plot(*zip(lo * hat, hi * hat), color=EGO, lw=1.5, alpha=0.6)
-    arrow(ax, (0, 0), (11.5, 0), GREY, lw=1.5)
-    arrow(ax, (0, 0), (0, 7.5), GREY, lw=1.5)
+    arrow(ax, (0, 0), (11.5, 0), TEXT, lw=1.5)
+    arrow(ax, (0, 0), (0, 7.5), TEXT, lw=1.5)
     for hat, name in ((h, r"$\hat{h}$"), (n, r"$\hat{n}$")):
         arrow(ax, (0, 0), tuple(1.5 * hat), EGO, lw=3.5)
         say(ax, tuple(1.5 * hat), name, dx=-16 if hat is n else 8, dy=8 if hat is n else -18, colour=EGO)
@@ -283,10 +283,10 @@ def _columns_axes(d, path):
     fig, (top, bottom) = _fig(top_h + bot_h + 2.4, 2, [top_h + 0.5, bot_h + 1.0])
     th = d.pose[2]
     h, n = _unit(th)
-    arrow(top, (0, 0), (1.3, 0), GREY)
-    arrow(top, (0, 0), (0, 1.3), GREY)
-    say(top, (1.3, 0), "world x", dx=8, ha="left", colour=GREY)
-    say(top, (0, 1.3), "world y", dy=16, colour=GREY)
+    arrow(top, (0, 0), (1.3, 0), TEXT)
+    arrow(top, (0, 0), (0, 1.3), TEXT)
+    say(top, (1.3, 0), "world x", dx=8, ha="left", colour=TEXT)
+    say(top, (0, 1.3), "world y", dy=16, colour=TEXT)
     arrow(top, (0, 0), tuple(h), EGO, lw=3.5)
     arrow(top, (0, 0), tuple(n), EGO, lw=3.5)
     say(top, tuple(h), f"x (col 1)\n({num(h[0], 4)}, {num(h[1], 4)})", dx=12, dy=14, ha="left", colour=EGO)
@@ -330,8 +330,8 @@ def _undo(d, path):
     light = shades(EGO, 2)[1]
     ang_a, ang_b = math.atan2(fl[1], fl[0]), math.atan2(wv[1], wv[0])
     for ax, turned in zip(axes, (True, False)):
-        arrow(ax, (0, 0), (14, 0), GREY, lw=1.5)
-        arrow(ax, (0, 0), (0, 8.5), GREY, lw=1.5)
+        arrow(ax, (0, 0), (14, 0), TEXT, lw=1.5)
+        arrow(ax, (0, 0), (0, 8.5), TEXT, lw=1.5)
         arrow(ax, (0, 0), tuple(fl), light, lw=3.5)
         arrow(ax, (0, 0), tuple(wv), EGO, lw=3.5)
         say(ax, tuple(fl), f"({fl[0]:.3f}, {fl[1]:.3f})", dy=-22, colour=light)
@@ -382,21 +382,21 @@ def _round_trip(d, path):
     fig, (top, bottom) = _fig(top_h + 5.6, 2, [top_h + 0.8, 4.2])
     shown = slice(None, None, 15)  # every fifteenth point, so the dots stay dots
     top.scatter(cloud[shown, 0], cloud[shown, 1], s=30, color=GREY, zorder=1)
-    top.scatter(back[shown, 0], back[shown, 1], s=110, facecolors=HOLLOW, edgecolors=EGO, linewidths=1.5, zorder=2)
+    top.scatter(back[shown, 0], back[shown, 1], s=110, facecolors=HOLLOW, edgecolors=TEXT, linewidths=1.5, zorder=2)
     top.set(xlim=xlim, ylim=ylim, xlabel="east (m)", ylabel="north (m)", title=f"{len(cloud)} road points")
     top.set_aspect("equal", adjustable="box")
     left_end, right_end = cloud[int(np.argmin(cloud[:, 0]))], cloud[int(np.argmax(cloud[:, 0]))]
     say(top, tuple(left_end), "grey: the points", dx=40, dy=30, ha="left", colour=GREY, badge=True, arrow=True)
-    say(top, tuple(right_end), "purple rings:\nafter the round trip", dx=-40, dy=-40, ha="right", colour=EGO, badge=True, arrow=True)
+    say(top, tuple(right_end), "white rings:\nafter the round trip", dx=-40, dy=-40, ha="right", colour=TEXT, badge=True, arrow=True)
     k = np.arange(1, len(poses) + 1)
     bottom.semilogy(k, there, "o", color=GREY, markersize=5)
-    bottom.semilogy(k, return_, "s", mfc=HOLLOW, mec=EGO, mew=2, markersize=9)
+    bottom.semilogy(k, return_, "s", mfc=HOLLOW, mec=TEXT, mew=2, markersize=9)
     bottom.axhline(1e-12, color=TEXT, ls="--", lw=2)
     low = 10.0 ** math.floor(math.log10(min(min(there), min(return_))))
     bottom.set(xlim=(0, len(poses) + 1), ylim=(low, 1e-11), xlabel="pose", ylabel="largest error (m)")
     say(bottom, (len(poses) / 2, 1e-12), r"$10^{-12}$ m", dy=16, colour=TEXT)
     say(bottom, (len(poses) / 2, max(there)), "world → ego → world", dy=34, colour=GREY, badge=True)
-    say(bottom, (len(poses) / 2, min(return_)), "ego → world → ego", dy=-34, colour=EGO, badge=True)
+    say(bottom, (len(poses) / 2, min(return_)), "ego → world → ego", dy=-34, colour=TEXT, badge=True)
     _save(fig, path)
 
 

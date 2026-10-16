@@ -32,7 +32,7 @@ STYLE = {"font.size": FS, "axes.labelsize": FS, "axes.titlesize": TITLE, "axes.t
 TEXT, PANEL = CHROME["text"], CHROME["panel"]
 GREY = shades(CHROME["border"], 3)[2]  # world axes, true paths and yardsticks
 FAINT = shades(CHROME["border"], 3)[1]
-EGO, CAMERA, THETA, CORAL, BLUE = (QUANTITY[k] for k in ("ego", "camera", "theta", "perception", "e_off"))
+EGO, CAMERA, THETA, BLUE = (QUANTITY[k] for k in ("ego", "camera", "theta", "e_off"))
 REAR, BLUE_REAR = shades(EGO, 2)[1], shades(BLUE, 2)[1]
 BOX = {"boxstyle": "round,pad=0.15", "fc": PANEL, "ec": PANEL}  # text that sits on top of a line
 K_EX, K_STEP = 400, 100  # the lecture's example step, and the zoomed one
@@ -165,12 +165,12 @@ def rebuilt_lap(path):
     fig = _fig(4.3)
     ax = fig.subplots()
     _lap_axes(ax)
-    ax.plot(good[:, 0, 2], good[:, 1, 2], color=CORAL, lw=3)
+    ax.plot(good[:, 0, 2], good[:, 1, 2], color=TEXT, lw=3)
     ax.set(xlim=(-95, 200), ylim=(-50, 175))
     _metres(ax)
     mantissa, exponent = f"{gap:.1e}".split("e")
     _note(ax, (50, 122), "true path (grey)", GREY)
-    _note(ax, (50, 92), f"rebuilt from {len(L.steps)}\nsteps (coral)", CORAL)
+    _note(ax, (50, 92), f"rebuilt from {len(L.steps)}\nsteps", TEXT)
     _note(ax, (50, 52), f"max gap ${mantissa}\\times10^{{{int(exponent)}}}$ m")
     _note(ax, (112, -28), "start (0, \u22121.8),\nfacing east")
     _arrow(ax, (50, -22), (4, -4), TEXT, lw=1.5)
@@ -186,9 +186,9 @@ def pose_frame(path):
     cone = (L.Tw[K_EX] @ np.array([10.0, 2.0, 1.0]))[:2]
     f, n = _vec(th), _vec(th + math.pi / 2)
     fig, (top, bottom) = _panels([((-45, 200), (-22, 47), False, AXW), ((-6.5, 13.5), (-5.5, 14.5), False, AXW)])
-    _frame(top, (0, 0, 0), GREY, 22)
-    _note(top, (-14, -13), "world", GREY)
-    _arrow(top, (0, 0), (x - 3, y - 0.4), GREY, lw=2)
+    _frame(top, (0, 0, 0), TEXT, 22)
+    _note(top, (-14, -13), "world", TEXT)
+    _arrow(top, (0, 0), (x - 3, y - 0.4), TEXT, lw=2)
     _dot(top, (x, y), EGO)
     _note(top, (x - 12, y + 19), f"({x:.2f}, {y:.2f})")
     _frame(bottom, (0, 0, th), EGO, 4, "ego")
@@ -200,10 +200,10 @@ def pose_frame(path):
     _note(bottom, tuple(mid + 2.9 * f), "2 m left", EGO)
     _dot(bottom, tuple(tip), TEXT, size=11)
     _note(bottom, (tip[0] - 3.2, tip[1] + 3.2), f"cone\n({cone[0]:.2f}, {cone[1]:.2f})")
-    bottom.plot([0, 9], [0, 0], color=GREY, lw=1.5, ls="--")
-    _note(bottom, (11.6, 0), "east", GREY)
-    bottom.add_patch(Arc((0, 0), 10, 10, theta1=0, theta2=math.degrees(th), color=GREY, lw=1.5))
-    _note(bottom, (7.6, 1.6), f"{math.degrees(th):.2f}\u00b0", GREY)
+    bottom.plot([0, 9], [0, 0], color=TEXT, lw=1.5, ls="--")
+    _note(bottom, (11.6, 0), "east", TEXT)
+    bottom.add_patch(Arc((0, 0), 10, 10, theta1=0, theta2=math.degrees(th), color=TEXT, lw=1.5))
+    _note(bottom, (7.6, 1.6), f"{math.degrees(th):.2f}\u00b0", TEXT)
     _save(fig, path)
 
 
@@ -344,7 +344,7 @@ def _row(ax, renderer, inv, y, pieces, x0):
         box = t.get_window_extent(renderer)
         x1d = inv.transform((box.x1, box.y1))[0]
         if struck:
-            ax.plot([x, x1d], [y, y], color=GREY, lw=3)  # grey: coral is for what the car believes
+            ax.plot([x, x1d], [y, y], color=GREY, lw=3)   # grey: the true path
         x = x1d + 0.12
     return x
 
@@ -361,7 +361,7 @@ def order_matters(path):
         _dot(ax, other, FAINT, size=12)
         for a, b in zip(pts[:-1], pts[1:]):
             _arrow(ax, a, b, TEXT, lw=2, linestyle="--")
-        _frame(ax, (0, 0, 0), GREY, 0.3)
+        _frame(ax, (0, 0, 0), TEXT, 0.3)
         _frame(ax, (*end, math.pi / 2), EGO, 0.4)
         _note(ax, ((end[0] + other[0]) / 2 + 0.28, (end[1] + other[1]) / 2 + 0.2), "1.41 m", FAINT)
         _note(ax, where, f"({end[0]}, {end[1]})", EGO)
@@ -377,16 +377,16 @@ def undo_steps(path):
     d = cone - np.array([x, y])
     fig, (top, bottom) = _panels([((-2.5, 12.5), (-2.2, 10.4), True, AXW), ((-2.5, 13.5), (-1.8, 4.6), True, AXW)])
     top.set_title(f"take away the position \u2192 ({d[0]:.2f}, {d[1]:.2f})")
-    _frame(top, (0, 0, 0), GREY, 3)
+    _frame(top, (0, 0, 0), TEXT, 3)
     _nudge(top, "x", 0, 0.8)  # off the dashed line
-    top.plot([0, d[0], d[0]], [0, 0, d[1]], color=GREY, lw=2, ls="--")
-    _arrow(top, (0, 0), (d[0] - 0.12, d[1] - 0.12), GREY, lw=3)
+    top.plot([0, d[0], d[0]], [0, 0, d[1]], color=TEXT, lw=2, ls="--")
+    _arrow(top, (0, 0), (d[0] - 0.12, d[1] - 0.12), TEXT, lw=3)
     _dot(top, (0, 0), EGO)
     _dot(top, tuple(d), TEXT, size=12)
     _note(top, (-1.1, -1.2), "car", EGO)
     _note(top, (d[0] - 3.7, d[1] + 0.2), f"cone, was\n({cone[0]:.2f}, {cone[1]:.2f})")
-    _note(top, (d[0] / 2 + 0.7, -1.2), f"{d[0]:.2f} east", GREY)
-    _note(top, (d[0] + 0.5, d[1] / 2), f"{d[1]:.2f}\nnorth", GREY, ha="left")
+    _note(top, (d[0] / 2 + 0.7, -1.2), f"{d[0]:.2f} east", TEXT)
+    _note(top, (d[0] + 0.5, d[1] / 2), f"{d[1]:.2f}\nnorth", TEXT, ha="left")
     bottom.set_title(f"turn back {math.degrees(th):.2f}\u00b0 \u2192 (10, 2)")
     _frame(bottom, (0, 0, 0), EGO, 3)
     _nudge(bottom, "x", 0, 1.8)  # above the arrow, which rises from the dashed line
@@ -405,7 +405,7 @@ def undo_steps(path):
 
 def inverse_A(path):
     fig, (ax,) = _panels([((-0.6, 1.7), (-0.55, 0.75), False, AXW)], footer=1.05)
-    _frame(ax, (0, 0, 0), GREY, 0.3)
+    _frame(ax, (0, 0, 0), TEXT, 0.3)
     _frame(ax, (1, 0, math.pi / 2), EGO, 0.3)
     _arrow(ax, (0.9, -0.14), (0.1, -0.14), TEXT, lw=2, linestyle="--")
     _note(ax, (0.0, -0.36), "start", GREY)
@@ -423,19 +423,19 @@ def inverse_view(path):
     fwd_o, left_o = float(inv[0, 2]), float(inv[1, 2])
     po = (-left_o, fwd_o)
     fig, (top, bottom) = _panels([((-45, 205), (-26, 48), False, AXW), ((-135, 100), (-190, 32), False, AXW)])
-    _frame(top, (0, 0, 0), GREY, 22)
-    _dot(top, (0, 0), GREY)
-    _note(top, (-3, -16), "world origin", GREY)
+    _frame(top, (0, 0, 0), TEXT, 22)
+    _dot(top, (0, 0), TEXT)
+    _note(top, (-3, -16), "world origin", TEXT)
     _frame(top, (x, y, th), EGO, 22)
     _note(top, (x - 2, y - 22), f"car, {math.degrees(th):.2f}\u00b0", EGO)
     _frame(bottom, (0, 0, math.pi / 2), EGO, 18)
     _note(bottom, (24, -10), "car", EGO)
-    bottom.plot([0, 0, po[0]], [0, po[1], po[1]], color=GREY, lw=2, ls="--")
-    _frame(bottom, (po[0], po[1], math.pi / 2 - th), GREY, 20)
-    _dot(bottom, po, GREY)
+    bottom.plot([0, 0, po[0]], [0, po[1], po[1]], color=TEXT, lw=2, ls="--")
+    _frame(bottom, (po[0], po[1], math.pi / 2 - th), TEXT, 20)
+    _dot(bottom, po, TEXT)
     _note(bottom, (22, po[1] / 2), f"{-fwd_o:.2f} m\nbehind", TEXT, ha="left")
     _note(bottom, (po[0] / 2, po[1] - 17), f"{left_o:.2f} m left", TEXT)
-    _note(bottom, (-55, po[1] - 36), f"world origin\n({_m(fwd_o, '.2f')}, {left_o:.2f})", GREY)
+    _note(bottom, (-55, po[1] - 36), f"world origin\n({_m(fwd_o, '.2f')}, {left_o:.2f})", TEXT)
     _save(fig, path)
 
 
@@ -500,14 +500,14 @@ def naive_add(path):
     fig = _fig(3.4)
     ax = fig.subplots()
     _lap_axes(ax)
-    ax.plot(nx, ny, color=CORAL, lw=3)
+    ax.plot(nx, ny, color=TEXT, lw=3)
     ax.set(xlim=(-100, 770), ylim=(-135, 185))
     ax.set_xticks([0, 250, 500, 750])
     ax.set_yticks([0, 100])
     ax.set(xlabel="east (m)", ylabel="north (m)")
     _note(ax, (50, 100), "true lap", GREY)
-    _note(ax, (480, 75), "add the parts to x, y, \u03b8", CORAL)
-    _note(ax, (590, -22), f"({nx[-1]:.2f}, {ny[-1]:.2f})", CORAL, bbox=None)
+    _note(ax, (480, 75), "add the parts to x, y, \u03b8", TEXT)
+    _note(ax, (590, -22), f"({nx[-1]:.2f}, {ny[-1]:.2f})", TEXT, bbox=None)
     _arrow(ax, (L.X[-1], -75), (nx[-1], -75), TEXT, lw=2, style="<|-|>")
     _note(ax, (360, -112), f"{end_gap:.2f} m", TEXT, bbox=None)
     fig.tight_layout()
@@ -532,16 +532,16 @@ def wrong_order(path):
     fig = _fig(5.0)
     ax = fig.subplots()
     _lap_axes(ax)
-    ax.plot(wx, wy, color=CORAL, lw=2.5)
+    ax.plot(wx, wy, color=TEXT, lw=2.5)
     ax.set(xlim=(-125, 215), ylim=(-30, 250))
     _metres(ax)
     ax.plot([L.X[k], wx[k]], [L.Y[k], wy[k]], color=TEXT, lw=2, ls="--")
     _dot(ax, (L.X[k], L.Y[k]), GREY, size=11)
-    _dot(ax, (wx[k], wy[k]), CORAL, size=11)
-    _label(ax, (wx[k], wy[k]), (-120, 233), f"({_m(wx[k], '.2f')}, {wy[k]:.2f})", CORAL, ha="left", bbox=None)
+    _dot(ax, (wx[k], wy[k]), TEXT, size=11)
+    _label(ax, (wx[k], wy[k]), (-120, 233), f"({_m(wx[k], '.2f')}, {wy[k]:.2f})", TEXT, ha="left", bbox=None)
     _label(ax, (L.X[k], L.Y[k]), (30, 133), f"({L.X[k]:.2f}, {L.Y[k]:.2f})", GREY, bbox=None)
     _note(ax, (20, 88), f"step {k}, {k * DT:.2f} s:\n{err[k]:.2f} m apart", TEXT, bbox=None)
-    _label(ax, (L.X[-1], L.Y[-1]), (30, 30), f"end: {err[-1]:.2f} m off", CORAL, bbox=None)
+    _label(ax, (L.X[-1], L.Y[-1]), (30, 30), f"end: {err[-1]:.2f} m off", TEXT, bbox=None)
     fig.tight_layout()
     _save(fig, path)
 
@@ -553,14 +553,14 @@ def wrong_order_error(path):
     first = int(np.argmax(err > 1.0))
     fig = _fig(4.3)
     ax = fig.subplots()
-    ax.plot(L.t, err, color=CORAL, lw=3)
+    ax.plot(L.t, err, color=TEXT, lw=3)
     ax.axhline(2.0, color=GREY, lw=2, ls="--")
     ax.set(xlim=(0, 98), ylim=(-12, 232), xlabel="time (s)", ylabel="position error (m)")
     ax.xaxis.set_major_locator(MaxNLocator(4))
     ax.yaxis.set_major_locator(MaxNLocator(4))
-    _label(ax, (first * DT, 2.0), (1, 100), f"{first * DT:.2f} s:\n1 m", CORAL, ha="left", bbox=None)
-    _note(ax, (k * DT + 3, 212), f"{err[k]:.2f} m at {k * DT:.2f} s", CORAL, ha="left", bbox=None)
-    _label(ax, (L.t[-1], err[-1]), (90, 118), f"{err[-1]:.2f} m\nat the end", CORAL, bbox=None)
+    _label(ax, (first * DT, 2.0), (1, 100), f"{first * DT:.2f} s:\n1 m", TEXT, ha="left", bbox=None)
+    _note(ax, (k * DT + 3, 212), f"{err[k]:.2f} m at {k * DT:.2f} s", TEXT, ha="left", bbox=None)
+    _label(ax, (L.t[-1], err[-1]), (90, 118), f"{err[-1]:.2f} m\nat the end", TEXT, bbox=None)
     _note(ax, (72, 45), "a 2 m\nend-only\ncheck", GREY, bbox=None)
     fig.tight_layout()
     _save(fig, path)
@@ -577,8 +577,8 @@ def drift_end(path):
         ends = np.hypot(xs[:, -1] - ex, ys[:, -1] - ey)
         ax.set_gid("zoom-inset")
         for i in range(len(xs)):
-            ax.plot(xs[i, -400:], ys[i, -400:], color=CORAL, lw=1.4, alpha=0.8)
-            _dot(ax, (xs[i, -1], ys[i, -1]), CORAL, size=6)
+            ax.plot(xs[i, -400:], ys[i, -400:], color=TEXT, lw=1.4, alpha=0.5)
+            _dot(ax, (xs[i, -1], ys[i, -1]), TEXT, size=6)
         ax.plot(d["x_true"][-400:], d["y_true"][-400:], color=GREY, lw=2.5)
         _dot(ax, (ex, ey), TEXT, size=9)
         ax.add_patch(Circle((ex, ey), float(ends.max()), fill=False, edgecolor=TEXT, lw=1.5, ls="--"))
@@ -598,7 +598,7 @@ def drift_growth(path):
         for e in d[f"err_{s}"]:
             ax.plot(t, e, color=GREY, lw=1, alpha=0.7)
         rms = d[f"rms_{s}"]
-        ax.plot(t, rms, color=CORAL, lw=4)
+        ax.plot(t, rms, color=TEXT, lw=4)
         ax.set(xlim=(0, 98), xlabel="time (s)", ylabel="position error (m)")
         ax.set_title(f"\u03c3 = {float(s):g} rad per step")
         ax.xaxis.set_major_locator(MaxNLocator(4))
@@ -606,12 +606,12 @@ def drift_growth(path):
         ax.set_ylim(0, float(d[f"err_{s}"].max()) * 1.04)
     rms = d["rms_0.0001"]
     for k, text, where in ((250, "0.097 m, 12.50 s", (30, 0.62)), (1000, "0.447 m, 50 s", (72, 0.18)), (1485, "peak 0.712 m, 74.25 s", (40, 1.2))):
-        _dot(top, (t[k], rms[k]), CORAL, size=9)
-        _label(top, (t[k], rms[k]), where, text, CORAL)
-    _label(top, (t[-1], rms[-1]), (86, 0.95), f"{rms[-1]:.3f} m\nat the end", CORAL)
+        _dot(top, (t[k], rms[k]), TEXT, size=9)
+        _label(top, (t[k], rms[k]), where, text, TEXT)
+    _label(top, (t[-1], rms[-1]), (86, 0.95), f"{rms[-1]:.3f} m\nat the end", TEXT)
     kb = int(np.argmax(d["rms_0.001"]))
-    _dot(bottom, (t[kb], d["rms_0.001"][kb]), CORAL, size=9)
-    _label(bottom, (t[kb], d["rms_0.001"][kb]), (40, 10.0), f"peak {d['rms_0.001'][kb]:.3f} m", CORAL)
+    _dot(bottom, (t[kb], d["rms_0.001"][kb]), TEXT, size=9)
+    _label(bottom, (t[kb], d["rms_0.001"][kb]), (40, 10.0), f"peak {d['rms_0.001'][kb]:.3f} m", TEXT)
     fig.tight_layout()
     _save(fig, path)
 
@@ -623,8 +623,8 @@ def drift_laps(path):
     laps, rms = d["laps"], d["rms"]
     fig = _fig(4.3)
     ax = fig.subplots()
-    ax.plot(laps, rms, color=CORAL, lw=2, ls=":")
-    ax.plot(laps, rms, color=CORAL, marker="o", ms=11, ls="")
+    ax.plot(laps, rms, color=TEXT, lw=2, ls=":")
+    ax.plot(laps, rms, color=TEXT, marker="o", ms=11, ls="")
     ax.set_xscale("log", base=2)
     ax.set_xticks(laps)
     ax.set_xticklabels([str(int(n)) for n in laps])
@@ -632,7 +632,7 @@ def drift_laps(path):
     ax.set(xlim=(0.5, 24), ylim=(0, 3.4), xlabel="laps driven", ylabel="RMS end error (m)")
     ax.yaxis.set_major_locator(MaxNLocator(4))
     for n, v in zip(laps, rms):
-        _note(ax, (n * 1.05, v + 0.34), f"{v:.3f}", CORAL, ha="right")
+        _note(ax, (n * 1.05, v + 0.34), f"{v:.3f}", TEXT, ha="right")
     _note(ax, (2.6, 3.05), "\u03c3 = 0.0001, 500 seeds", TEXT)
     fig.tight_layout()
     _save(fig, path)
@@ -725,13 +725,13 @@ def drift_loglog(path):
     fig = _fig(4.6)
     ax = fig.subplots()
     ax.plot(grid, sigma * ell * grid ** 1.5 / math.sqrt(3), color=GREY, lw=3)
-    ax.plot(Ns, rms, color=CORAL, marker="o", ms=10, ls="")
+    ax.plot(Ns, rms, color=TEXT, marker="o", ms=10, ls="")
     ax.set(xscale="log", yscale="log", xlim=(8, 700), ylim=(3e-4, 1.2), xlabel="steps N", ylabel="RMS sideways error (m)")
-    _note(ax, (30, 0.13), "measured RMS,\n500 seeds", CORAL)
+    _note(ax, (30, 0.13), "measured RMS,\n500 seeds", TEXT)
     _note(ax, (160, 0.0045), r"$\sigma\,\ell\,N^{3/2}/\sqrt{3}$", GREY)
     _note(ax, (160, 0.0014), "slope 3/2", GREY)
-    _label(ax, (Ns[0], rms[0]), (40, 0.00045), f"{rms[0]:.5f} m", CORAL)
-    _label(ax, (Ns[-1], rms[-1]), (110, 0.7), f"{rms[-1]:.5f} m", CORAL)
+    _label(ax, (Ns[0], rms[0]), (40, 0.00045), f"{rms[0]:.5f} m", TEXT)
+    _label(ax, (Ns[-1], rms[-1]), (110, 0.7), f"{rms[-1]:.5f} m", TEXT)
     fig.tight_layout()
     _save(fig, path)
 
@@ -765,13 +765,13 @@ def next_lesson(path):
     _label(ax, (0.05, 0.45), (-4.2, 2.2), "car axes", EGO)
     _label(ax, (0.3, height + 0.1), (5.2, 3.1), "camera axes", CAMERA)
     ax.plot([0, 12], [height, height], color=GREY, lw=1.5, ls=":")
-    ax.plot([0, reach], [height, 0], color=CORAL, lw=2.5, ls="--")
-    _note(ax, (reach, 0.65), "?", CORAL, fontsize=TITLE)
-    r = 2.4  # the angle's arc, radius in inches
+    ax.plot([0, reach], [height, 0], color=CAMERA, lw=2.5, ls="--")
+    _note(ax, (reach, 0.65), "?", CAMERA, fontsize=TITLE)
+    r = 1.7  # the angle's arc, radius in inches
     drawn = math.atan2(math.sin(pitch) * sy, math.cos(pitch) * sx)  # the ray's angle on the page, where heights are stretched
     arc = [lens + np.array(inches(r * math.cos(a), -r * math.sin(a))) for a in np.linspace(0, drawn, 20)]
-    ax.plot(*zip(*arc), color=THETA, lw=2.5)
-    _label(ax, tuple(arc[-1]), (11.0, 2.7), f"{pitch_deg:g}\u00b0 down", THETA)
+    ax.plot(*zip(*arc), color=TEXT, lw=2.5)  # a pitch, not a yaw: THETA marks yaw only
+    _label(ax, tuple(arc[len(arc) // 2]), (arc[-1][0] + 4.5, height + 1.0), f"{pitch_deg:g}\u00b0 down", TEXT)  # from the right, so the leader never runs along the arc
     _arrow(ax, (2.2, 0), (2.2, height), TEXT, lw=1.8, style="<|-|>", scale=10)
     _note(ax, (3.9, 0.55), f"{height:g} m", TEXT)
     _save(fig, path)

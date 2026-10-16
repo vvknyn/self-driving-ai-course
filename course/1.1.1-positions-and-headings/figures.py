@@ -171,7 +171,7 @@ def _world_lap(path):  # [lap] [start] [s700]
     ax.plot(tel.x[STEP], tel.y[STEP], marker="o", color=EGO, mec=TEXT, mew=1.5, ms=9, zorder=5)
     mid = len(tel.x) // 4
     ax.annotate("", xy=(tel.x[mid + 3], tel.y[mid + 3]), xytext=(tel.x[mid], tel.y[mid]), arrowprops={"arrowstyle": "-|>", "color": EGO, "lw": 2.5, "mutation_scale": 22}, zorder=6)
-    ax.set(aspect="equal", xlabel="x (m)", ylabel="y (m)", xlim=(-95, 195), ylim=(-30, 175))
+    ax.set(aspect="equal", xlabel="east (m)", ylabel="north (m)", xlim=(-95, 195), ylim=(-30, 175))
     before = set(ax.get_children())
     draw_frame(ax, (0.0, 0.0, 0.0), TEXT, "", length_m=40.0, fontsize=FS)
     for artist in set(ax.get_children()) - before:

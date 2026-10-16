@@ -184,8 +184,8 @@ def _ego_frame_3d(path):
     lens = _oblique((0, 0, H))
     ax.add_patch(Circle(lens, 0.09, color=CAM))
     _say(ax, lens + np.array([-0.2, 0.0]), f"lens (0, 0, {H})", CAM, ha="right")
-    _arc(ax, (0, 0, 0), 1.0, 8, 80, THETA, proj=_oblique)
-    _say(ax, _oblique((0.5, 0.0, 0)) + np.array([-0.6, -0.95]), "curl x → y:\nthumb = z", THETA)
+    _arc(ax, (0, 0, 0), 1.0, 8, 80, TEXT, proj=_oblique)
+    _say(ax, _oblique((0.5, 0.0, 0)) + np.array([-0.6, -0.95]), "curl x → y:\nthumb = z", TEXT)
     _sketch(ax, (-3.2, 3.9), (-1.4, 3.0))
     _save(fig, path)
 
@@ -209,7 +209,7 @@ def _right_hand_turn(path):
     _save(fig, path)
 
 
-def _panel(ax, title, first, second, arrow, tip_a, tip_b, a0, a1, out_label, a_pos, b_pos):
+def _panel(ax, title, first, second, arrow, tip_a, tip_b, a0, a1, out_label, a_pos, b_pos, turn=TEXT):
     ax.set_title(title)
     _arrow(ax, (0, 0), tip_a, EGO)
     _arrow(ax, (0, 0), tip_b, EGO)
@@ -217,8 +217,8 @@ def _panel(ax, title, first, second, arrow, tip_a, tip_b, a0, a1, out_label, a_p
     _say(ax, b_pos, second, EGO)
     _out_of_page(ax, (0, 0), EGO, 0.17)
     _say(ax, (0.28, -0.4), out_label, EGO, ha="left")
-    _arc(ax, (0, 0), 1.05, a0, a1, THETA)
-    _say(ax, arrow[0], arrow[1], THETA, ha=arrow[2])
+    _arc(ax, (0, 0), 1.05, a0, a1, turn)
+    _say(ax, arrow[0], arrow[1], turn, ha=arrow[2])
     _sketch(ax, (-3.2, 3.2), (-1.7, 2.6))
 
 
@@ -227,7 +227,7 @@ def _three_rotations(path):
     roll, pitch, yaw = fig.subplots(3, 1)
     _panel(roll, "About x: roll", "left", "up", ((1.25, 1.4), "left → up", "left"), (2.0, 0), (0, 2.0), 0, 88, "x, out of page", (2.55, 0), (0, 2.3))
     _panel(pitch, "About y: pitch", "forward", "up", ((-0.8, -1.3), "forward → down", "right"), (-2.0, 0), (0, 2.0), 180, 268, "y, out of page", (-2.65, 0), (0, 2.3))
-    _panel(yaw, "About z: yaw", "left", "forward", ((-1.25, 1.4), "forward → left", "right"), (-2.0, 0), (0, 2.0), 90, 178, "z, out of page", (-2.55, 0), (0, 2.3))
+    _panel(yaw, "About z: yaw", "left", "forward", ((-1.25, 1.4), "forward → left", "right"), (-2.0, 0), (0, 2.0), 90, 178, "z, out of page", (-2.55, 0), (0, 2.3), turn=THETA)  # THETA marks yaw only: roll and pitch turns are TEXT
     fig.tight_layout()
     _save(fig, path)
 

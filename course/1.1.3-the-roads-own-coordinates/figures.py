@@ -142,8 +142,8 @@ def _car(ax, pose, colour=TEXT, length=1.0):
 
 
 def _xy_axes(ax):
-    ax.set_xlabel("x (m)")
-    ax.set_ylabel("y (m)")
+    ax.set_xlabel("east (m)")
+    ax.set_ylabel("north (m)")
     _ticks(ax, 4, 4)
 
 
@@ -337,7 +337,7 @@ def segment_hand(path):
     _tag(ax, 5.0, 7.8, "p (5, 7)")
     _dot(ax, *foot, BLUE, 10)
     _pointer(ax, "foot (6.8, 4.6)", foot, (9.3, 3.5))
-    ax.set(xlabel="x (m)", ylabel="y (m)", xticks=np.arange(0, 13, 2), yticks=np.arange(0, 9, 2))
+    ax.set(xlabel="east (m)", ylabel="north (m)", xticks=np.arange(0, 13, 2), yticks=np.arange(0, 9, 2))
     _save(fig, path)
 
 
@@ -355,7 +355,7 @@ def clamp(path):
             _dot(ax, *pt, TEXT, 10)
         _tag(ax, 14.3, 2.9, "q (14, 5)")
         _tag(ax, 8.2, 8.3, "b (10, 7)")
-        ax.set(xlabel="x (m)", ylabel="y (m)")
+        ax.set(xlabel="east (m)", ylabel="north (m)")
         _ticks(ax, 5, 5)
     top.set_title("Without the clamp")
     top.plot(*zip(B, unclamped), color=TEXT, lw=2, ls="--")
@@ -392,7 +392,7 @@ def l_corner(path):
     _tag(ax, 8.0, -1.0, "(8, 0)")
     _tag(ax, 12.0, -3.2, "(12, −2)")
     _tag(ax, 7.2, -2.9, "2.828 m, a tie")
-    ax.set(xlabel="x (m)", ylabel="y (m)")
+    ax.set(xlabel="east (m)", ylabel="north (m)")
     _ticks(ax, 5, 5)
     _save(fig, path)
 
@@ -415,7 +415,7 @@ def d_sideways(path):
     _brace(ax, (-0.9, 0.0), (-0.9, EGO_LANE_CENTER), BLUE)
     _tag(ax, -2.35, -0.9, "d = −1.8 m", color=BLUE)
     _tag(ax, -2.3, -2.7, "sideways", color=BLUE)
-    ax.set(xlabel="x (m)", ylabel="y (m)")
+    ax.set(xlabel="east (m)", ylabel="north (m)")
     _ticks(ax, 5, 4)
     _save(fig, path)
 
@@ -433,7 +433,7 @@ def arc_length_l(path):
     ax.plot(*zip((10.0, 3.0), p), color=BLUE, lw=3)
     _dot(ax, *p, TEXT, 9)
     _tag(ax, 8.6, 4.2, "d = +2", color=BLUE)
-    ax.set(xlabel="x (m)", ylabel="y (m)")
+    ax.set(xlabel="east (m)", ylabel="north (m)")
     _ticks(ax, 5, 5)
     _save(fig, path)
 
@@ -499,7 +499,7 @@ def road_grid(path):
     for s in range(100, 221, 20):  # the rungs, numbered every 20 m of s, outside the white line along the rung
         angle = (s - 100) / GENTLE_RADIUS
         _tag(ax, CENTRE[0] + 88.0 * math.sin(angle), CENTRE[1] - 88.0 * math.cos(angle), str(s))
-    ax.set(xlabel="x (m)", ylabel="y (m)")
+    ax.set(xlabel="east (m)", ylabel="north (m)")
     _ticks(ax, 4, 4)
     _save(fig, path)
 
@@ -590,8 +590,8 @@ def reproduced(path):
     _pointer(top, "peak +0.533 m", (lap.t[k], lap.e[k]), (62, 0.22))
     top.set(xlabel="time (s)", ylabel="e (m)")
     _ticks(top, 5, 5)
-    for v, colour, lw in zip(diffs, (TEXT, CORAL, BLUE, PINK), (8, 6, 4, 2)):
-        bot.plot(lap.t, v, color=colour, lw=lw)
+    for v, colour, lw, ls in zip(diffs, (TEXT, TEXT, BLUE, PINK), (8, 6, 4, 2), ("-", "--", "-", "-")):  # d is not a perception output: TEXT, dashed
+        bot.plot(lap.t, v, color=colour, lw=lw, ls=ls)
     bot.set_yticks([-1e-9, 0.0, 1e-9])
     bot.set_yticklabels([r"$-10^{-9}$", "0", r"$10^{-9}$"])
     _tag(bot, 45, 0.5e-9, "s, d, e and ψ minus the\nsimulator's: all exactly 0")
@@ -739,10 +739,10 @@ def next_lesson(path):
     for x in np.arange(0.6, 4.8, 0.9):
         _dot(ax, x, 2.35, TEXT, 11)
     for x in np.arange(5.4, 9.0, 0.7):
-        _arrow(ax, (x, 2.35), (x + 0.7, 2.35), CORAL, lw=3)
+        _arrow(ax, (x, 2.35), (x + 0.7, 2.35), TEXT, lw=3)
     _tag(ax, 2.5, 3.9, "GPS fixes")
     _tag(ax, 7.3, 4.0, "tunnel")
-    _pointer(ax, "one step as the car\nmeasured it: 0.40 m", (6.1, 2.35), (4.5, 0.55), colour=CORAL)
+    _pointer(ax, "one step as the car\nmeasured it: 0.40 m", (6.1, 2.35), (4.5, 0.55), colour=TEXT)
     _save(fig, path)
 
 
