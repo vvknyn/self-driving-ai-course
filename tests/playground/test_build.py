@@ -113,7 +113,7 @@ def stale_files(committed_dir, committed_names, built):
 def test_one_record_per_graded_exercise_in_syllabus_order(records):
     ids = [r["id"] for r in records]
     assert ids == [exercise_id for exercise_id, _, _ in declared_exercises(REPO, "ready")]  # every ready unit's exercises, none of a planned one's
-    assert sorted(ids) == sorted(EXERCISES) and len(set(ids)) == len(ids)
+    assert set(ids) <= set(EXERCISES) and len(set(ids)) == len(ids)  # each shipped record has a grader; a planned unit's grader has no record
     assert ids[0] == "0.1.1.a"  # the first exercise of the first unit: what the page opens for an id it does not know
     units = list(dict.fromkeys(r["unit_id"] for r in records))
     assert units == [u["id"] for u in syllabus_units(REPO, "ready")]

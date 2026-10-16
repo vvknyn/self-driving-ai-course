@@ -17,9 +17,12 @@ import pytest
 from matplotlib.figure import Figure
 from matplotlib.artist import Artist, ArtistInspector
 from matplotlib.axes._base import _process_plot_format
+from matplotlib.patches import Polygon
+from matplotlib.path import Path as Path_
 
 import figstyle
 from make_figures import make_unit_figures
+from zero2fsd.drawing import draw_frame
 from zero2fsd.palette import CHROME, QUANTITY, shades
 
 REPO = Path(__file__).resolve().parents[2]
@@ -210,7 +213,8 @@ def _data_points(ax):
             yield line.get_xdata(), line.get_ydata()
     for patch in ax.patches:
         if patch.get_transform() is ax.transData:
-            vertices = patch.get_path().transformed(patch.get_patch_transform()).vertices
+            path = patch.get_path().transformed(patch.get_patch_transform())
+            vertices = path.vertices if path.codes is None else path.vertices[~np.isin(path.codes, (Path_.CLOSEPOLY, Path_.STOP))]  # those two codes are placeholders matplotlib never draws
             yield vertices[:, 0], vertices[:, 1]
 
 
@@ -247,6 +251,30 @@ def test_a_seeded_clipped_trace_is_flagged_and_a_zoom_inset_or_an_axhline_is_not
     assert len(problems) == 2 and "y data 0..5 outside 0..2" in problems[0] and "axes 1" in problems[1]
     assert clipped_data(_seeded_figure(inset_gid=ZOOM_INSET)) == problems[:1]
     assert clipped_data(Figure()) == []
+
+
+def _polygon_axes(points, close_at=None):
+    """An axes over 0..2 x 0..2 holding a closed polygon; `close_at` moves its CLOSEPOLY placeholder vertex there."""
+    ax = Figure().subplots()
+    ax.set(xlim=(0, 2), ylim=(0, 2))
+    polygon = Polygon(points, closed=True)
+    if close_at is not None:
+        polygon.get_path().vertices[-1] = close_at
+    ax.add_patch(polygon)
+    return ax.figure
+
+
+def test_a_closepoly_placeholder_outside_the_axes_is_not_data_but_a_real_vertex_outside_is():
+    inside = [(0.5, 0.5), (1.5, 0.5), (1.0, 1.5)]
+    assert clipped_data(_polygon_axes(inside, close_at=(-50.0, -50.0))) == []
+    assert len(clipped_data(_polygon_axes([*inside[:2], (1.0, 5.0)], close_at=(-50.0, -50.0)))) == 1
+
+
+def test_a_frame_drawn_inside_its_axes_is_not_clipped():
+    ax = Figure().subplots()
+    ax.set(xlim=(-1, 4), ylim=(-1, 4))
+    draw_frame(ax, (1.0, 1.0, 0.3), "k", "ego", length_m=1.0)
+    assert clipped_data(ax.figure) == []
 
 
 KNOWN_CLIPPING = {  # unit -> what still clips: other units' figures, listed in the 0.1.1 fix report rather than reshaped here
