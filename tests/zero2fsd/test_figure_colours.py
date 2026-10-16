@@ -306,3 +306,45 @@ def test_render_workers_rejects_a_bad_value_naming_the_variable_and_the_value(mo
     monkeypatch.setenv("ZERO2FSD_FIG_WORKERS", bad)
     with pytest.raises(ValueError, match=f"ZERO2FSD_FIG_WORKERS.*{bad!r}"):
         figstyle.render_workers()
+
+
+ORPHAN_PARENT = """
+import os, sys, time
+sys.path.insert(0, {scripts!r})
+import figstyle
+with figstyle.render_pool() as pool:
+    pids = {{pool.submit(os.getpid).result() for _ in range(8)}}
+    print(*sorted(pids), flush=True)
+    time.sleep(600)
+"""
+
+
+def alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def test_render_pool_workers_exit_after_their_parent_is_killed(monkeypatch):
+    """SIGKILL (a timeout, a killed pytest) cannot run the parent's cleanup, so each worker must notice by itself."""
+    import signal
+    import subprocess
+    import sys
+    import time
+
+    monkeypatch.setenv("ZERO2FSD_FIG_WORKERS", "2")
+    parent = subprocess.Popen([sys.executable, "-c", ORPHAN_PARENT.format(scripts=str(REPO / "scripts"))], stdout=subprocess.PIPE, text=True,
+                              env={**os.environ, "PYTHONPATH": str(REPO)})
+    workers = [int(pid) for pid in parent.stdout.readline().split()]
+    try:
+        assert workers and all(alive(pid) for pid in workers)
+        parent.send_signal(signal.SIGKILL)
+        parent.wait()
+        time.sleep(10)
+        assert [pid for pid in workers if alive(pid)] == []
+    finally:
+        for pid in workers:
+            if alive(pid):
+                os.kill(pid, signal.SIGKILL)

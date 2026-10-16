@@ -3,15 +3,13 @@
 Every figure is 5 inches wide and every text is 14 pt, so a digit is 9 px tall or more when the PNG is shown 330 px wide.
 """
 import math
-import multiprocessing
 import sys
 import types
-from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import numpy as np
 import yaml
-from figstyle import render_workers
+from figstyle import render_pool
 from matplotlib import rc_context
 from matplotlib.colors import LinearSegmentedColormap, LogNorm, to_rgb, to_rgba
 from matplotlib.figure import Figure
@@ -492,7 +490,7 @@ def tuning_cells():
     module = types.ModuleType(__name__)
     module.__dict__.update(globals())
     sys.modules[__name__] = module  # a worker unpickles `_cell` by this module name; this load's copy, not a stale earlier one
-    with ProcessPoolExecutor(render_workers(), mp_context=multiprocessing.get_context("fork")) as pool:
+    with render_pool() as pool:
         return dict(pool.map(_cell, specs))
 
 
