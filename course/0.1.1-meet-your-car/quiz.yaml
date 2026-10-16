@@ -28,7 +28,7 @@
     - "Car X was never more than 0.01 m from lane centre."
     - "Car Y left the lane at some point."
   answer: 1
-  explain: "The signed mean measures bias, which side the car favours on average. It cannot rank quality: car X could swing 0.5 m left and 0.5 m right and still average +0.01 m, as the stiffer car on `curvy` did (signed mean +0.02 m, mean $|e|$ 0.50 m). To compare how far the cars strayed, you need mean $|e|$ or RMS."
+  explain: "The signed mean measures bias, which side the car favours on average. It cannot rank quality: car X could swing 0.5 m left and 0.5 m right and still average +0.01 m, as the 2× car on `curvy` did (signed mean +0.02 m, mean $|e|$ 0.50 m). To compare how far the cars strayed, you need mean $|e|$ or RMS."
   section: the-tempting-shortcut
 - id: q5
   type: mcq
@@ -75,7 +75,7 @@
     - "The numbers must be wrong, because a car that never steers always drifts."
     - "RMS does not work on straight roads."
   answer: 0
-  explain: "A car that starts on the centre line of a straight lane, pointing along it, and never turns stays on the centre line, so every $e$ is 0, the same as a perfect driver. Only bends separate the two: on `gentle` the do-nothing car's run ends at the first bend."
+  explain: "A car that starts on the lane centre of a straight lane, pointing along it, and never turns stays on the lane centre, so every $e$ is 0, the same as a perfect driver. Only bends separate the two: on `gentle` the do-nothing car's run ends at the first bend."
   section: what-does-doing-nothing-score
 - id: q10
   type: mcq
@@ -95,3 +95,14 @@
   tolerance: 0
   explain: "$10 / 0.05 = 200$ gaps between readings. Counting both ends gives one more reading than gaps: 201, like 201 fence posts with 200 gaps."
   section: a-drive-is-a-list-of-numbers
+- id: q12
+  type: mcq
+  prompt: "Two cars drive the same road to the end and both have a plain average error of +0.02 m. What does that tell you about how far off centre they drove?"
+  choices:
+    - "Both stayed within 0.02 m of the lane centre."
+    - "Both were typically 0.02 m from the lane centre."
+    - "They drove equally well, so neither can have been far off centre."
+    - "Nothing: you need mean $|e|$, RMS or max $|e|$ to know."
+  answer: 3
+  explain: "The plain average lets left and right errors cancel, so it only shows which side the car favoured. On `curvy`, the 2× car and the 4× car both average +0.02 m, yet the 2× car is typically 0.50 m from the lane centre and the 4× car 0.09 m."
+  section: the-tempting-shortcut

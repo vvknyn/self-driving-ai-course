@@ -41,7 +41,7 @@ from zero2fsd.score import metrics_table
 # **Before you run it**, double-click the cell below and write your prediction.
 
 # %% [markdown]
-# **My prediction:** the car fails on the ______ road, about ______ m in, drifting to the ______ (left or right).
+# **My prediction:** before it fails on `curvy`, the car's mean |e| will be bigger / smaller than its 0.38 m on `gentle`, and it will cross the ______ line (yellow or white).
 
 # %%
 tel_gentle = run(Car(), "gentle")
@@ -56,13 +56,19 @@ dashboard(tel_curvy)
 
 # %% [markdown]
 # Compare with your prediction. On `curvy` the run ended 48 m in, partway round the first bend, a left-hander.
-# The lateral-error plot shows the error climbing past +0.9 m and on to +1.8 m, so the car left on the **left**,
-# the inside of that bend. The lesson *Closing the loop* finds out why. For now, you will measure it.
+# Over those 48 m its mean |e| was 0.55 m, bigger than 0.38 m. The lateral-error plot shows the error climbing past
+# +0.9 m and on to +1.8 m, so the car crossed the **yellow** line, on the inside of that bend. The lesson *Closing the
+# loop* finds out why. For now, you will measure it.
+#
+# About the table: `completion` is how much of the route the car drove. Ignore `steer rate` and `score` for now. RMS is
+# not in this table: you compute it in Exercise A. The dashboard's third panel compares the perception box's estimate
+# with the truth; it belongs to *Your first perception box*.
 #
 # ## 2. What a drive is made of
 #
 # Everything on the dashboard comes from arrays with one value per step. The lateral error is `tel.lat`
-# (lecture: "Lateral error").
+# (lecture: "Lateral error"). In the next cell, `shape` is how many values the array holds (a one-element tuple such
+# as `(1778,)` means a flat list of 1778 numbers), and `dtype` is the kind of number stored (`float64` means decimals).
 #
 # ![](figures/sign_convention.png)
 #
@@ -78,7 +84,7 @@ print("time between steps (s):", tel_gentle.t[1] - tel_gentle.t[0])
 # %% [markdown]
 # ### Worked example
 #
-# This is the five-number example from "Three honest numbers", one NumPy tool per line.
+# This is the five-number example from "The tempting shortcut", one NumPy tool per line.
 #
 # ![](figures/cancel_numberline.png)
 #
@@ -151,8 +157,7 @@ practice("RMS of drive B", rms_b, 0.4472136)
 #
 # ![](figures/curvy_offlane.png)
 #
-# **Guess first:** a blink, or whole seconds?
-# The loop below counts the steps the slow way. Write one line of NumPy that gives the seconds (lecture: "Counting
+# The lecture answered the guess: whole seconds. The loop below counts the steps the slow way. Write one line of NumPy that gives the seconds (lecture: "Counting
 # steps off the lane" says how many steps make a second).
 
 # %%
@@ -166,21 +171,32 @@ seconds_off = None  # your code: one NumPy line, in seconds
 practice("seconds off the lane on curvy", seconds_off, loop_count / 20)
 
 # %% [markdown]
-# **Problem 3.** For the same offset from centre, this car steers back twice as hard as the provided one. Compute its signed mean and its
-# mean $|e|$ on `curvy`. Then decide: which of the two cars does each number say is better, and which number is telling
-# the truth? (Lecture: "The tempting shortcut".)
+# **Problem 3.** Two more cars drive `curvy`. The 2× car steers back toward the lane centre twice as hard as the
+# provided car when it is off centre, and the 4× car four times as hard. Both finish the road. Compute each car's signed
+# mean and its mean $|e|$. Then decide: which car does the signed mean say is better? Which does mean $|e|$ say?
+# (Lecture: "The tempting shortcut".)
 
 # %%
-tel_stiff = run(Car(controller=lambda est, obs: provided.steer_p(est, 0.7, 2.7)), "curvy")
+car_2x = Car(controller=lambda est, obs: provided.steer_p(est, 0.7, 2.7))
+car_4x = Car(controller=lambda est, obs: provided.steer_p(est, 1.4, 2.7))
+tel_2x = run(car_2x, "curvy")
+tel_4x = run(car_4x, "curvy")
 
-signed_stiff = None  # your code
-mean_abs_stiff = None  # your code
+signed_2x = None  # your code
+mean_abs_2x = None  # your code
+signed_4x = None  # your code
+mean_abs_4x = None  # your code
 
-practice("signed mean, stiffer car on curvy (m)", signed_stiff, 0.0234, tol=0.0005)
-practice("mean |e|, stiffer car on curvy (m)", mean_abs_stiff, 0.5021, tol=0.0005)
+practice("signed mean, 2x car on curvy (m)", signed_2x, 0.0234, tol=0.0005)
+practice("mean |e|, 2x car on curvy (m)", mean_abs_2x, 0.5021, tol=0.0005)
+practice("signed mean, 4x car on curvy (m)", signed_4x, 0.0239, tol=0.0005)
+practice("mean |e|, 4x car on curvy (m)", mean_abs_4x, 0.0866, tol=0.0005)
 
 # %% [markdown]
-# ## What does doing nothing score?
+# The signed mean calls it a tie, +0.02 m each. Mean $|e|$ picks the 4× car, 0.09 m against 0.50 m.
+
+# %% [markdown]
+# ## 4. What does doing nothing score?
 #
 # A number means little until you have something to set it against, so score the laziest car there is: one that never steers.
 #
@@ -197,9 +213,14 @@ print(metrics_table(*runs, labels=["do-nothing, straight", "provided, straight",
 # On `straight` the do-nothing car is as good as a perfect driver: all three numbers are 0.00 m. On `gentle` its run ends
 # 117 m in, at the first bend. That is why one road is never enough, and why the provided car's 0.38 m now has something to
 # be measured against.
+#
+# One more thing in the table. The do-nothing car's mean |e| on `gentle` is only 0.10 m, lower than the provided car's
+# 0.38 m. That is not a better drive. It is an average over the 117 m the car managed, most of it straight road, and its
+# `completion` is only about 17%. A number from an unfinished run cannot be compared with a full lap, so check
+# completion first.
 
 # %% [markdown]
-# ## 4. Graded exercises
+# ## 5. Graded exercises
 #
 # ### Exercise A: `lane_error_stats`
 #
@@ -248,11 +269,10 @@ def steps_off_lane(lat_err, threshold=0.9):
 check("0.1.1.b", steps_off_lane)
 
 # %% [markdown]
-# ## 5. Break it, fix it
+# ## 6. Break it, fix it
 #
-# A teammate wrote this metric to rank cars ("smaller is better"). Run it. It ranks the stiffer car far ahead of the
-# provided one. Before you open the hint: which line is wrong, and why? Then fix it and rerun the cell until the ranking
-# flips.
+# A teammate wrote this metric to rank cars ("smaller is better"). Run it on the 2× and 4× cars from Problem 3. Before
+# you open the hint: which line is wrong, and why? Then fix it and rerun the cell until the two cars get different scores.
 
 # %%
 def lane_keeping_error(lat_err):
@@ -260,17 +280,28 @@ def lane_keeping_error(lat_err):
     return abs(np.mean(lat_err))
 
 
-print(f"provided car on gentle: {lane_keeping_error(tel_gentle.lat):.2f} m")
-print(f"stiffer car on curvy:   {lane_keeping_error(tel_stiff.lat):.2f} m")
+print(f"2x car on curvy: {lane_keeping_error(tel_2x.lat):.2f} m")
+print(f"4x car on curvy: {lane_keeping_error(tel_4x.lat):.2f} m")
 
 # %% [markdown]
 # <details><summary>Hint (open after you have a guess)</summary>
 #
 # `abs(np.mean(lat_err))` averages first and takes the size afterwards, so left errors cancel right errors before the
 # size is taken: that is the signed-mean trap. Take the size of every error first: `np.mean(np.abs(lat_err))`. The
-# provided car then scores 0.38 m and the stiffer car 0.50 m, and the ranking flips.
+# 2× car then scores 0.50 m and the 4× car 0.09 m.
 #
 # </details>
+#
+# Now print both metrics on `gentle` for all three cars:
+
+# %%
+for name, car in (("provided", Car()), ("2x", car_2x), ("4x", car_4x)):
+    lat_gentle = run(car, "gentle").lat
+    print(f"{name:>8} on gentle: signed mean {np.mean(lat_gentle):+.3f} m, mean |e| {np.mean(np.abs(lat_gentle)):.3f} m")
+
+# %% [markdown]
+# On `gentle` the fix changes almost nothing: these cars stay on one side of the lane centre, so nothing cancels. The
+# plain average only fails when a car crosses the lane centre, which is exactly when you most need to know.
 #
 # ## What's next
 #

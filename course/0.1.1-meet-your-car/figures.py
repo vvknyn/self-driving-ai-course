@@ -3,7 +3,6 @@ from collections import Counter
 
 import numpy as np
 from matplotlib.figure import Figure
-from matplotlib.lines import Line2D
 from matplotlib.patches import ConnectionPatch, FancyBboxPatch, PathPatch, Rectangle
 from matplotlib.path import Path
 
@@ -16,11 +15,17 @@ from zero2fsd.sim.camera import PALETTE, YELLOW
 from zero2fsd.sim.scenarios import TARGET_SPEED
 from zero2fsd.sim.world import LANE_WIDTH
 
+ZOOM_X, ZOOM_Y = (85.0, 125.0), (-6.0, 2.0)  # m: the first-bend zoom inset of yardstick
+ZOOM_S = (70.0, 110.0)  # m along `gentle` shown from above in car_and_view
 VIEW_S = 80.0  # m along `gentle`: 20 m before the first bend, so the bend is in view
-STIFF_GAINS = (0.7, 2.7)  # a car whose offset gain is twice the provided one (gains are unit 0.1.4)
+TRAP_CARS = (("2×", 0.7), ("4×", 1.4))  # cars that push back toward the lane centre 2 and 4 times as hard as the provided car (gains are unit 0.1.4)
+ZOOM_INSET = "zoom-inset"  # gid of an axes that deliberately shows only part of its data (the clipping gate skips it)
+PROGRESS_LABEL = "distance along the road (m)"
+AVG_X = 82.0  # m along curvy: where signed_mean_trap points at each average line (a stretch both traces leave clear)
+LABEL_X = 250.0  # m along the road: where report_card names its lines
 ROAD_ROWS = (("straight",), ("gentle", "curvy"))  # test_roads layout, top row first
 FIG_W, MARGIN_L, MARGIN_R, MARGIN_B, MARGIN_T, GAP_X, GAP_Y = 11.0, 0.75, 0.2, 0.65, 0.45, 0.85, 1.0  # inches
-ROAD_PAD, ARROW_LEN = 10.0, 20.0  # metres
+ROAD_PAD, ARROW_LEN, LABEL_RISE = 10.0, 20.0, 7.0  # metres
 HALF = LANE_WIDTH / 2  # m from lane centre to a painted line
 FIVE = np.array([0.1, -0.3, 0.2, -0.4, 0.4])  # the lecture's worked example
 PATCH = 6  # pixels per side of the magnified patch in next_lesson
@@ -83,15 +88,23 @@ def _car_and_view(path):
     road = make_scenario("gentle").road
     tel = run(Car(), "gentle")
     fig = Figure(figsize=(11, 4))
-    cam, top = fig.subplots(1, 2, gridspec_kw={"width_ratios": [1.6, 1]})
+    cam, top = fig.subplots(1, 2, gridspec_kw={"width_ratios": [1.3, 1]})
     cam.imshow(frame)
     cam.set_title(f"What the camera sees, {VIEW_S:.0f} m into 'gentle'")
     cam.set_xlabel("pixel column")
     cam.set_ylabel("pixel row")
-    render_topdown(road, [np.column_stack([tel.x, tel.y])], ["the provided car"], ax=top)
-    top.plot(*road.offset(VIEW_S, -LANE_WIDTH / 2), "o", color=QUANTITY["perception"], label="camera position")
-    top.legend(loc="center")
-    top.set_title("Where the car drove (top-down)")
+    render_topdown(road, ax=top)
+    top.set_gid(ZOOM_INSET)  # the whole loop is drawn, the limits below show 40 m of it
+    near = (tel.progress_m >= ZOOM_S[0]) & (tel.progress_m <= ZOOM_S[1])
+    top.plot(tel.x[near], tel.y[near], color=QUANTITY["e_off"], linewidth=2.5)
+    here = int(np.argmin(np.abs(tel.progress_m - VIEW_S)))
+    top.plot(tel.x[here], tel.y[here], "o", color=TEXT, markersize=9)
+    top.annotate("car at 80 m:\nthe camera's view", xy=(tel.x[here], tel.y[here]), xytext=(tel.x[here] - 4, tel.y[here] + 3.2),
+                 fontsize=11, ha="center", va="bottom", arrowprops={"arrowstyle": "->", "color": TEXT, "lw": 1.5})
+    top.text(ZOOM_S[1] - 1, tel.y[near].min() - 1.2, "path of the car", color=QUANTITY["e_off"], fontsize=11, ha="right", va="top")
+    x0, y0 = road.offset(ZOOM_S[0], 0.0)
+    top.set(xlim=(x0, x0 + ZOOM_S[1] - ZOOM_S[0]), ylim=(-6.0, 7.0))
+    top.set_title(f"From above, {ZOOM_S[0]:.0f} to {ZOOM_S[1]:.0f} m into 'gentle'")
     fig.tight_layout()
     fig.savefig(path, dpi=100)
 
@@ -103,15 +116,19 @@ def _paint_box(road):
     return paint.min(axis=0) - ROAD_PAD, paint.max(axis=0) + ROAD_PAD
 
 
-def _mark_route(ax, scenario):
-    """Start dot and direction-of-travel arrow in the ego lane; an open road also gets an end-of-route square."""
+def _mark_route(ax, scenario, direction_label=None):
+    """Start dot and direction-of-travel arrow in the ego lane, named on the picture; an open road also gets an end-of-route square."""
     road = scenario.road
     x, y, yaw = road.ego_pose(scenario.start_s)
-    ax.plot(x, y, "o", color=QUANTITY["perception"], zorder=3)
+    ax.plot(x, y, "o", color=TEXT, zorder=3)
     ax.annotate("", xy=(x + ARROW_LEN * np.cos(yaw), y + ARROW_LEN * np.sin(yaw)), xytext=(x, y),
-                arrowprops={"arrowstyle": "-|>", "color": QUANTITY["perception"], "lw": 2})
+                arrowprops={"arrowstyle": "-|>", "color": TEXT, "lw": 2})
+    start_text = "start (arrow: direction of travel)" if direction_label else "start"
+    ax.text(x, y + LABEL_RISE, f"{start_text}, and the end of the loop" if road.closed else start_text, ha="left", va="bottom", fontsize=11)
     if not road.closed:
-        ax.plot(*road.ego_pose(scenario.start_s + scenario.route_length)[:2], "s", color=TEXT, zorder=3)
+        ex, ey = road.ego_pose(scenario.start_s + scenario.route_length)[:2]
+        ax.plot(ex, ey, "s", color=TEXT, zorder=3)
+        ax.text(ex, ey + LABEL_RISE, "end of route", ha="right", va="bottom", fontsize=11)
 
 
 def _test_roads(path):
@@ -131,22 +148,18 @@ def _test_roads(path):
             ax = fig.add_axes([x_in / FIG_W, y_in / height, (x1 - x0) / m_per_in / FIG_W, (y1 - y0) / m_per_in / height],
                               xlim=(x0, x1), ylim=(y0, y1))
             render_topdown(scenarios[name].road, ax=ax)
-            _mark_route(ax, scenarios[name])
+            _mark_route(ax, scenarios[name], direction_label=name == "straight")
             ax.set_title(f"'{name}': {scenarios[name].route_length:.1f} m")
             x_in += (x1 - x0) / m_per_in + GAP_X
         y_in += h + GAP_Y
-    key = [Line2D([], [], marker="o", color=QUANTITY["perception"], linestyle="", label="start (arrow: direction of travel)"),
-           Line2D([], [], marker="s", color=TEXT, linestyle="",
-                  label="end of route (a loop ends at its start;\nthe paint of an open road runs on past it)")]
-    fig.legend(handles=key, loc="upper right", bbox_to_anchor=(0.98, 1 - MARGIN_T / height), fontsize=9)
     fig.savefig(path, dpi=100)
 
 
 def _sign_convention(path):
     fig = Figure(figsize=(8, 6.6))
     ax = fig.subplots()
-    _lane_view(ax, (0.0, 9.6), f"yellow centre line\n(left edge of your lane)\ne = +{HALF:.1f} m",
-               f"white edge line\n(right edge of your lane)\ne = {_minus(-HALF)} m")
+    _lane_view(ax, (0.0, 9.6), f"yellow line\n(left edge of your lane)\ne = +{HALF:.1f} m",
+               f"white line\n(right edge of your lane)\ne = {_minus(-HALF)} m")
     ax.text(0.0, 9.0, "lane centre, e = 0", ha="center", va="bottom", fontsize=11)
     for (y, e), color in zip(((3.8, 0.5), (7.6, -0.3)), shades(QUANTITY["e_off"], 2)):
         ax.add_patch(Rectangle((e - 0.8, y - 2.7), 1.6, 2.7, facecolor=color, alpha=0.35, edgecolor=color))  # 2.7 m: the wheelbase
@@ -162,23 +175,22 @@ def _sign_convention(path):
 def _report_card(path):
     tel = run(Car(), "gentle")
     size = np.abs(tel.lat)
-    lines = (  # (value, label, where the label sits on the y axis)
-        (size.mean(), "typically off {:.2f} m (mean |e|)", 0.12),
-        (np.sqrt((tel.lat ** 2).mean()), "big errors count extra {:.2f} m (RMS)", 0.62),
-        (size.max(), "worst moment {:.2f} m (max |e|)", 1.12),
+    lines = (  # (value, label, where the label sits against its line: the three lines are close together)
+        (size.mean(), "mean |e| {:.2f} m", "top"),
+        (np.sqrt((tel.lat ** 2).mean()), "RMS {:.2f} m", "center"),
+        (size.max(), "max |e| {:.2f} m", "bottom"),
     )
-    fig = Figure(figsize=(11, 4.4))
+    fig = Figure(figsize=(11, 6.6))
     ax = fig.subplots()
-    fig.subplots_adjust(left=0.08, right=0.64, bottom=0.14, top=0.94)
-    ax.plot(tel.progress_m, size, color=QUANTITY["e_off"], linewidth=1.2)
-    for (value, text, y_label), color in zip(lines, shades(QUANTITY["e_off"], 3)):
-        ax.axhline(value, color=color, linewidth=2, linestyle=(0, (6, 3)))
-        ax.annotate(text.format(value), xy=(1.0, value), xytext=(1.03, y_label), xycoords=("axes fraction", "data"),
-                    textcoords=("axes fraction", "data"), color=color, fontsize=11, va="center", annotation_clip=False,
-                    arrowprops={"arrowstyle": "-", "color": color, "lw": 1.2, "shrinkA": 0, "shrinkB": 0})
-    ax.axhline(HALF, color=SCENE["yellow"], linewidth=3)
-    ax.text(1.03, HALF, "painted line, 1.8 m", transform=ax.get_yaxis_transform(), color=SCENE["yellow"], fontsize=11, va="center")
-    ax.set(ylim=(0.0, 2.0), xlim=(0.0, tel.progress_m[-1]), xlabel="distance driven (m)", ylabel="distance from lane centre (m)")
+    ax.plot(tel.progress_m, size, color=QUANTITY["e_off"], linewidth=2, zorder=5)
+    for (value, text, va), color in zip(lines, shades(QUANTITY["e_off"], 4)[1:]):
+        ax.axhline(value, color=color, linewidth=1.5, linestyle=(0, (6, 3)), zorder=2)
+        ax.text(LABEL_X, value, text.format(value), color=color, fontsize=11, ha="center", va=va, zorder=3,
+                bbox={"facecolor": PANEL, "linewidth": 0, "pad": 1} if va == "center" else None)
+    ax.axhline(HALF, color=TEXT, linewidth=2, zorder=2)
+    ax.text(LABEL_X, HALF, "painted lines, 1.8 m", color=TEXT, fontsize=11, ha="center", va="bottom")
+    ax.set(ylim=(0.0, 2.0), xlim=(0.0, tel.progress_m[-1]), xlabel=PROGRESS_LABEL, ylabel="distance from lane centre |e| (m)")
+    fig.tight_layout()
     fig.savefig(path, dpi=100)
 
 
@@ -224,7 +236,7 @@ def _gentle_trace(path):
     ax.plot(tel.progress_m, tel.lat, color=QUANTITY["e_off"], linewidth=1.5)
     ax.axhline(0.0, color=TEXT, linestyle=":", linewidth=1)
     ax.text(0.01, 0.0, "lane centre", transform=ax.get_yaxis_transform(), ha="left", va="bottom", fontsize=11)
-    ax.set(xlim=(0.0, tel.progress_m[-1]), ylim=(-0.12, 0.75), xlabel="distance driven (m)", ylabel="lateral error e (m), left of centre is +")
+    ax.set(xlim=(0.0, tel.progress_m[-1]), ylim=(-0.12, 0.75), xlabel=PROGRESS_LABEL, ylabel="lateral error e (m), left of centre is +")
     fig.tight_layout()
     fig.savefig(path, dpi=100)
 
@@ -258,21 +270,18 @@ def _cancel_numberline(path):
 
 
 def _signed_mean_trap(path):
-    runs = [
-        (run(Car(), "gentle"), "provided car on 'gentle'"),
-        (run(Car(controller=lambda est, obs: provided.steer_p(est, *STIFF_GAINS)), "curvy"),
-         f"stiffer car (k_off={STIFF_GAINS[0]}) on 'curvy'"),
-    ]
     fig = Figure(figsize=(11, 4))
-    for ax, (tel, name) in zip(fig.subplots(1, 2, sharey=True), runs):
+    for ax, (name, k_off) in zip(fig.subplots(1, 2, sharey=True), TRAP_CARS):
+        tel = run(Car(controller=lambda est, obs: provided.steer_p(est, k_off, 2.7)), "curvy")
         signed = tel.lat.mean()
-        ax.plot(tel.progress_m, tel.lat, color=QUANTITY["e_off"], linewidth=1)
-        ax.axhline(signed, color=QUANTITY["perception"], linewidth=2)
-        ax.text(0.5, 0.88, f"line = average {_minus(signed, 2)} m", transform=ax.transAxes, color=QUANTITY["perception"],
-                ha="center", va="center", fontsize=12)
-        ax.set_ylim(top=1.0)
-        ax.set(title=name, xlabel="distance along the route (m)")
-    fig.axes[0].set_ylabel("lateral error e (m)")
+        ax.plot(tel.progress_m, tel.lat, color=QUANTITY["e_off"], linewidth=1.5)
+        ax.axhline(0.0, color=TEXT, linestyle=":", linewidth=1)
+        ax.axhline(signed, color=shades(QUANTITY["e_off"], 3)[2], linestyle="--", linewidth=2)
+        shade = shades(QUANTITY["e_off"], 3)[2]
+        ax.annotate(f"average {_minus(signed, 2)} m", xy=(AVG_X, signed), xytext=(AVG_X, 0.86), color=shade, ha="center", va="bottom", fontsize=12,
+                    arrowprops={"arrowstyle": "->", "color": shade, "lw": 1.5, "shrinkA": 2, "shrinkB": 2})
+        ax.set(title=f"{name} car on 'curvy'", xlabel=PROGRESS_LABEL, xlim=(0.0, tel.progress_m[-1]))
+    fig.axes[0].set(ylim=(-1.0, 1.0), ylabel="lateral error e (m), left of centre is +")
     fig.tight_layout()
     fig.savefig(path, dpi=100)
 
@@ -344,7 +353,6 @@ def _drive_a_b(path):
         panels.append(ax)
         x_in += span * scale + 0.4
     a, b = panels
-    shade = shades(QUANTITY["e_off"], 3)
     for k in range(5):  # drive A: five squares of side 0.2
         a.add_patch(Rectangle((0.2 + k * step, 0), 0.2, 0.2, facecolor=QUANTITY["e_off"], edgecolor=TEXT, linewidth=1))
         a.text(0.3 + k * step, 0.24, f"{0.2:.1f}", ha="center", va="bottom", fontsize=11)
@@ -352,11 +360,11 @@ def _drive_a_b(path):
         b.plot(0.2 + k * step + 0.1, 0.0, "o", color=TEXT, markersize=5)
         b.text(0.3 + k * step, 0.04, "0", ha="center", va="bottom", fontsize=11)
     left = 4 * step + 0.2
-    b.add_patch(Rectangle((left, 0), 1.0, 1.0, facecolor=shade[1], alpha=0.6, edgecolor=TEXT, linewidth=1.5))
+    b.add_patch(Rectangle((left, 0), 1.0, 1.0, facecolor=QUANTITY["e_off"], edgecolor=TEXT, linewidth=1))
     for k in range(1, 5):
         b.plot([left + 0.2 * k] * 2, [0, 1.0], color=TEXT, linewidth=0.8, alpha=0.6)
         b.plot([left, left + 1.0], [0.2 * k] * 2, color=TEXT, linewidth=0.8, alpha=0.6)
-    b.text(left + 0.5, 1.04, "side 1.0 m = 25 of A's squares", ha="center", va="bottom", fontsize=11)
+    b.text(left + 1.0, 1.04, "side 1.0 m, area = 25 of A's squares", ha="right", va="bottom", fontsize=11)
     fig.savefig(path, dpi=100)
 
 
@@ -386,17 +394,18 @@ def _curvy_offlane(path):
     ax = fig.subplots()
     _mark_bends(ax, make_scenario("curvy").road)
     ax.plot(s, size, color=QUANTITY["e_off"], linewidth=2)
-    ax.fill_between(s, OFF_LANE_LAT, size, where=off, step="mid", facecolor=QUANTITY["perception"], alpha=0.6, linewidth=0)
+    ax.fill_between(s, OFF_LANE_LAT, size, where=off, step="mid", facecolor=shades(QUANTITY["e_off"], 3)[2], alpha=0.6, linewidth=0)
     ax.axhline(OFF_LANE_LAT, color=TEXT, linestyle="--", linewidth=1.5)
     ax.text(0.01, OFF_LANE_LAT, "off-lane limit, 0.9 m", transform=ax.get_yaxis_transform(), ha="left", va="bottom", fontsize=11)
     ax.axhline(HALF, color=SCENE["yellow"], linewidth=3)
-    ax.text(0.01, HALF, "painted line, 1.8 m", transform=ax.get_yaxis_transform(), color=SCENE["yellow"], ha="left", va="bottom", fontsize=11)
+    ax.text(0.01, HALF, "yellow line, 1.8 m", transform=ax.get_yaxis_transform(), color=SCENE["yellow"], ha="left", va="bottom", fontsize=11)
     ax.annotate(f"{off.sum()} steps = {off.sum() * (tel.t[1] - tel.t[0]):.1f} s", xy=(s[off].mean(), 1.2), xytext=(s[off].mean() - 18, 1.45),
-                color=QUANTITY["perception"], fontsize=13, ha="center", arrowprops={"arrowstyle": "->", "color": QUANTITY["perception"], "lw": 1.5})
+                color=shades(QUANTITY["e_off"], 3)[2], fontsize=13, ha="center",
+                arrowprops={"arrowstyle": "->", "color": shades(QUANTITY["e_off"], 3)[2], "lw": 1.5})
     ax.plot(s[-1], size[-1], "X", color=TEXT, markersize=12)
     ax.annotate("run ends", xy=(s[-1], size[-1]), xytext=(s[-1] + 3, 1.05), fontsize=12, va="center",
                 arrowprops={"arrowstyle": "->", "color": TEXT, "lw": 1.5})
-    ax.set(xlim=(0.0, 64.0), ylim=(0.0, 2.1), xlabel="distance driven (m)", ylabel="distance from lane centre |e| (m)")
+    ax.set(xlim=(0.0, 64.0), ylim=(0.0, 2.1), xlabel=PROGRESS_LABEL, ylabel="distance from lane centre |e| (m)")
     fig.tight_layout()
     fig.savefig(path, dpi=100)
 
@@ -407,6 +416,18 @@ class _DoNothing:
     @staticmethod
     def act(est, obs):
         return Action(0.0, provided.hold_speed(obs.speed))
+
+
+def _zoom_on_bend(ax, road, provided_run, nothing_run):
+    """An inset over the first bend, where the do-nothing path leaves the blue one: the grey path is drawn on top there."""
+    inset = ax.inset_axes([0.27, 0.55, 0.46, 0.22], gid=ZOOM_INSET)
+    render_topdown(road, ax=inset)
+    for tel_run, color, width in ((provided_run, QUANTITY["e_off"], 3), (nothing_run, TEXT, 3)):
+        inset.plot(tel_run.x, tel_run.y, color=color, linewidth=width)
+    inset.plot(nothing_run.x[-1], nothing_run.y[-1], "X", color=TEXT, markersize=12)
+    inset.set(xlim=ZOOM_X, ylim=ZOOM_Y, xlabel="", ylabel="")
+    inset.tick_params(labelsize=9)
+    ax.indicate_inset_zoom(inset, edgecolor=TEXT)
 
 
 def _yardstick(path):
@@ -426,12 +447,13 @@ def _yardstick(path):
         ax.set(xlim=(x0, x1), ylim=(y0, y1))
         ax.set_xlabel("")
         if name == "gentle":
-            ax.plot(nothing_run.x[-1], nothing_run.y[-1], "X", color=QUANTITY["perception"], markersize=16, zorder=4)
+            ax.plot(nothing_run.x[-1], nothing_run.y[-1], "X", color=TEXT, markersize=16, zorder=4)
             ax.annotate("do-nothing car: run ends", xy=(nothing_run.x[-1], nothing_run.y[-1]), xytext=(20, 25), fontsize=12,
                         color=grey, ha="left", va="bottom", arrowprops={"arrowstyle": "->", "color": grey, "lw": 1.5})
             ax.annotate("provided car", xy=(provided_run.x[len(provided_run.x) // 3], provided_run.y[len(provided_run.x) // 3]),
                         xytext=(40, 60), fontsize=12, color=QUANTITY["e_off"], ha="center",
                         arrowprops={"arrowstyle": "->", "color": QUANTITY["e_off"], "lw": 1.5})
+            _zoom_on_bend(ax, sc.road, provided_run, nothing_run)
     fig.savefig(path, dpi=100)
 
 
@@ -470,7 +492,7 @@ def _array_ops(path):
 
 def _next_lesson(path):
     frame = _camera_frame()
-    yellow = np.all(frame == PALETTE[YELLOW], axis=-1)  # the paint colour of the centre line
+    yellow = np.all(frame == PALETTE[YELLOW], axis=-1)  # the paint colour of the yellow line
     best = None
     for r in range(110, frame.shape[0] - PATCH):  # a patch low in the picture where the line is wide and has an edge
         for c in range(frame.shape[1] - PATCH):
@@ -484,7 +506,7 @@ def _next_lesson(path):
     zoom = fig.add_axes([0.62, 0.1, 0.36, 0.8])
     cam.imshow(frame)
     cam.set_title("The camera picture (320 by 180 pixels)")
-    cam.add_patch(Rectangle((c - 0.5, r - 0.5), PATCH, PATCH, fill=False, edgecolor=QUANTITY["perception"], linewidth=2))
+    cam.add_patch(Rectangle((c - 0.5, r - 0.5), PATCH, PATCH, fill=False, edgecolor=TEXT, linewidth=2))
     zoom.imshow(patch, interpolation="nearest")
     zoom.set_title(f"The patch magnified: {PATCH} by {PATCH} pixels")
     zoom.set_xticks(np.arange(-0.5, PATCH, 1), minor=True)
@@ -493,10 +515,10 @@ def _next_lesson(path):
     zoom.set(xticks=[], yticks=[])
     zoom.tick_params(which="minor", length=0)
     for spine in zoom.spines.values():
-        spine.set(edgecolor=QUANTITY["perception"], linewidth=2)
+        spine.set(edgecolor=TEXT, linewidth=2)
     for corner_cam, corner_zoom in (((c + PATCH - 0.5, r - 0.5), (0, 1)), ((c + PATCH - 0.5, r + PATCH - 0.5), (0, 0))):
         fig.add_artist(ConnectionPatch(xyA=corner_cam, coordsA=cam.transData, xyB=corner_zoom, coordsB=zoom.transAxes,
-                                       color=QUANTITY["perception"], linewidth=1.5))
+                                       color=TEXT, linewidth=1.5))
     flat = [(i, j) for i in range(PATCH) for j in range(PATCH)]
     on_yellow = [p for p in flat if yellow[r + p[0], c + p[1]]]
     off_yellow = [p for p in flat if not yellow[r + p[0], c + p[1]]]
