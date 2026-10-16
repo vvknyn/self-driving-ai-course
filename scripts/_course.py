@@ -48,6 +48,17 @@ def syllabus_units(root: Path, status: str | None = None) -> list[dict]:
     return [u for u in units if status is None or u["status"] == status]
 
 
+def declared_exercises(root: Path, status: str | None = None) -> list[tuple[str, str, str]]:
+    """(exercise id, unit id, the name the lab asks the learner to define) from the unit.yaml of every listed unit that has one
+    (only those with `status`, if given), in syllabus order."""
+    declared = []
+    for unit in syllabus_units(root, status):
+        meta = root / "course" / unit["folder"] / "unit.yaml"
+        if meta.is_file():
+            declared += [(e["id"], unit["id"], e["name"]) for e in load_yaml(meta)["exercises"]]
+    return declared
+
+
 def load_solution(root: Path, unit_id: str):
     """The reference solution module of a unit, loaded from its file (labs never import it)."""
     path = root / "solutions" / "course" / unit_id / "solution.py"

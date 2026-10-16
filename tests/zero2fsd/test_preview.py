@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 import zero2fsd.preview as preview
+from _course import REPO, declared_exercises, load_solution
 from zero2fsd.car import Car, run
 from zero2fsd.car.provided import K_HEAD, K_OFF, estimate_lane, paint_masks, steer_p
 from zero2fsd.grade._report import EXERCISES, Failure
@@ -36,15 +37,10 @@ def ids_of(kind):
     return [i for i, p in sorted(PREVIEWS.items()) if p.kind == kind]
 
 
-def good_lane_error_stats(lat):
-    return {"mean_abs": float(np.abs(lat).mean()), "max_abs": float(np.abs(lat).max()), "rms": float(np.sqrt(np.mean(lat**2)))}
-
-
-def good_steps_off_lane(lat, threshold=0.9):
-    return int(np.count_nonzero(np.abs(lat) > threshold))
-
-
-STATS_ANSWER = {"0.1.1.a": good_lane_error_stats, "0.1.1.b": good_steps_off_lane}
+def reference_answer(exercise_id):
+    """What the unit's reference solution defines for this exercise: the learner's right answer."""
+    _, unit, name = next(d for d in declared_exercises(REPO) if d[0] == exercise_id)
+    return getattr(load_solution(REPO, unit), name)
 
 
 # --- the registry -------------------------------------------------------------------------------------------------
@@ -122,15 +118,15 @@ def canned():
 @pytest.mark.parametrize("road", ["straight", STATS_ROAD])
 @pytest.mark.parametrize("exercise_id", ids_of("stats"))
 def test_a_stats_preview_returns_labelled_floats(exercise_id, road):
-    values = get(exercise_id).build(STATS_ANSWER[exercise_id], run(Car(), road, max_steps=STEPS))
+    values = get(exercise_id).build(reference_answer(exercise_id), run(Car(), road, max_steps=STEPS))
     assert values and all(isinstance(k, str) and type(v) is float for k, v in values.items())
 
 
 def test_the_stats_previews_agree_with_the_score_module_on_the_canned_drive(canned):
     ref = metrics(canned)
-    stats = get("0.1.1.a").build(good_lane_error_stats, canned)
+    stats = get("0.1.1.a").build(reference_answer("0.1.1.a"), canned)
     assert stats["mean_abs"] == pytest.approx(ref["mean_abs_lat"]) and stats["max_abs"] == pytest.approx(ref["max_abs_lat"])
-    assert get("0.1.1.b").build(good_steps_off_lane, canned) == {"steps_off_lane": float(ref["steps_off_lane"])}
+    assert get("0.1.1.b").build(reference_answer("0.1.1.b"), canned) == {"steps_off_lane": float(ref["steps_off_lane"])}
     assert ref["steps_off_lane"] > 0  # the canned drive has something to count: on `gentle` this lab line would read 0
 
 

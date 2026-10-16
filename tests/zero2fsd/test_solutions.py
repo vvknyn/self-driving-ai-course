@@ -1,6 +1,6 @@
 import pytest
 
-from _course import REPO, load_solution
+from _course import REPO, declared_exercises, load_solution
 from zero2fsd.car import run
 from zero2fsd.grade import check
 from zero2fsd.grade._drive import GATE_MEAN_LAT
@@ -8,33 +8,27 @@ from zero2fsd.grade._report import EXERCISES
 from zero2fsd.score import driving_score, metrics
 from zero2fsd.sim.scenarios import make_scenario
 
-# exercise id -> (unit, the name the lab asks the learner to define)
-SOLVED = {
-    "0.1.1.a": ("0.1.1", "lane_error_stats"),
-    "0.1.1.b": ("0.1.1", "steps_off_lane"),
-    "0.1.2.a": ("0.1.2", "paint_masks"),
-    "0.1.3.a": ("0.1.3", "estimate_lane"),
-    "0.1.3.b": ("0.1.3", "estimate_lane"),
-    "0.1.4.a": ("0.1.4", "p_steer"),
-    "0.1.4.b": ("0.1.4", "my_car"),
-}
+DECLARED = declared_exercises(REPO)  # (exercise id, unit id, the name the lab asks the learner to define), from every unit.yaml
 
 
-def test_every_registered_exercise_has_a_reference_solution():
-    assert sorted(SOLVED) == sorted(EXERCISES)
+def test_every_registered_exercise_is_declared_by_a_unit_yaml_and_the_other_way_round():
+    assert sorted(EXERCISES) == sorted(exercise_id for exercise_id, _, _ in DECLARED)
 
 
-@pytest.mark.parametrize("exercise_id", sorted(SOLVED))
-def test_the_reference_solution_passes_its_exercise(exercise_id):
-    unit, name = SOLVED[exercise_id]
-    result = check(exercise_id, getattr(load_solution(REPO, unit), name), show=False)
+@pytest.mark.parametrize(("exercise_id", "unit", "name"), DECLARED)
+def test_the_reference_solution_exports_the_exercise_name_and_passes_its_exercise(exercise_id, unit, name):
+    path = REPO / "solutions" / "course" / unit / "solution.py"
+    assert path.is_file(), f"{unit} declares {exercise_id} but has no reference solution at {path.relative_to(REPO)}"
+    module = load_solution(REPO, unit)
+    assert hasattr(module, name), f"{path.relative_to(REPO)} does not define {name}, the name {exercise_id} asks for"
+    result = check(exercise_id, getattr(module, name), show=False)
     assert result.passed, "\n".join(result.details)
 
 
-@pytest.mark.parametrize("unit", sorted({u for u, _ in SOLVED.values()}))
+@pytest.mark.parametrize("unit", sorted({unit for _, unit, _ in DECLARED}))
 def test_a_solution_exports_exactly_what_its_lab_asks_for_and_owns_it(unit):
     module = load_solution(REPO, unit)
-    assert sorted(module.__all__) == sorted({name for u, name in SOLVED.values() if u == unit})
+    assert sorted(module.__all__) == sorted({name for _, u, name in DECLARED if u == unit})
     source = (REPO / "solutions" / "course" / unit / "solution.py").read_text()
     assert "provided" not in source, "a reference solution must not lean on the provided car"
 

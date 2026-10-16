@@ -11,7 +11,7 @@ import zipfile
 import pytest
 
 import build_playground as bp
-from _course import REPO, load_yaml, syllabus_units, unit_slug
+from _course import REPO, declared_exercises, load_yaml, syllabus_units, unit_slug
 from build_course_bundle import build_bundle
 from zero2fsd.export import roads_dict
 from zero2fsd.grade._report import EXERCISES
@@ -55,6 +55,15 @@ def rewrite(root, rel, old, new):
 def link_in_lecture(root, folder, link):
     path = root / "course" / folder / "lecture.md"
     path.write_text(path.read_text(encoding="utf-8") + f"\n\n{link}\n", encoding="utf-8")
+
+
+def add_planned_unit(root, exercise="0.1.2.a"):
+    """A folder for the fixture's planned unit 0.1.2: a unit.yaml declaring one exercise and a lecture, nothing else."""
+    folder = root / "course" / "0.1.2-not-written"
+    folder.mkdir()
+    (folder / "unit.yaml").write_text(f'id: "0.1.2"\ntitle: Not written\ncar_box: instruments\nexercises:\n  - {{id: "{exercise}", name: later}}\n')
+    (folder / "lecture.md").write_text("# Not written\n")
+    return folder
 
 
 def starter_of(records, exercise_id):
@@ -103,6 +112,7 @@ def stale_files(committed_dir, committed_names, built):
 
 def test_one_record_per_graded_exercise_in_syllabus_order(records):
     ids = [r["id"] for r in records]
+    assert ids == [exercise_id for exercise_id, _, _ in declared_exercises(REPO, "ready")]  # every ready unit's exercises, none of a planned one's
     assert sorted(ids) == sorted(EXERCISES) and len(set(ids)) == len(ids)
     assert ids[0] == "0.1.1.a"  # the first exercise of the first unit: what the page opens for an id it does not know
     units = list(dict.fromkeys(r["unit_id"] for r in records))
@@ -220,6 +230,11 @@ def test_an_exercise_without_a_tagged_lab_cell_fails_naming_it(mini_repo):
     rewrite(mini_repo, "course/0.1.1-mini/lab.py", 'tags=["exercise:0.1.1.b"]', 'tags=["exercise:0.1.1.x"]')
     with pytest.raises(bp.BuildError, match="0.1.1.b"):
         bp.exercise_records(mini_repo)
+
+
+def test_a_planned_units_exercises_are_not_records_even_when_its_folder_exists(mini_repo):
+    add_planned_unit(mini_repo)
+    assert [r["id"] for r in bp.exercise_records(mini_repo)] == ["0.1.1.a", "0.1.1.b"]
 
 
 # --- validate_lecture_links ----------------------------------------------------------------------------------
