@@ -172,7 +172,7 @@ def box_result(path):
     fig, (img, top) = _panels([(IMG_X, IMG_Y, None), ((-0.6, 9.0), (-3.2, 3.6), None)], gap=0.95)
     _show(img, frame)
     _bands(img)
-    _tag(img, 160, 62, "far band", ha="center")
+    _tag(img, 8, 105, "far band", ha="left")
     _tag(img, 160, 152, "near band")
     for rows in (NEAR_ROWS, FAR_ROWS):
         for mask in masks:
@@ -351,7 +351,7 @@ def ray_side_view(path):
     _line(ax, [0, 12.5], [top, top], color=TEXT, lw=2, ls="--")
     _line(ax, [0, 12.5], [top, top - STRETCH * 12.5 * math.tan(pitch)], color=DIM, lw=2.5, ls=":")
     ax.text(12.4, top + 0.25, f"row {HORIZON:.1f}: horizon", ha="right", va="bottom")
-    ax.text(3.2, 3.75, "axis, 5\u00b0 down", ha="left", va="center")
+    ax.text(7.0, top - STRETCH * 7.0 * math.tan(pitch) + 0.15, "axis, 5\u00b0 down", ha="left", va="bottom")
     ax.annotate("", xy=(-0.7, 0), xytext=(-0.7, top), arrowprops={"arrowstyle": "<->", "color": TEXT, "lw": 2})
     ax.text(-0.9, top / 2, f"{h} m", ha="right", va="center")
     _dot(ax, 0, top, TEXT, 13)
@@ -382,11 +382,11 @@ def row_150_ray(path):
     _line(ax, [d, d], [0, h], color=TEXT, lw=1.5)
     ax.text(3.55, h, "level", va="center")
     ax.text(3.55, h - 3.5 * math.tan(pitch), "axis", va="center")
-    _arc(ax, (0, h), 1.6, -pitch, 0, color=TEXT, lw=3)
-    _arc(ax, (0, h), 1.6, -theta, -pitch, color=TEXT, lw=3)
-    _arc(ax, (0, h), 2.2, -theta, 0, color=DIM, lw=2.5)
-    _pointer(ax, f"{pitch:.4f} rad", (1.6 * math.cos(pitch / 2), h - 1.6 * math.sin(pitch / 2)), (0.4, 2.05), va="center")
-    _pointer(ax, f"{alpha:.4f} rad", (1.6 * math.cos(pitch + alpha / 2), h - 1.6 * math.sin(pitch + alpha / 2)), (1.7, 0.78), va="center", ha="left")
+    _arc(ax, (0, h), 1.2, -pitch, 0, color=TEXT, lw=3)
+    _arc(ax, (0, h), 1.8, -theta, -pitch, color=TEXT, lw=3)
+    _arc(ax, (0, h), 2.4, -theta, 0, color=DIM, lw=2.5)
+    _pointer(ax, f"{pitch:.4f} rad", (1.2 * math.cos(pitch / 2), h - 1.2 * math.sin(pitch / 2)), (0.4, 2.05), va="center")
+    _pointer(ax, f"{alpha:.4f} rad", (1.8 * math.cos(pitch + alpha / 2), h - 1.8 * math.sin(pitch + alpha / 2)), (2.0, 1.85), va="center", ha="left")
     _pointer(ax, f"\u03b8 = {theta:.4f} rad", (2.2 * math.cos(theta), h - 2.2 * math.sin(theta)), (-0.4, 0.45), va="center")
     ax.annotate("", xy=(d + 0.1, h), xytext=(d + 0.1, 0), arrowprops={"arrowstyle": "<->", "color": TEXT, "lw": 2})
     ax.text(d + 0.2, h / 2, f"{h} m", va="center")
@@ -418,7 +418,7 @@ def rows_to_distance(path):
     ax.set_yticks([0, 10, 20, 30, 40, 50])
     for row in (179, 150, 125, 100, 95, 80):
         _dot(ax, row, _row_distance(row), TEXT, 12)
-    labels = {179: (180.5, 19, "right"), 150: (150, 19, "center"), 125: (125, 19, "center"), 100: (104, 13.5, "left"), 95: (99, 27, "left"), 80: (82, 49.5, "left")}
+    labels = {179: (180.5, 19, "right"), 150: (150, 29, "center"), 125: (125, 19, "center"), 100: (104, 13.5, "left"), 95: (99, 27, "left"), 80: (82, 49.5, "left")}
     for row, (x, y, ha) in labels.items():
         text = f"row {row}\n{_row_distance(row):.2f} m"
         if row == 80:
@@ -439,7 +439,7 @@ def column_width(path):
     ratio = widths[0] / widths[-1]
     assert [round(w * 100, 1) for w in widths] == [31.2, 7.2, 5.7, 2.8, 1.9, 1.4] and round(ratio) == 23
     assert [round(x, 1) for x in lane] == [11.5, 49.9, 62.8, 126.8, 190.8, 265.1]
-    fig, (top, bot) = _panels([((0, 40), (5.6, -0.6), 3.3), ((0, 330), (5.6, -0.6), 3.3)], left=1.35, right=0.3, gap=1.0, top=0.55, bottom=0.2)
+    fig, (top, bot) = _panels([((0, 44), (5.6, -0.6), 3.3), ((0, 330), (5.6, -0.6), 3.3)], left=1.35, right=0.3, gap=1.0, top=0.55, bottom=0.2)
     shown = ([f"{w * 100:.1f} cm" for w in widths], [f"{x:.1f}" if x < 20 else f"{x:.0f}" for x in lane])
     for ax, values, labels, title in zip((top, bot), (widths * 100, lane), shown, ("road one column covers", "columns across the 3.6 m lane")):
         ax.barh(range(len(COLUMN_ROWS)), values, color=DIM, edgecolor=TEXT, height=0.62)
@@ -448,7 +448,7 @@ def column_width(path):
         ax.set_title(title)
         for k, (v, label) in enumerate(zip(values, labels)):
             ax.text(v + ax.get_xlim()[1] * 0.012, k, label, va="center", ha="left")
-    top.text(0.8, 0, f"{round(ratio)}\u00d7 row 179", va="center", ha="left")
+    top.text(0.8, 0, f"{round(ratio)}\u00d7 row 179", va="center", ha="left", color=BACKGROUND)
     _save(fig, path)
 
 
@@ -470,7 +470,7 @@ def ground_footprint(path):
         f, l = CAMERA.pixel_to_ground(cols, np.full(cols.shape, float(row)))
         _line(ax, f, l, color=TEXT, lw=2.5)
         ax.text(f[0] - 0.1, -7.1, f"{f[0]:.2f} m", rotation=90, ha="right", va="bottom")
-    for row, text_xy, arrow_xy in ((179, (2.7, 4.3), None), (150, (2.5, -3.8), None), (95, (9.0, 2.6), None)):
+    for row, text_xy, arrow_xy in ((179, (3.2, 6.3), None), (150, (8.4, 3.0), None), (95, (9.6, -2.8), None)):
         f, l = CAMERA.pixel_to_ground(np.array([150.0, 170.0]), np.full(2, float(row)))
         _line(ax, f, l, color=TEXT, lw=7)
         _pointer(ax, f"20 columns: {abs(l[0] - l[1]):.2f} m", (f.mean(), l.mean() + (0.3 if row == 150 else -0.3 if row == 179 else 0.5)), text_xy, va="center", ha="center", bbox=LABEL_BOX)
@@ -490,7 +490,7 @@ def bands(path):
     _show(ax, frame)
     _bands(ax)
     _tag(ax, 8, 150, "near band, rows 125-179", ha="left")
-    _tag(ax, 8, 50, "far band, rows 95-115", ha="left")
+    _tag(ax, 8, 105, "far band, rows 95-115", ha="left")
     for row, text in ((174, "2.06 m"), (133, "4.44 m"), (106, "5.59 m"), (86, "11.45 m")):
         _tag(ax, 312, row, text, ha="right")
     assert [round(_row_distance(r), 2) for r in (179, 125, 115, 95)] == [2.06, 4.44, 5.59, 11.45]
@@ -686,7 +686,7 @@ def blind_frame(path):
     _show(ax, frame)
     _bands(ax)
     _tag(ax, 160, 150, f"near band: {counts[0][0]} yellow, {counts[0][1]} white")
-    _tag(ax, 160, 45, f"far band: {counts[1][0]} yellow, {counts[1][1]} white")
+    _tag(ax, 8, 105, f"far band: {counts[1][0]} yellow, {counts[1][1]} white", ha="left")
     _save(fig, path)
 
 
@@ -744,7 +744,7 @@ def chord_bias(path):
     _pointer(ax, "2.73 m", (xs[0], ys[0] + 0.12), (1.6, 1.0), va="center", ha="center")
     _pointer(ax, "7.36 m", (xs[1] - 0.05, ys[1] - 0.15), (6.2, 0.1), va="center", ha="center")
     _pointer(ax, "0.48 m to the right", (0.0, c0 / 2), (1.1, -1.35), COAL, va="center")
-    _pointer(ax, "0.23 rad", (3.55, c0 + 3.6 * math.sin(math.atan(slope) / 2) * 0.9), (5.0, -1.0), COAL, va="center")
+    _pointer(ax, "0.23 rad", (3.55, c0 + 3.6 * math.sin(math.atan(slope) / 2) * 0.9), (5.3, -1.0), COAL, va="center")
     _save(fig, path)
 
 
@@ -777,7 +777,7 @@ def gentle_trace(path):
     road = make_scenario("gentle").road
     bend = _bend_class(tel, road) == 1
     x = tel.progress_m
-    fig, (ax,) = _panels([((0, x.max()), (-0.75, 0.75), 4.0)], left=1.3, bottom=1.0)
+    fig, (ax,) = _panels([((0, x.max()), (-0.75, 0.95), 4.0)], left=1.3, bottom=1.0)
     edges = np.flatnonzero(np.diff(np.r_[0, bend.astype(int), 0]))
     for a, b in zip(edges[::2], edges[1::2]):
         ax.axvspan(x[a], x[b - 1], color=TEXT, alpha=0.16, lw=0)
@@ -788,8 +788,9 @@ def gentle_trace(path):
     ax.set_yticks([-0.5, 0, 0.5])
     first = np.flatnonzero(bend)[0]
     ax.text(x[first] + 10, -0.3, "bend", va="center")
-    ax.text(10, -0.58, "true e", color=BLUE, va="center")
-    ax.text(150, -0.58, "box's offset", color=COAL, va="center")
+    mid = x[edges[0]:edges[1]].mean()  # inside the first bend, clear of both traces
+    ax.text(mid, 0.82, "box's offset \u2193", color=COAL, va="center", ha="center")
+    ax.text(mid, 0.40, "true e \u2191", color=BLUE, va="center", ha="center")
     _save(fig, path)
 
 
@@ -811,9 +812,9 @@ def like_for_like(path):
     ax.text(values[0] + 0.02, 1.0, f"two-band box {values[0]:.3f} m", va="center")
     ax.text(values[1] + 0.02, 2.0, f"perfect box {values[1]:.3f} m", va="center")
     ax.text(0.01, 3.4, "curvy", va="center")
-    ax.barh(4.4, 0.4, fc=CLEAR, ec=COAL, hatch="xx", lw=2, height=0.8)
+    ax.barh(4.4, 1.3, fc=CLEAR, ec=COAL, hatch="xx", lw=2, height=0.8)
     ax.barh(5.4, values[2], color=DIM, edgecolor=TEXT, height=0.8)
-    ax.text(0.42, 4.4, f"left the lane at\n{curvy.progress_m[-1]:.1f} of {curvy.route_length:.1f} m", va="center", color=COAL)
+    _tag(ax, 0.65, 4.4, f"left the lane at {curvy.progress_m[-1]:.1f} of {curvy.route_length:.1f} m", color=COAL)
     ax.text(values[2] + 0.02, 5.4, f"perfect box {values[2]:.3f} m", va="center")
     _save(fig, path)
 
@@ -905,7 +906,7 @@ def far_band_choices(path):
     _show(ax, frame)
     ax.axhspan(NEAR_ROWS[0] - 0.5, NEAR_ROWS[1] - 0.5, color=TEXT, alpha=0.22)
     choices = []
-    for metres, where in ((7.19, (240, 150)), (11.45, (233, 20)), (20.0, (75, 55))):
+    for metres, where in ((7.19, (240, 160)), (11.45, (78, 126)), (20.0, (72, 56))):
         u, v = CAMERA.ground_to_pixel(metres, 0.0)
         width = _metres_per_column(float(v))
         choices.append((metres, float(v), width))

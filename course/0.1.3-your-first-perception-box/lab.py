@@ -27,6 +27,7 @@ from zero2fsd.car.provided import FAR_ROWS, MIN_PIXELS, NEAR_ROWS, lane_point
 from zero2fsd.dashboard import dashboard
 from zero2fsd.grade import check, practice
 from zero2fsd.sim import BicycleState, Camera, make_scenario
+from zero2fsd.palette import CHROME
 from zero2fsd.sim.scenarios import TARGET_SPEED
 
 # %% [markdown]
@@ -47,8 +48,8 @@ from zero2fsd.car.provided import paint_masks
 # ![](figures/offset_heading.png)
 #
 # The next cell puts the car on the `straight` road, 20 m along, 0.4 m left of lane centre and turned 0.05 rad left: the
-# worked example of the lecture. The near band (coral dashes) and the far band (dark dashes) are the two strips of rows
-# the box will look at.
+# worked example of the lecture. The near band and the far band, each between a pair of grey dashes, are the two strips
+# of rows the box will look at.
 
 # %%
 road = make_scenario("straight").road
@@ -59,17 +60,17 @@ obs = Observation(frame, TARGET_SPEED, 0.0)
 
 plt.figure(figsize=(8, 4.5))
 plt.imshow(frame)
-for rows, colour in ((NEAR_ROWS, "tab:orange"), (FAR_ROWS, "black")):
+for rows in (NEAR_ROWS, FAR_ROWS):
     for row in (rows[0], rows[1] - 1):
-        plt.axhline(row, color=colour, ls="--", lw=1.5)
-plt.title("the worked-example frame: near band (coral) and far band (dark)")
+        plt.axhline(row, color=CHROME["text"], ls="--", lw=1.5)
+plt.title("the worked-example frame: near and far band (grey dashes)")
 plt.show()
 
 # %% [markdown]
 # ## 1. Predict: how far does the paint move?
 #
 # Slide the car 0.5 m to the left. In the image, the white line (on the car's right) moves further right. In row 150
-# the ground is 2.91 m ahead; in row 100 it is 9.09 m ahead (lecture: "Pixels are not metres").
+# the ground is 2.91 m ahead; row 100 is further up the picture (lecture: "Pixels are not metres").
 #
 # **Guess first:** in row 150 the white line moves about ______ columns, and in row 100 about ______ columns, because
 # ______.
@@ -131,7 +132,7 @@ rows = np.arange(179, 79, -1)
 distance = np.array([camera.pixel_to_ground(camera.cx, row)[0] for row in rows])
 print(f"row 100 sees {distance[rows == 100][0]:.2f} m ahead: {distance[rows == 100][0] / distance[rows == 150][0]:.2f} times row 150")
 plt.figure(figsize=(8, 3.5))
-plt.plot(rows, distance, color="tab:orange", lw=2.5)
+plt.plot(rows, distance, color=CHROME["border"], lw=2.5)
 plt.xlabel("image row")
 plt.ylabel("distance ahead (m)")
 plt.gca().invert_xaxis()
@@ -171,14 +172,14 @@ metres_per_column = None  # your code
 practice("metres per column in row 125", metres_per_column, 0.02839, tol=0.00001)
 
 # %% [markdown]
-# The shortcut d / f gives 0.0278 m; the exact width is 0.02839 m, a little more because the ground is seen at a slant
+# The shortcut d / f gives 0.0277 m; the exact width is 0.02839 m, a little more because the ground is seen at a slant
 # (lecture: "Metres per pixel").
 #
 # ![](figures/column_width.png)
 #
 # ![](figures/ground_footprint.png)
 #
-# **Problem 3.** Step 2 of the algorithm in "From paint to ground points", for one line: where on the ground is the
+# **Problem 3.** Step 2 of the algorithm in "From masks to a lane estimate", for one line: where on the ground is the
 # centroid of the yellow paint in the near band of the worked-example `frame`? Give `(forward, left)`. Mind that
 # `mask[125:180]` numbers its rows from 0 again.
 #
@@ -344,7 +345,7 @@ except NotImplementedError:
 # %% [markdown]
 # On the straight road your box is almost exact. In the bends it is wrong every time, and wrong the same way: on the
 # left bends of `gentle` it says the car is 0.129 m left of centre and pointing 0.0645 rad to the right, though the car
-# is centred and aligned. The lecture's formula predicts 0.119 m and 0.0604 rad. On `curvy` the errors are four times
+# is centred and aligned. The lecture's formula predicts 0.119 m and 0.0604 rad. On `curvy` the errors are four to five times
 # bigger and flip sign with the bend: +0.504 m and -0.248 rad on its left bends, -0.650 m and +0.308 rad on its right
 # ones. A straight line cannot follow a curve. That is a limit of the model, not a bug in your code, and it is why the
 # grader only samples straight stretches.
@@ -358,7 +359,7 @@ except NotImplementedError:
 # The lecture's last section shows what this bias does to the car (lecture: "Swap your perception into the car"). On
 # `gentle` the car with the two-band box rides about 0.5 m off the lane centre in every bend (mean 0.376 m over the lap);
 # with a perfect box and the same controller it is 0.113 m. On `curvy` the two-band box leaves the lane 48.3 m into the
-# 218.5 m route, while the perfect box completes it at 0.348 m: the failure belongs to the perception box.
+# 218.5 m route, while the perfect box completes it at 0.348 m: the chord bias, not the controller alone.
 #
 # ![](figures/gentle_trace.png)
 #
@@ -415,8 +416,8 @@ tel2 = run(Car(perception=estimate_lane_flipped_heading), "gentle")
 print("completed:", tel2.completed, f" ended after {tel2.t[-1]:.2f} s and {tel2.progress_m[-1]:.1f} m")
 
 # %% [markdown]
-# The car is off the road sooner, at 2.70 s and 21.1 m: the heading term is the stronger correction, so flipping it is
-# the more violent mistake.
+# The car is off the road sooner, at 2.70 s and 21.1 m: the heading term is the stronger correction (its gain is 2.7 against 0.35 for the offset; you open it in
+# *Closing the loop*), so flipping it is the more violent mistake.
 #
 # You now have a perception box of your own, between the camera and a controller that is still the provided one.
 #
@@ -452,7 +453,7 @@ except NotImplementedError:
 
 # %% [markdown]
 # The lecture's second challenge, choosing where the far point sits, has the picture below: a point further out is
-# less sensitive to the paint's position but sees a longer stretch of lane.
+# less sensitive to the paint's position but adds more chord bias on a bend.
 #
 # ![](figures/far_band_choices.png)
 #

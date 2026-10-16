@@ -18,7 +18,7 @@
   back: "`LaneEstimate(math.nan, math.nan, False)`: fewer than `MIN_PIXELS` = 3 pixels of either line in either band. Never `0.0, 0.0`: that claims the car is centred and aligned."
 - id: c7
   front: "Why is a two-point straight-line lane estimate wrong on a bend, even with the car perfectly placed?"
-  back: "The line through two points on a curve is a chord: offset $\\approx d_1 d_2 / (2R)$, heading $\\approx -\\arctan\\frac{d_1 + d_2}{2R}$. On `gentle` ($R = 81.8$ m) that is 0.119 m and -0.0604 rad by formula, 0.129 m and -0.0645 rad measured, the same every frame. A bias, not noise."
+  back: "The line through two points on a curve is a chord: offset $\\approx d_1 d_2 / (2R)$, heading $\\approx -\\arctan\\frac{d_1 + d_2}{2R}$. On `gentle` ($R = 81.8$ m), with the real average distances 2.790 m and 7.350 m, the formula gives 0.125 m and -0.0619 rad; the box measures 0.129 m and -0.0645 rad, nearly the same in every frame. A bias, not noise."
 - id: c8
   front: "What does a flipped sign in the offset do to the car?"
   back: "Positive feedback: the controller steers away from the centre, so the error grows 1.8 to 1.9 times every half second from 2 s on, and the car crosses the white line at 5.00 s, 39.9 m along the first straight."
