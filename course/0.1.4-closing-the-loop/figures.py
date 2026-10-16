@@ -477,7 +477,7 @@ def tuning_cells():
     specs = [(s, a, b) for s in ("gentle", "curvy") for a in K_OFFS for b in K_HEADS]
     module = types.ModuleType(__name__)
     module.__dict__.update(globals())
-    sys.modules.setdefault(__name__, module)  # a worker unpickles `_cell` by this module name
+    sys.modules[__name__] = module  # a worker unpickles `_cell` by this module name; this load's copy, not a stale earlier one
     with ProcessPoolExecutor(os.cpu_count(), mp_context=multiprocessing.get_context("fork")) as pool:
         return dict(pool.map(_cell, specs))
 
