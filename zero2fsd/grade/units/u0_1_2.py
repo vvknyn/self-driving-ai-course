@@ -1,12 +1,14 @@
 """0.1.2 Images are arrays: finding paint pixels."""
 from __future__ import annotations
 
+import operator
+
 import numpy as np
 
 from ...sim import Camera
 from ...sim.camera import WHITE, YELLOW
 from .._poses import sample_poses
-from .._report import Failure, call, exercise, vs_limit
+from .._report import Failure, Threshold, call, exercise, vs_limit
 
 LESSON = ("0.1.2", "Images are arrays")  # (unit id, title): grade/__init__ files it in LESSON_TITLES
 NOISE_SIGMA, IOU_MIN, N_FRAMES = 6.0, 0.85, 6
@@ -40,6 +42,9 @@ def paint_trials(fn):
         for name, mask, paint in zip(("yellow", "white"), masks, (YELLOW, WHITE)):
             truth = labels == paint
             yield given, name, mask, truth, _iou(mask, truth)
+
+
+THRESHOLDS = {"paint IoU": Threshold(IOU_MIN, operator.ge, LESSON[0], lambda solution: min(iou for *_, iou in paint_trials(solution.paint_masks)))}
 
 
 def _iou_text(iou: float) -> str:

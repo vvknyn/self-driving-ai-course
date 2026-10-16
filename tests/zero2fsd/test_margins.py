@@ -8,7 +8,7 @@ The other checks compare the learner's function with a reference computed in the
 so the computer cannot split them and they need no margin.
 """
 import dataclasses
-import operator
+import importlib
 import re
 from pathlib import Path
 
@@ -18,56 +18,39 @@ import pytest
 import zero2fsd.grade
 
 from _course import REPO, load_solution
-from zero2fsd.car import Car, LaneEstimate, provided, run
+from zero2fsd.car import Car, LaneEstimate, provided
 from zero2fsd.grade import _drive, check
-from zero2fsd.grade._drive import GATE_MEAN_LAT, GATE_SCENARIO
 from zero2fsd.grade._report import BORDERLINE_FRACTION, BORDERLINE_NOTE, borderline, margin, vs_limit
-from zero2fsd.grade.units import u0_1_2, u0_1_3
-from zero2fsd.grade.units.u0_1_2 import IOU_MIN, paint_trials
-from zero2fsd.grade.units.u0_1_3 import MIN_HIT_RATE, N_POSES, pose_trials
-from zero2fsd.score import metrics
 
 MARGIN = 0.05  # the reference solution clears every threshold by at least this fraction of the threshold
 
 
-def gate_mean_lat():
-    tel = run(load_solution(REPO, "0.1.4").my_car, GATE_SCENARIO)
-    assert tel.completed
-    return metrics(tel)["mean_abs_lat"]
+def graders_calling_vs_limit():
+    """The grade-package modules (the unit modules and the shared drive gate) that print a margin."""
+    package = Path(zero2fsd.grade.__file__).resolve().parent
+    return [path for path in sorted(package.rglob("*.py")) if path.name != "_report.py" and re.search(r"\bvs_limit\(", path.read_text())]
 
 
-def hit_rate():
-    return sum(hit for *_, hit in pose_trials(load_solution(REPO, "0.1.3").estimate_lane)) / N_POSES
+def grader_module(path):
+    return importlib.import_module(".".join(("zero2fsd", "grade", *path.relative_to(Path(zero2fsd.grade.__file__).resolve().parent).with_suffix("").parts)))
 
 
-def lowest_iou():
-    return min(iou for *_, iou in paint_trials(load_solution(REPO, "0.1.2").paint_masks))
-
-
-# check -> (measure on the reference solution, the grader module that prints its margin, its threshold, the side that passes)
-THRESHOLDED = {
-    "drive gate: mean |lat|": (gate_mean_lat, _drive, GATE_MEAN_LAT, operator.lt),
-    "perception hit rate": (hit_rate, u0_1_3, MIN_HIT_RATE, operator.ge),
-    "paint IoU": (lowest_iou, u0_1_2, IOU_MIN, operator.ge),
-}
+# "module: label" -> its Threshold, from the module-level THRESHOLDS of each grader that calls vs_limit
+THRESHOLDED = {f"{path.stem}: {label}": threshold
+               for path in graders_calling_vs_limit() for label, threshold in getattr(grader_module(path), "THRESHOLDS", {}).items()}
 
 
 @pytest.mark.parametrize("name", THRESHOLDED)
 def test_the_reference_solution_clears_every_thresholded_check_by_the_margin(name):
-    measure, _, threshold, passes = THRESHOLDED[name]
-    value = measure()
-    assert passes(value, threshold), f"{name}: {value} against {threshold}"
-    assert margin(value, threshold) >= MARGIN, f"{name}: {value} is only {margin(value, threshold):.1%} from {threshold}"
+    threshold = THRESHOLDED[name]
+    value = threshold.measure(load_solution(REPO, threshold.unit))
+    assert threshold.passes(value, threshold.limit), f"{name}: {value} against {threshold.limit}"
+    assert margin(value, threshold.limit) >= MARGIN, f"{name}: {value} is only {margin(value, threshold.limit):.1%} from {threshold.limit}"
 
 
-def test_every_grader_that_prints_a_margin_is_in_the_table():
-    """A new thresholded check must land in THRESHOLDED too: every `vs_limit(` caller in the grade package is one row."""
-    package = Path(zero2fsd.grade.__file__).resolve().parent
-    printers = {
-        path for path in package.rglob("*.py")
-        if path.name != "_report.py" and re.search(r"\bvs_limit\(", path.read_text())
-    }
-    assert printers == {Path(module.__file__).resolve() for _, module, _, _ in THRESHOLDED.values()}
+def test_every_grader_that_prints_a_margin_declares_its_thresholds():
+    undeclared = [path.relative_to(REPO).as_posix() for path in graders_calling_vs_limit() if not getattr(grader_module(path), "THRESHOLDS", None)]
+    assert not undeclared, "these call vs_limit but declare no module-level THRESHOLDS = {label: Threshold(limit, passes, unit, measure)}: " + ", ".join(undeclared)
 
 
 # --- the sentence and the printed margin ---------------------------------------------------------------------------

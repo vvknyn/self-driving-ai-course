@@ -2,15 +2,17 @@
 from __future__ import annotations
 
 import io
+import operator
 
 from ..car import Car, Telemetry, run
 from ..car.runner import StepHook
 from ..dashboard import dashboard
 from ..score import driving_score, metrics, metrics_table
 from ..sim import Camera
-from ._report import REPORT, Failure, learner_code, vs_limit
+from ._report import REPORT, Failure, Threshold, learner_code, vs_limit
 
 GATE_SCENARIO, GATE_MEAN_LAT = "gentle", 0.5  # the car must complete the scenario with mean |lat| below this (m)
+THRESHOLDS = {"drive gate: mean |lat|": Threshold(GATE_MEAN_LAT, operator.lt, "0.1.4", lambda solution: metrics(run(solution.my_car, GATE_SCENARIO))["mean_abs_lat"])}
 
 
 def show_figure(fig) -> None:

@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from numbers import Real
-from typing import Any, Callable
+from typing import Any, Callable, NamedTuple
 
 import numpy as np
 
@@ -80,6 +80,16 @@ def vs_limit(value: float, limit: float, unit: str = "", decisive: bool = True) 
     text = f"(limit {limit:g}{' ' + unit if unit else ''}, margin {shown} %)"
     note = borderline(value, limit) if decisive else None
     return f"{text}. {note}" if note else text
+
+
+class Threshold(NamedTuple):
+    """A verdict that compares a simulation-derived number with a limit.  A grader module that calls `vs_limit` declares
+    one per such verdict in its module-level `THRESHOLDS = {label: Threshold(...)}`; tests/zero2fsd/test_margins.py
+    checks that the reference solution of `unit` clears each `limit` by a margin."""
+    limit: float
+    passes: Callable[[float, float], bool]  # operator.lt or operator.ge: the side of `limit` that passes
+    unit: str  # whose reference solution is measured
+    measure: Callable[[Any], float]  # the number a reference solution module (for `unit`) scores
 
 
 @contextmanager
