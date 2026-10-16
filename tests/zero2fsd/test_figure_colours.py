@@ -181,3 +181,12 @@ def test_every_quantity_hue_and_every_shade_reads_on_the_figure_surfaces(surface
 
 def test_text_reads_on_the_panel_at_the_body_text_ratio():
     assert unreadable({"text": CHROME["text"]}, CHROME["panel"], ratio=4.5) == {}
+
+
+# --- G2 on the real tree ---
+
+
+@pytest.mark.parametrize("source", SCANNED, ids=[f"{p.parent.name}/{p.name}" for p in SCANNED])
+def test_no_figure_module_holds_a_string_colour_literal(source):
+    """Colours come from zero2fsd.palette (QUANTITY, SCENE, CHROME, shades); the style comes from scripts/figstyle.py."""
+    assert colour_literals(source.read_text(encoding="utf-8")) == [], f"{source.relative_to(REPO)} holds colour literals (line, text)"
