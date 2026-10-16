@@ -99,7 +99,18 @@ def call(fn, *args, given: str, **kwargs):
         return fn(*args, **kwargs)
 
 
-LESSON_TITLES = {"0.1.1": "Meet your car", "0.1.2": "Images are arrays", "0.1.3": "Your first perception box", "0.1.4": "Closing the loop"}  # = each unit.yaml title (a test keeps them equal)
+LESSON_TITLES: dict[str, str] = {}  # unit id -> title, filled by grade/__init__ from each unit module's LESSON (a test keeps them equal to unit.yaml)
+
+
+def lesson_titles(unit_modules) -> dict[str, str]:
+    """{unit id: title} from each module's `LESSON = (id, title)`; two modules claiming one id is a bug."""
+    titles: dict[str, str] = {}
+    for module in unit_modules:
+        unit_id, title = module.LESSON
+        if unit_id in titles:
+            raise ValueError(f"duplicate lesson id {unit_id!r}")
+        titles[unit_id] = title
+    return titles
 
 
 def exercise_label(exercise_id: str) -> str:
@@ -122,12 +133,12 @@ def exercise(exercise_id: str, *, checked: str, section: str):
     """Register a checker `(target, show, on_step) -> str` (what passed); it raises `Failure` for the first problem.
 
     Reports name the exercise by `exercise_label`, never the dotted id; `section` is the lecture section the hint points to."""
-    label = exercise_label(exercise_id)
-    hint = f'lecture "{LESSON_TITLES[exercise_id.rpartition(".")[0]]}", section "{section}"'
 
     def register(checker):
         @functools.wraps(checker)
         def graded(target, show, on_step):
+            label = exercise_label(exercise_id)  # looked up per call: the unit's LESSON is filed only after its module has imported
+            hint = f'lecture "{LESSON_TITLES[exercise_id.rpartition(".")[0]]}", section "{section}"'
             try:
                 message = checker(target, show, on_step)
             except Failure as failure:

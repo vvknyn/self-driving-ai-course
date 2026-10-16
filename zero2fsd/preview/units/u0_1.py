@@ -1,13 +1,13 @@
-"""One preview per graded exercise (grade/units/u0_1_*.py): the learner's code, run for a look instead of a verdict."""
+"""One preview per graded exercise of module 0.1 (grade/units/u0_1_*.py): the learner's code, run for a look instead of a verdict."""
 from __future__ import annotations
 
 from collections.abc import Mapping
 from numbers import Real
 
-from ..car import Car, provided
-from ..grade._drive import GATE_SCENARIO, require_car
-from ..grade.units.u0_1_2 import as_masks
-from . import register
+from ...car import Car, provided
+from ...grade._drive import GATE_SCENARIO, require_car
+from ...grade.units.u0_1_2 import as_masks
+from .. import register
 
 STATS_ROAD = "curvy"  # the lab's own stats drive: `gentle` never leaves the lane, so a count of off-lane steps would be 0
 _BARE = object()  # the label of a bare number: unlike None, no dict key can be it

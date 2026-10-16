@@ -14,7 +14,7 @@ from zero2fsd.car import Car, run
 from zero2fsd.car.provided import K_HEAD, K_OFF, estimate_lane, paint_masks, steer_p
 from zero2fsd.grade._report import EXERCISES, Failure
 from zero2fsd.preview import PREVIEWS, Kind, get, register
-from zero2fsd.preview.units import OVERLAY, STATS_ROAD
+from zero2fsd.preview.units.u0_1 import OVERLAY, STATS_ROAD
 from zero2fsd.score import metrics
 from zero2fsd.sim import BicycleState, Camera, make_scenario
 from zero2fsd.sim.scenarios import SCENARIOS

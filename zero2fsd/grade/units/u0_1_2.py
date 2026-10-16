@@ -8,6 +8,7 @@ from ...sim.camera import WHITE, YELLOW
 from .._poses import sample_poses
 from .._report import Failure, call, exercise, vs_limit
 
+LESSON = ("0.1.2", "Images are arrays")  # (unit id, title): grade/__init__ files it in LESSON_TITLES
 NOISE_SIGMA, IOU_MIN, N_FRAMES = 6.0, 0.85, 6
 
 

@@ -10,6 +10,7 @@ from .._drive import GATE_MEAN_LAT, GATE_SCENARIO, gate, require_own
 from .._poses import sample_poses
 from .._report import Failure, call, exercise, learner_code, vs_limit
 
+LESSON = ("0.1.3", "Your first perception box")  # (unit id, title): grade/__init__ files it in LESSON_TITLES
 N_POSES, MIN_HIT_RATE, OFFSET_TOL, HEADING_TOL = 40, 0.9, 0.25, 0.05
 
 

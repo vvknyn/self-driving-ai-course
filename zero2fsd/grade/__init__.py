@@ -8,10 +8,10 @@ import numpy as np
 
 from ..car.runner import StepHook
 from . import units
-from ._report import EXERCISES, REPORT, Result, fmt
+from ._report import EXERCISES, LESSON_TITLES, REPORT, Result, fmt, lesson_titles
 
-for _unit in pkgutil.iter_modules(units.__path__):  # importing a unit registers its exercises
-    importlib.import_module(f"{units.__name__}.{_unit.name}")
+# importing a unit registers its exercises; its LESSON files the unit's title for the reports
+LESSON_TITLES.update(lesson_titles(importlib.import_module(f"{units.__name__}.{unit.name}") for unit in pkgutil.iter_modules(units.__path__)))
 
 GREEN, RED, RESET = "\033[32m", "\033[31m", "\033[0m"
 

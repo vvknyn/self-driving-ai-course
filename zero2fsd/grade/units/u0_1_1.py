@@ -9,6 +9,7 @@ import numpy as np
 
 from .._report import Failure, call, exercise, fmt, is_real
 
+LESSON = ("0.1.1", "Meet your car")  # (unit id, title): grade/__init__ files it in LESSON_TITLES
 TOL = 1e-9
 
 

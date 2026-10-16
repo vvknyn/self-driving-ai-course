@@ -23,7 +23,7 @@ from zero2fsd.grade._report import Failure, exercise_label
 from zero2fsd.grade.units.u0_1_2 import NOISE_SIGMA
 from zero2fsd.palette import SCENE
 from zero2fsd.preview import get
-from zero2fsd.preview.units import OVERLAY
+from zero2fsd.preview.units.u0_1 import OVERLAY
 from zero2fsd.score import metrics
 from zero2fsd.sim import BicycleState, Camera, make_scenario
 

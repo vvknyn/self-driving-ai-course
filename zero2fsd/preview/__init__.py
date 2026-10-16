@@ -7,6 +7,8 @@ It mirrors `grade.EXERCISES`, one entry per exercise id.  `Preview.kind` says wh
 """
 from __future__ import annotations
 
+import importlib
+import pkgutil
 from dataclasses import dataclass
 from typing import Any, Callable, Literal
 
@@ -41,4 +43,7 @@ def get(exercise_id: str) -> Preview:
     return PREVIEWS[exercise_id]
 
 
-from . import units  # noqa: E402,F401  (importing it registers every exercise's preview)
+from . import units  # noqa: E402
+
+for _unit in pkgutil.iter_modules(units.__path__):  # importing a unit registers its previews
+    importlib.import_module(f"{units.__name__}.{_unit.name}")

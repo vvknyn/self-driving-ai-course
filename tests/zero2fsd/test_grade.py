@@ -1,6 +1,7 @@
 import dataclasses
 import math
 import re
+import types
 from pathlib import Path
 
 import numpy as np
@@ -13,10 +14,10 @@ from zero2fsd.car.runner import COLUMNS
 from zero2fsd.grade import _drive, check
 from zero2fsd.grade._drive import GATE_SCENARIO
 from zero2fsd.grade._poses import LOOKAHEAD, sample_poses
-from zero2fsd.grade._report import EXERCISES, LESSON_TITLES, NOT_IMPLEMENTED, REPORT, exercise_label
+from zero2fsd.grade._report import EXERCISES, LESSON_TITLES, NOT_IMPLEMENTED, REPORT, exercise_label, lesson_titles
 from zero2fsd.sim.dynamics import MAX_STEER
 
-IDS = ["0.1.1.a", "0.1.1.b", "0.1.2.a", "0.1.3.a", "0.1.3.b", "0.1.4.a", "0.1.4.b"]
+IDS = [e["id"] for p in sorted(Path("course").glob("*/unit.yaml")) for e in yaml.safe_load(p.read_text())["exercises"]]  # every unit.yaml, so a new unit adds no line here
 
 
 def as_target(exercise_id, fn):
@@ -33,6 +34,13 @@ def text(result):
 def test_lesson_titles_are_the_unit_yaml_titles():
     units = {y["id"]: y["title"] for y in (yaml.safe_load(p.read_text()) for p in Path("course").glob("*/unit.yaml"))}
     assert LESSON_TITLES == {unit: units[unit] for unit in LESSON_TITLES}
+
+
+def test_two_unit_modules_claiming_one_lesson_id_raise():
+    unit = lambda *lesson: types.SimpleNamespace(LESSON=lesson)  # noqa: E731
+    assert lesson_titles([unit("9.9.1", "One"), unit("9.9.2", "Two")]) == {"9.9.1": "One", "9.9.2": "Two"}
+    with pytest.raises(ValueError, match="duplicate lesson id '9.9.1'"):
+        lesson_titles([unit("9.9.1", "One"), unit("9.9.1", "Again")])
 
 
 @pytest.mark.parametrize("exercise_id, label", [
@@ -265,7 +273,7 @@ def telemetry_that(make_tel, *, completed, mean_lat, off_road=False):
 )
 def test_the_gate_decides_on_completion_and_mean_lateral_error(monkeypatch, make_tel, completed, mean_lat, off_road, verdict):
     tel = telemetry_that(make_tel, completed=completed, mean_lat=mean_lat, off_road=off_road)
-    monkeypatch.setattr(_drive, "run", lambda car, scenario, on_step=None: tel)
+    monkeypatch.setattr(_drive, "run", lambda car, scenario, on_step=None, camera=None: tel)
     if verdict == "pass":
         assert "completed gentle" in _drive.gate(Car(), show=False)
     else:
@@ -275,7 +283,7 @@ def test_the_gate_decides_on_completion_and_mean_lateral_error(monkeypatch, make
 
 
 def test_show_draws_the_dashboard_once_per_run_only_when_asked(monkeypatch, make_tel):
-    monkeypatch.setattr(_drive, "run", lambda car, scenario, on_step=None: telemetry_that(make_tel, completed=True, mean_lat=0.1))
+    monkeypatch.setattr(_drive, "run", lambda car, scenario, on_step=None, camera=None: telemetry_that(make_tel, completed=True, mean_lat=0.1))
     shown = []
     monkeypatch.setattr(_drive, "show_figure", shown.append)
     _drive.gate(Car(), show=False)
