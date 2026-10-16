@@ -47,15 +47,16 @@ class Telemetry:
 
 
 def run(car: Car, scenario, max_steps: int | None = None, seed: int = 0, noise_sigma: float = 0.0,
-        on_step: StepHook | None = None) -> Telemetry:
+        on_step: StepHook | None = None, camera: Camera | None = None) -> Telemetry:
     """Run until the route is complete, the car is off the road, or `max_steps` (default 3x the ideal).
 
     Exceptions raised inside the car's boxes (or in `on_step`) propagate.  `scenario` is a Scenario or its name.
+    `camera` is the one the car sees through (default `Camera()`).
     `on_step(row)` is called with each step's record (a tuple in `COLUMNS` order) as soon as it is appended, so a
     caller can stream the telemetry; it sees exactly the values the returned `Telemetry` will hold.
     """
     sc = make_scenario(scenario) if isinstance(scenario, str) else scenario
-    road, camera = sc.road, Camera()
+    road, camera = sc.road, Camera() if camera is None else camera
     if max_steps is None:
         max_steps = math.ceil(MAX_STEP_FACTOR * sc.route_length / (TARGET_SPEED * DT))
     state = BicycleState(*road.ego_pose(sc.start_s), sc.target_speed, 0.0)

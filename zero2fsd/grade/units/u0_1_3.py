@@ -1,6 +1,8 @@
 """0.1.3 Your first perception box: a lane estimate from paint."""
 from __future__ import annotations
 
+import operator
+
 import numpy as np
 
 from ...car import Car, LaneEstimate, Observation
@@ -8,8 +10,9 @@ from ...sim import Camera
 from ...sim.scenarios import TARGET_SPEED
 from .._drive import GATE_MEAN_LAT, GATE_SCENARIO, gate, require_own
 from .._poses import sample_poses
-from .._report import Failure, call, exercise, learner_code, vs_limit
+from .._report import Failure, Threshold, call, exercise, learner_code, vs_limit
 
+LESSON = ("0.1.3", "Your first perception box")  # (unit id, title): grade/__init__ files it in LESSON_TITLES
 N_POSES, MIN_HIT_RATE, OFFSET_TOL, HEADING_TOL = 40, 0.9, 0.25, 0.05
 
 
@@ -23,6 +26,10 @@ def pose_trials(fn):
             raise Failure(f"returned {type(est).__name__}, expected a LaneEstimate", given=given, got=est)
         yield pose, given, est, bool(est.valid and abs(est.offset_m - pose.offset) < OFFSET_TOL
                                      and abs(est.heading_rad - pose.heading) < HEADING_TOL)
+
+
+THRESHOLDS = {"perception hit rate": Threshold(MIN_HIT_RATE, operator.ge, LESSON[0],
+                                               lambda solution: sum(hit for *_, hit in pose_trials(solution.estimate_lane)) / N_POSES)}
 
 
 def _hit_rate_text(hits: int) -> str:

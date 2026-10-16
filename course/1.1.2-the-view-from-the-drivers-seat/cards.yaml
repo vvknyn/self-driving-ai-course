@@ -1,0 +1,27 @@
+- id: c1
+  front: Ego frame
+  back: 'The car''s own frame: the origin is at the front axle, x points forward and y points left. The camera draws from it.'
+- id: c2
+  front: What is a frame change?
+  back: 'The same point''s coordinates in another frame. World to ego is $R(\theta)^{\mathsf T}(\mathbf{p} - \mathbf{t})$. The scene''s lane-centre point (156.018, 20.391) is at (10.189, 0.453): 10.189 m ahead and 0.453 m to the left.'
+- id: c3
+  front: What is a matrix-vector product?
+  back: Dot each row of the matrix with the vector and stack the answers. Equivalently, scale the columns by the vector's numbers and add them.
+- id: c4
+  front: What does $R(\theta)$ look like?
+  back: '[[cos θ, −sin θ], [sin θ, cos θ]]. Its columns are the heading arrow and the left arrow, and it turns every arrow by θ anticlockwise.'
+- id: c5
+  front: Why does the transpose undo a rotation?
+  back: $R(\theta)^{\mathsf T}R(\theta) = I$, within $2.2\times10^{-16}$ over 40 yaws. So `ego_to_world` is $R(\theta)\mathbf{q} + \mathbf{t}$, and the round trip is exact to $1.4\times10^{-13}$ m.
+- id: c6
+  front: How do you move many points at once?
+  back: Store them as rows and write `(P - t) @ rot`. It moves an (N, 2) array, or the camera's (146, 4, 2) quads, in one call.
+- id: c7
+  front: What is the shape trap?
+  back: '`rot @ rows` raises a ValueError for 5 points and is silently wrong for 2. Rows go before the matrix.'
+- id: c8
+  front: Why does a test at yaw 0 prove nothing?
+  back: '$R(0) = I$, so the swap and no rotation both pass. The swap also passes at π. Test π/2, −3π/4 and many random poses: at 40 random poses the swap is off by up to 704 m.'
+- id: c9
+  front: What does the swap do to the car?
+  back: It flips the sign of the heading the perception box reads (median ratio −0.994), so the provided car leaves `straight` after 2.95 s, though the swap changes 0.0% of the picture at the start line.

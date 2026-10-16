@@ -10,6 +10,7 @@ from ...sim.dynamics import MAX_STEER
 from .._drive import GATE_MEAN_LAT, GATE_SCENARIO, drive, gate, outcome, require_car, require_own
 from .._report import Failure, call, exercise, fmt, is_real
 
+LESSON = ("0.1.4", "Closing the loop")  # (unit id, title): grade/__init__ files it in LESSON_TITLES
 TOL = 1e-9
 
 

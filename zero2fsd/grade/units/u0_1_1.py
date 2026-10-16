@@ -9,6 +9,7 @@ import numpy as np
 
 from .._report import Failure, call, exercise, fmt, is_real
 
+LESSON = ("0.1.1", "Meet your car")  # (unit id, title): grade/__init__ files it in LESSON_TITLES
 TOL = 1e-9
 
 
@@ -32,7 +33,7 @@ def _lane_error_stats(fn, show, on_step):
     arrays.append(np.array([-0.4]))  # one negative sample: |e|, not e
     for lat in arrays:
         want, given = _loop_stats(lat.tolist()), f"lat_err = {fmt(lat)}"
-        got = call(fn, lat.copy(), given=given)
+        got = call(fn, lat, given=given)
         if not isinstance(got, Mapping):
             raise Failure(f"returned {type(got).__name__}, expected a dict", given=given, expected=f"keys {sorted(want)}", got=got)
         for key, value in want.items():
@@ -55,7 +56,7 @@ def _steps_off_lane(fn, show, on_step):
         want = sum(1 for e in lat.tolist() if abs(e) > limit)
         kwargs = {} if threshold is None else {"threshold": threshold}
         given = f"lat_err = {fmt(lat)}" + ("" if threshold is None else f", threshold={threshold}")
-        got = call(fn, lat.copy(), given=given, **kwargs)
+        got = call(fn, lat, given=given, **kwargs)
         if not isinstance(got, Integral) or isinstance(got, bool):
             raise Failure(f"returned {type(got).__name__}, expected an integer count", given=given, expected=want, got=got)
         if got != want:

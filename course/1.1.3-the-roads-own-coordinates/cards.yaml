@@ -1,0 +1,27 @@
+- id: c1
+  front: The road frame $(s, d)$
+  back: $s$ is the arc length along the yellow line. $d$ is the signed sideways distance from it, left positive. It is not the forward distances $d_1, d_2$ of the perception box.
+- id: c2
+  front: Projecting a point onto a segment
+  back: $t = \text{clamp}((p - a) \cdot \hat u,\ 0,\ |b - a|)$, foot $= a + t\hat u$, and $d$ is the distance to the foot with the sign of the left part $\hat u \times (p - a)$.
+- id: c3
+  front: Which segment does a point belong to?
+  back: 'The one with the nearest foot: an argmin over all segments. For the point $(8, 3)$ at the L-corner the two distances are 3.0 and 2.0, so the second segment wins.'
+- id: c4
+  front: Arc length $s$
+  back: '$s_0$ of the nearest segment plus $t$. At step 400: $158.983 + 0.0279 = 159.011$ m.'
+- id: c5
+  front: Lateral error from $d$
+  back: $e = d + 1.8$. The white line, lane centre and yellow line sit at $d = -3.6, -1.8, 0$, which is $e = -1.8, 0, +1.8$.
+- id: c6
+  front: Heading ψ
+  back: $\psi = \text{wrap}(\theta - \theta_{road})$. Without the wrap it is a whole turn out on 35.9 % of the lap.
+- id: c7
+  front: Nearest vertex is not the nearest point
+  back: 'At 5 m spacing on an 80 m bend: 1.550 m out against 0.0391 m for the segments. Project onto segments.'
+- id: c8
+  front: The sagitta
+  back: A chord $c$ misses an arc of radius $R$ by $c^2 / (8R)$. 5 m on 80 m gives 0.0391 m; the simulator's 0.1 m gives $1.563 \times 10^{-5}$ m.
+- id: c9
+  front: Vertex tie
+  back: The nearest foot is a shared vertex on 20 of 1778 steps. $\theta_{road}$ then depends on the segment picked, by one corner angle (0.00125 rad). The simulator keeps the first.

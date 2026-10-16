@@ -1,0 +1,77 @@
+- id: q1
+  type: mcq
+  prompt: Which line is `world_to_ego` for one point `p`, with car position `t` and yaw `theta`?
+  choices:
+  - '$R(\theta)^{\mathsf T}\mathbf{p} - \mathbf{t}$: turn, then subtract the car''s position'
+  - '$R(\theta)^{\mathsf T}(\mathbf{p} - \mathbf{t})$: subtract the car''s position, then turn'
+  - '$R(\theta)(\mathbf{p} - \mathbf{t})$: subtract, then turn the other way'
+  - '$\mathbf{p} - \mathbf{t}$: subtract the car''s position and stop'
+  answer: 1
+  explain: Subtract first, so the car is at the origin, then turn. Turning first gives (-7.260, -84.974) for the scene's point instead of (10.189, 0.453). $R(\theta)(\mathbf{p} - \mathbf{t})$ is the swap and $\mathbf{p} - \mathbf{t}$ is no rotation.
+  section: undo-is-the-transpose
+- id: q2
+  type: mcq
+  prompt: What are the two columns of $R(\theta)$?
+  choices:
+  - its two rows, the same arrows written sideways
+  - the world's east and north arrows
+  - (1, 0) and (0, 1), whatever the yaw
+  - the car's heading arrow and its left arrow, written in world coordinates
+  answer: 3
+  explain: The first column is $(\cos\theta, \sin\theta)$, the heading arrow, and the second is $(-\sin\theta, \cos\theta)$, the left arrow. At $\theta = 0$ they are (1, 0) and (0, 1), but at the scene's $\theta = 0.5958$ rad they are (0.8277, 0.5612) and (-0.5612, 0.8277).
+  section: the-rotation-matrix
+- id: q3
+  type: mcq
+  prompt: Which single yaw catches the swap, $R(\theta)(\mathbf{p} - \mathbf{t})$ in place of $R(\theta)^{\mathsf T}(\mathbf{p} - \mathbf{t})$?
+  choices:
+  - '0'
+  - $\pi$
+  - the start line of `gentle`, where the car points along east
+  - $\pi/2$
+  answer: 3
+  explain: At yaw 0 the matrix is the identity, and at $\pi$ it is $-I$, which is its own transpose, so the swap passes both. At $\pi/2$ the swap gives (-4, -1) where the answer is (4, 1). The start line of `gentle` is yaw 0, where the swap changes 0.0% of the picture.
+  section: a-test-at-yaw-0-proves-nothing
+- id: q4
+  type: mcq
+  prompt: Points are stored as rows, `P` of shape (N, 2). Which line gives all their ego coordinates?
+  choices:
+  - '`rot @ (P - t)`'
+  - '`(P - t) @ rot.T`'
+  - '`P @ rot - t`'
+  - '`(P - t) @ rot`'
+  answer: 3
+  explain: A row times $R(\theta)$ is $R(\theta)^{\mathsf T}$ times the column, so `(P - t) @ rot` is right. `rot @ (P - t)` raises a ValueError for 5 points and is silently wrong for 2. `(P - t) @ rot.T` is the swap, and `P @ rot - t` turns before it subtracts.
+  section: every-point-at-once
+- id: q5
+  type: mcq
+  prompt: The provided car drives `straight` through the swapped transform. What happens?
+  choices:
+  - it completes the road, as it does with no rotation at all
+  - it leaves the lane after 22.8 m, at 2.95 s
+  - it drives well until the first bend, like no rotation on `gentle`
+  - it drives the whole road with a slow drift to one side
+  answer: 1
+  explain: The swap flips the sign of the heading the perception box reads, so the controller steers further the way the car already points. The car leaves `straight` after 22.8 m. No rotation completes `straight` and leaves `gentle` 16.6 m into its first bend.
+  section: a-test-at-yaw-0-proves-nothing
+- id: q6
+  type: mcq
+  prompt: Why does $R(\theta)^{\mathsf T}$ undo $R(\theta)$?
+  choices:
+  - its entries are all positive, so the transpose cancels them
+  - transposing swaps east and north, which is the opposite turn
+  - the rows of $R(\theta)^{\mathsf T}$ are the heading and left arrows, each 1 m long and a quarter turn apart, so $R(\theta)^{\mathsf T}R(\theta) = I$
+  - 'it does not undo it exactly: the round trip leaves an error of about a metre'
+  answer: 2
+  explain: 'Row $i$ of $R^{\mathsf T}$ times column $j$ of $R$ is a dot product of two of the arrows: 1 for the same arrow, 0 for two a quarter turn apart. That is the identity, to within $2.2\times10^{-16}$ over 40 yaws. The round trip is exact to $1.4\times10^{-13}$ m, not a metre.'
+  section: undo-is-the-transpose
+- id: q7
+  type: mcq
+  prompt: A `world_to_ego` written as `(P - t) @ rot` goes into the camera. How many of 178 pictures on the lap of `gentle` differ from the simulator's?
+  choices:
+  - '0'
+  - all 178
+  - 17, one in ten
+  - about half
+  answer: 0
+  explain: 'The matrix form differs from the simulator''s transform by at most $5.68\times10^{-14}$ m, far below a pixel, so every picture is identical and the lap is the same: mean distance from the lane centre 0.376 m.'
+  section: swap-your-transform-into-the-renderer

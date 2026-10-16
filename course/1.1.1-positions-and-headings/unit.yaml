@@ -1,0 +1,41 @@
+id: "1.1.1"
+title: Positions and headings
+minutes: 210
+standard: 2
+box: "Instruments: positions, directions and forward/left parts from the car's GPS and yaw"
+car_box: instruments
+outcomes:
+  - can: "Turn two positions into the arrow between them and its length, and write the heading arrow (cos θ, sin θ) for any yaw"
+    proof: "Practice problems 1 and 2 in the lab"
+  - can: "Find an arrow's direction with atan2, and explain why arctan of the slope points half the steps backwards and why the zero arrow has no direction"
+    proof: "Your direction_angle passes its check (Exercise A) in the lab, and quiz questions 1 to 3"
+  - can: "Wrap a difference of two angles into [−π, π), and explain why the simulator's yaw needs it"
+    proof: "The wrap practice in the lab, and quiz questions 4 and 7"
+  - can: "Split a world arrow into its forward and left parts with the dot product and the 2D cross product"
+    proof: "Your forward_left passes its check (Exercise B) in the lab, and quiz question 5"
+  - can: "Explain why a GPS step's direction differs from the car's yaw by the wheel angle plus half a step's turn"
+    proof: "The moving-is-not-pointing section of the lab, and quiz question 6"
+prerequisites: ["0.1.4"]
+exercises:
+  - {id: "1.1.1.a", name: direction_angle}
+  - {id: "1.1.1.b", name: forward_left}
+go_deeper:
+  - title: "3Blue1Brown, Essence of linear algebra, chapter 1: \"Vectors, what even are they?\""
+    url: "https://www.3blue1brown.com/lessons/vectors"
+    note: "Watch after Points and arrows: a vector as an arrow and as a pair of numbers, animated."
+  - title: "3Blue1Brown, Essence of linear algebra, chapter 9: \"Dot products and duality\""
+    url: "https://www.3blue1brown.com/lessons/dot-products"
+    note: "Watch after Ahead and to the left: the dot product as the length of one arrow's shadow on another, which is the forward part. The duality half goes beyond this lesson."
+tutor_prompt: |
+  You are a Socratic tutor for unit 1.1.1 "Positions and headings" of a self-driving car course. I am a programmer with rusty maths. I have just read a lecture and done a lab on positions, yaw, the heading arrow and the forward and left parts of an arrow.
+
+  What the unit taught (use these facts exactly):
+  - The world frame: the origin is where the road starts, +x ("east") is the road's first direction and +y ("north") a quarter turn to its left. Positions are in metres. In this module a frame is a set of axes, not a camera picture.
+  - The simulator logs the front axle's position (tel.x, tel.y) and the yaw θ (tel.yaw), in radians, anticlockwise from east. On gentle, 1778 positions, so 1777 steps of 0.40 m (8 m/s × 0.05 s), anticlockwise.
+  - The heading arrow is ĥ(θ) = (cos θ, sin θ), a unit vector. The left arrow is n̂(θ) = (−sin θ, cos θ).
+  - arctan(Δy/Δx) loses the signs: on gentle it points about π wrong on 888 of 1777 steps (49.97 %), every step moving west. atan2(Δy, Δx) stays within 0.041 rad. The zero arrow has no direction: direction_angle returns nan.
+  - The simulator never wraps the yaw (it ends at 6.226408 rad). wrap(a) = (a + π) mod 2π − π, into [−π, π). Wrap every difference of two angles.
+  - Forward part = v·ĥ (the dot product). Left part = ĥ×v = cos θ·v_y − sin θ·v_x (the 2D cross product); positive means left.
+  - A GPS step points at θ + δ + ½Δθ (the wheel angle plus half the step's turn), not at θ: about 0.036 rad apart in gentle's bends.
+
+  How to tutor: ask one question at a time; never give the answer before I have tried; when I am wrong, ask me to compute a small case by hand (θ = 0, π/2, π). Do not introduce the ego frame, rotation matrices or the bicycle model; they come in later lessons.

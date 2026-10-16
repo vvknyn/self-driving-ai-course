@@ -9,7 +9,7 @@ outcomes:
   - can: "Measure how alike two colours are with the Euclidean distance between them"
     proof: "Problem 4 in the lab, and the quiz questions on colour distance"
   - can: "Find paint with a colour threshold, and choose the threshold from the gap in the distances"
-    proof: "Your paint_masks passes check(\"0.1.2.a\") in the lab"
+    proof: "Your paint_masks passes Exercise A in the lab"
   - can: "Score a mask with IoU, and explain why the share of pixels right misleads"
     proof: "Problem 8 in the lab, and the quiz questions on IoU"
   - can: "Avoid uint8 wraparound by converting to float before arithmetic"

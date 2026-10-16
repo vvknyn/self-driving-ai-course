@@ -10,11 +10,12 @@ import numpy as np
 import pytest
 
 import zero2fsd.preview as preview
+from _course import REPO, declared_exercises, load_solution
 from zero2fsd.car import Car, run
 from zero2fsd.car.provided import K_HEAD, K_OFF, estimate_lane, paint_masks, steer_p
 from zero2fsd.grade._report import EXERCISES, Failure
-from zero2fsd.preview import PREVIEWS, Kind, get, register
-from zero2fsd.preview.units import OVERLAY, STATS_ROAD
+from zero2fsd.preview import PREVIEWS, Error, Kind, get, register, settled
+from zero2fsd.preview.units.u0_1 import OVERLAY, STATS_ROAD
 from zero2fsd.score import metrics
 from zero2fsd.sim import BicycleState, Camera, make_scenario
 from zero2fsd.sim.scenarios import SCENARIOS
@@ -22,6 +23,11 @@ from zero2fsd.sim.scenarios import SCENARIOS
 KINDS = {
     "0.1.1.a": "stats", "0.1.1.b": "stats", "0.1.2.a": "image",
     "0.1.3.a": "drive", "0.1.3.b": "drive", "0.1.4.a": "drive", "0.1.4.b": "drive",
+    "1.1.1.a": "stats", "1.1.1.b": "stats",
+    "1.1.2.a": "stats", "1.1.2.b": "stats",
+    "1.1.3.a": "stats", "1.1.3.b": "stats",
+    "1.1.4.a": "stats", "1.1.4.b": "stats",
+    "1.1.5.a": "stats", "1.1.5.b": "stats", "1.1.5.c": "stats",
 }
 STEPS = 100  # enough steps to tell one car from another without driving a whole lap
 STILL_PROVIDED = {"0.1.3.a": ["controller"], "0.1.3.b": ["controller"], "0.1.4.a": ["perception"], "0.1.4.b": ["perception", "controller"]}
@@ -36,15 +42,10 @@ def ids_of(kind):
     return [i for i, p in sorted(PREVIEWS.items()) if p.kind == kind]
 
 
-def good_lane_error_stats(lat):
-    return {"mean_abs": float(np.abs(lat).mean()), "max_abs": float(np.abs(lat).max()), "rms": float(np.sqrt(np.mean(lat**2)))}
-
-
-def good_steps_off_lane(lat, threshold=0.9):
-    return int(np.count_nonzero(np.abs(lat) > threshold))
-
-
-STATS_ANSWER = {"0.1.1.a": good_lane_error_stats, "0.1.1.b": good_steps_off_lane}
+def reference_answer(exercise_id):
+    """What the unit's reference solution defines for this exercise: the learner's right answer."""
+    _, unit, name = next(d for d in declared_exercises(REPO) if d[0] == exercise_id)
+    return getattr(load_solution(REPO, unit), name)
 
 
 # --- the registry -------------------------------------------------------------------------------------------------
@@ -122,15 +123,15 @@ def canned():
 @pytest.mark.parametrize("road", ["straight", STATS_ROAD])
 @pytest.mark.parametrize("exercise_id", ids_of("stats"))
 def test_a_stats_preview_returns_labelled_floats(exercise_id, road):
-    values = get(exercise_id).build(STATS_ANSWER[exercise_id], run(Car(), road, max_steps=STEPS))
+    values = get(exercise_id).build(reference_answer(exercise_id), run(Car(), road, max_steps=STEPS))
     assert values and all(isinstance(k, str) and type(v) is float for k, v in values.items())
 
 
 def test_the_stats_previews_agree_with_the_score_module_on_the_canned_drive(canned):
     ref = metrics(canned)
-    stats = get("0.1.1.a").build(good_lane_error_stats, canned)
+    stats = get("0.1.1.a").build(reference_answer("0.1.1.a"), canned)
     assert stats["mean_abs"] == pytest.approx(ref["mean_abs_lat"]) and stats["max_abs"] == pytest.approx(ref["max_abs_lat"])
-    assert get("0.1.1.b").build(good_steps_off_lane, canned) == {"steps_off_lane": float(ref["steps_off_lane"])}
+    assert get("0.1.1.b").build(reference_answer("0.1.1.b"), canned) == {"steps_off_lane": float(ref["steps_off_lane"])}
     assert ref["steps_off_lane"] > 0  # the canned drive has something to count: on `gentle` this lab line would read 0
 
 
@@ -200,3 +201,33 @@ def test_the_image_preview_paints_each_mask_in_its_own_colour_and_leaves_the_res
 def test_the_image_preview_reports_a_wrong_answer_as_a_failure(noisy, answer, said):
     with pytest.raises(Failure, match=re.escape(said)):
         get("0.1.2.a").build(answer, noisy)
+
+
+# --- error stats: float noise is not a value --------------------------------------------------------------------
+
+def with_noise(fn, noise):
+    """`fn` with `noise` added to every number it returns: a right answer with rounding error on it."""
+    return lambda *args: np.asarray(fn(*args), dtype=float) + noise
+
+
+def test_settled_floors_an_error_below_its_tolerance_and_nothing_else():
+    stats = {"gap": Error(3e-14, 1e-9), "real": Error(0.02, 1e-9), "plain": 4e-14, "count": 0.0}
+    assert settled(stats) == {"gap": 0.0, "real": 0.02, "plain": 4e-14, "count": 0.0}
+    assert all(type(v) is float for v in settled(stats).values() if v)
+
+
+def test_a_gap_preview_shows_float_noise_as_0_and_a_real_gap_unchanged(canned):
+    reference = reference_answer("1.1.2.a")
+    assert get("1.1.2.a").build(with_noise(reference, 5e-14), canned) == {"largest difference from the renderer's transform (m)": 0.0}
+    real = get("1.1.2.a").build(with_noise(reference, 1e-3), canned)
+    assert real["largest difference from the renderer's transform (m)"] == pytest.approx(1e-3, rel=0.1)
+
+
+def test_another_units_error_stat_is_floored_too_and_its_other_stats_are_not():
+    drive = run(Car(), get("1.1.4.b").road)
+    reference = reference_answer("1.1.4.b")
+    stats = get("1.1.4.b").build(with_noise(reference, 3e-14), drive)
+    assert stats == {"worst error over the lap (m)": 0.0, "error at the end (m)": 0.0}
+    assert get("1.1.4.b").build(with_noise(reference, 1e-3), drive)["worst error over the lap (m)"] > 1e-4
+    unfloored = get("1.1.1.b").build(lambda yaw, arrows: np.full((len(arrows), 2), 4e-14), run(Car(), get("1.1.1.b").road))
+    assert unfloored["largest left per step (m)"] == 4e-14  # a plain value: noise-sized, but not an error

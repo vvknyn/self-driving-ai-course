@@ -69,5 +69,5 @@
   - The distance to the yellow line.
   - The car's speed.
   answer: 1
-  explain: The target was the steering that "would bring the vehicle to the road center 7 meters ahead of its current position". Aiming at a point ahead is lookahead; the next lesson moves such a point between frames.
+  explain: The target was the steering that "would bring the vehicle to the road center 7 meters ahead of its current position". Aiming at a point ahead is lookahead; the next module, Frames and transforms, moves such a point between frames.
   section: a-1988-car-that-learned-to-steer

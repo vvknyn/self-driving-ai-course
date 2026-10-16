@@ -28,6 +28,12 @@ loops:
         title: Frames and transforms
         summary: The coordinate transforms used everywhere, from vectors and rotation matrices to homogeneous transforms.
         planned_units: 5
+        units:
+          - {id: "1.1.1", folder: 1.1.1-positions-and-headings, title: Positions and headings, status: ready}
+          - {id: "1.1.2", folder: 1.1.2-the-view-from-the-drivers-seat, title: "The view from the driver's seat", status: ready}
+          - {id: "1.1.3", folder: 1.1.3-the-roads-own-coordinates, title: "The road's own coordinates", status: ready}
+          - {id: "1.1.4", folder: 1.1.4-poses-you-can-chain, title: Poses you can chain, status: ready}
+          - {id: "1.1.5", folder: 1.1.5-the-cameras-point-of-view, title: "The camera's point of view", status: ready}
       - id: "1.2"
         title: Longitudinal control and vehicle motion
         summary: The speed controller and the simulator's bicycle model, using derivatives, Euler integration and PID.

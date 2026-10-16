@@ -28,6 +28,7 @@ from playground_browser import (EDITOR_READY, P_STEER, exercise_url, open_ready,
                                 wait_settled, wait_state)
 from zero2fsd.car import Car, run  # noqa: E402
 from zero2fsd.grade import check  # noqa: E402
+from zero2fsd.grade._report import exercise_label  # noqa: E402
 from zero2fsd.preview import get as get_preview  # noqa: E402
 from zero2fsd.sim.camera import Camera  # noqa: E402
 from zero2fsd.sim.dynamics import DT  # noqa: E402
@@ -56,6 +57,7 @@ WEEK_1 = ("0.1.1.a", "0.1.1.b", "0.1.2.a", "0.1.3.a", "0.1.3.b", "0.1.4.a", "0.1
 # The worker message the page's Run sends for each exercise kind (app.js KINDS), and the same call made in-process on the shim.
 # Keyed by kind, never by exercise id: a new exercise of a known kind needs no edit here.
 RUN_MESSAGE = {"drive": "run", "stats": "stats", "image": "image"}
+SUCCESS_REPLY = {"drive": "done", "stats": "stats", "image": "image"}  # what a run that completes ends with, by kind
 NATIVE_RUN = {
     "drive": lambda shim, record, learner: shim.preview_run(learner, record["id"], record["road"], lambda row: None),
     "stats": lambda shim, record, learner: shim.preview_stats(learner, record["id"]),
@@ -747,7 +749,7 @@ def test_wrong_return_type(page, base_url, kind, returned, type_name):
     wait_state(page, "error")
     shown = page.inner_text("#stdout")
     assert message in shown
-    assert record["id"] in shown  # the shim's `_at_boundary` prefixes the exercise id
+    assert exercise_label(record["id"]) in shown  # the shim's `_at_boundary` prefixes the exercise label, never the dotted id
     assert type_name in shown
     assert "numpy" not in shown.lower()
 
@@ -1050,18 +1052,18 @@ def test_worker_answers_a_learner_that_is_neither_function_nor_car_with_one_repl
     the one the Mac's shim gives (a 0.1.3.x `None` is Car's own "use the provided box": it runs); a check ends in exactly one
     failing `verdict`: never two replies, never none."""
     start_worker(page, base_url)
-    for value, type_name in (("None", "NoneType"), ("5", "int")):
+    for value in ("None", "5"):
         code = f"{record['name']} = {value}\n"
         native = native_error(shim, record, code)
         replies = exchange(page, {"type": RUN_MESSAGE[record["kind"]], "code": code, "exercise": record, "road": record["road"]})
-        ended = [r for r in replies if r["type"] in {"done", "error"}]
+        ended = [r for r in replies if r["type"] in {SUCCESS_REPLY[record["kind"]], "error"}]
         assert ended == replies[-1:], f"{value}: not exactly one closing reply, or not last: {[r['type'] for r in replies][-3:]}"
         if native is None:
-            assert ended[0]["type"] == "done", ended
+            assert ended[0]["type"] == SUCCESS_REPLY[record["kind"]], ended
         else:
             assert ended[0]["type"] == "error" and ended[0]["request"] == RUN_MESSAGE[record["kind"]], ended
             assert ended[0]["message"] == f"{type(native).__name__}: {native}", ended
-            assert record["id"] in ended[0]["message"] and type_name in ended[0]["message"], ended
+            assert exercise_label(record["id"]) in ended[0]["message"], ended  # the words are the shim's own (equal to `native` above); only some exercises name the value's type in them
     held = shim.learner_object(f"{record['name']} = None\n", record["name"])
     native = shim.check_code(held, record["id"])
     replies = exchange(page, {"type": "check", "code": f"{record['name']} = None  # your code\n", "exercise": record})

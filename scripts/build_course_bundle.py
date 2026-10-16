@@ -95,10 +95,10 @@ def build_cards(unit_id: str, cards) -> list[dict]:
 
 
 def build_unit(root: Path, entry: dict, known_ids: set[str]) -> tuple[dict, list[str]]:
-    """The bundle record of one ready unit plus the file names in its figures/ folder."""
+    """The bundle record of one unit (ready, or planned with a folder: checked all the same) plus the file names in its figures/ folder."""
     unit_id, folder = entry["id"], root / "course" / entry["folder"]
     for name in REQUIRED_FILES:
-        _need((folder / name).is_file(), f"{unit_id}: ready unit is missing {entry['folder']}/{name}")
+        _need((folder / name).is_file(), f"{unit_id}: {entry['status']} unit is missing {entry['folder']}/{name}")
     meta = load_yaml(folder / "unit.yaml")
     missing = [k for k in REQUIRED_UNIT_KEYS if k not in meta]
     _need(not missing, f"{unit_id}: unit.yaml is missing {', '.join(missing)}")
@@ -135,8 +135,10 @@ def build_bundle(root: Path) -> tuple[dict, list[tuple[Path, str]]]:
     _need(len(known_ids) == len(entries), "syllabus: duplicate unit ids")
     _need(all(e["status"] in ("ready", "planned") for e in entries), "syllabus: unit status must be ready or planned")
     units, minutes, copies = {}, {}, []
-    for entry in (e for e in entries if e["status"] == "ready"):
+    for entry in (e for e in entries if e["status"] == "ready" or (root / "course" / e["folder"]).is_dir()):
         record, figures = build_unit(root, entry, known_ids)
+        if entry["status"] != "ready":
+            continue  # checked like a ready unit so its builder sees every problem, but it ships nothing
         units[record["slug"]], minutes[entry["id"]] = record, record["minutes"]
         copies += [(root / "course" / entry["folder"] / "figures" / f, f"{record['slug']}/{f}") for f in figures]
 

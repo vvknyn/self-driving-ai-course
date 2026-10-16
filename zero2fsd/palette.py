@@ -2,7 +2,7 @@
 """The course's colours in one place: `palette_dict()` is what the browser view reads as `palette.json`.
 
 Paint colours come from the camera's own `PALETTE`, so the top-down view paints the road in the colours
-the camera sees.  The quantity colours name the four things the lectures plot; the chrome colours are the
+the camera sees.  The quantity colours name the things the lectures plot; the chrome colours are the
 site's learnfsd page colours.  `shades(hue, n)` is the one way to draw a quantity `n` times on one figure.
 """
 from __future__ import annotations
@@ -20,7 +20,8 @@ def _rgb(hex_colour: str) -> tuple[int, int, int]:
     return tuple(int(hex_colour[i:i + 2], 16) for i in (1, 3, 5))
 
 
-QUANTITY = {"e_off": "#58C4DD", "psi": "#D147BD", "delta": "#83C167", "perception": "#FC6255"}
+QUANTITY = {"e_off": "#58C4DD", "psi": "#D147BD", "delta": "#83C167", "perception": "#FC6255",
+            "ego": "#9A72AC", "camera": "#5CD0B3", "theta": "#FF862F"}
 SCENE = {name: _hex(PALETTE[index]) for name, index in (("sky", SKY), ("grass", GRASS), ("road", ROAD), ("yellow", YELLOW), ("white", WHITE))}
 CHROME = {"background": "#090d16", "panel": "#0d1117", "border": "#30363d", "text": "#c9d1d9", "link": "#58a6ff"}
 

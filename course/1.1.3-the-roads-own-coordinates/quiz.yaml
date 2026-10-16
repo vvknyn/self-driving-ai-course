@@ -1,0 +1,65 @@
+- id: q1
+  type: mcq
+  prompt: On `gentle`'s far straight at 45.00 s the car's $y$ is 161.55 m, so $y + 1.8 = 163.35$ m. Why is that not the car's lateral error?
+  choices:
+  - The telemetry has GPS noise, so $y$ is not exact.
+  - 'The sign is flipped: the error is $-163.35$ m.'
+  - The road there runs west at $y \approx 160$, so $y + 1.8$ measures from a line the car left long ago. The true lateral error is 0.248 m.
+  - 'It is right: the car is 163 m off the road.'
+  answer: 2
+  explain: 'The road''s own direction matters. On the first straight the road runs east along $y = 0$, so $y + 1.8$ happens to be exact. On the far straight it runs west at $y \approx 160$, and the true $e$ is 0.248 m. Flipping the sign would be just as wrong: the formula measures from the wrong line.'
+  section: the-lateral-error-you-would-guess
+- id: q2
+  type: mcq
+  prompt: A segment runs from $a = (2, 1)$ to $b = (10, 7)$, and $p = (5, 7)$. What are the forward part $t$ and the signed distance $d$ (left positive)?
+  choices:
+  - $t = 6.0$ m, $d = +3.0$ m
+  - $t = 60$ m, $d = 30$ m (the division by $|b - a| = 10$ was forgotten)
+  - $t = 3$ m, $d = 6$ m (the components of $p - a$)
+  - $t = 6.0$ m, $d = -3.0$ m (the sign flipped)
+  answer: 0
+  explain: '$|b - a| = 10$ and $\hat u = (0.8, 0.6)$. $p - a = (3, 6)$, so $t = 3 \times 0.8 + 6 \times 0.6 = 6.0$. The foot is $(6.8, 4.6)$, 3.0 m from $p$. The left part $\hat u \times (p - a) = 0.8 \times 6 - 0.6 \times 3 = 3.0$ is positive: $p$ is on the left.'
+  section: projecting-onto-a-segment
+- id: q3
+  type: numeric
+  prompt: For the same segment ($a = (2, 1)$, $b = (10, 7)$), what is the distance in metres from $q = (14, 5)$ to the segment?
+  answer: 4.472
+  tolerance: 0.01
+  explain: $q - a = (12, 4)$, so the unclamped $t = 12 \times 0.8 + 4 \times 0.6 = 12$. The segment is only 10 m long, so $t$ is clamped to 10 and the foot is $b = (10, 7)$, which is $\sqrt{16 + 4} = 4.472$ m from $q$. Without the clamp you would get 4.0 m, the distance to the infinite line.
+  section: projecting-onto-a-segment
+- id: q4
+  type: numeric
+  prompt: At step 400 of the `gentle` lap, $d = -1.2717$ m. What is the lateral error $e$ in metres (positive when the car is left of its lane centre)?
+  answer: 0.5283
+  tolerance: 0.001
+  explain: $e = d + 1.8 = -1.2717 + 1.8 = +0.5283$ m. The lane centre is at $d = -1.8$; the car is at $-1.2717$, nearer the yellow line, so it is left of its lane centre.
+  section: the-two-errors-the-controller-needs
+- id: q5
+  type: mcq
+  prompt: Why must the heading $\psi = \theta - \theta_{road}$ be wrapped?
+  choices:
+  - '`atan2` is inaccurate near west, so the difference needs smoothing.'
+  - Once the car heads west, $\theta$ keeps growing past $\pi$ (3.1673) while $\theta_{road}$ from `atan2` jumps to $-3.1385$. The plain difference is $+6.3057$, a whole turn too much, on 35.9 % of the lap.
+  - To round off noise in the telemetry.
+  - Only the curvy road needs it; `gentle` never gets there.
+  answer: 1
+  explain: 'Angles are the same direction modulo $2\pi$. $\theta$ is the car''s accumulated yaw and can exceed $\pi$; `atan2` always returns a value in $[-\pi, \pi]$. The wrap brings the difference back into $[-\pi, \pi)$: $6.3057 - 2\pi = 0.0225$ rad.'
+  section: the-two-errors-the-controller-needs
+- id: q6
+  type: mcq
+  prompt: A polyline has a vertex every 5 m along an 80 m bend. At worst, how far out is the nearest vertex as the "nearest point of the road", and how far out are the segments?
+  choices:
+  - The nearest vertex is 1.550 m out; projecting onto the segments is 0.0391 m out.
+  - Both about 0.04 m.
+  - Both about 1.5 m.
+  - The vertex is 1.550 m out; the segments are exact.
+  answer: 0
+  explain: "Midway between two vertices 5 m apart the nearest vertex is 2.5 m along the road, so a car 1.8 m from the line is $\\sqrt{1.8^2 + 2.5^2} = 3.081$ m from it: 1.281 m too far on a straight, 1.550 m at worst on the bend. Projecting onto the segments misses only by the sagitta $c^2 / (8R) = 25 / 640 = 0.0391$ m."
+  section: corners-in-the-polyline
+- id: q7
+  type: numeric
+  prompt: At the start line the arc length goes from 702.306 m to 0.045 m in one step, and the road is $L = 702.655$ m long. How far did the car move along the road, in metres?
+  answer: 0.394
+  tolerance: 0.01
+  explain: 'The plain difference is $0.045 - 702.306 = -702.261$ m, which is nonsense. Add one road length when $s$ wraps: $-702.261 + 702.655 = +0.394$ m.'
+  section: how-far-along-arc-length

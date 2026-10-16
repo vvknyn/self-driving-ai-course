@@ -1,6 +1,8 @@
+import ast
 import dataclasses
 import math
 import re
+import types
 from pathlib import Path
 
 import numpy as np
@@ -8,19 +10,23 @@ import pytest
 import yaml
 
 import zero2fsd.grade as grade_pkg
+from _course import REPO, load_solution, parse_lab
+from zero2fsd import geom
 from zero2fsd.car import Car, LaneEstimate, provided, run
 from zero2fsd.car.runner import COLUMNS
 from zero2fsd.grade import _drive, check
 from zero2fsd.grade._drive import GATE_SCENARIO
 from zero2fsd.grade._poses import LOOKAHEAD, sample_poses
-from zero2fsd.grade._report import EXERCISES, LESSON_TITLES, NOT_IMPLEMENTED, REPORT, exercise_label
+from zero2fsd.grade._report import EXERCISES, LESSON_TITLES, NOT_IMPLEMENTED, REPORT, Failure, _lines, call, exercise_label, fmt, fmt_gap, fmt_pair, lesson_titles, matching_mistakes
 from zero2fsd.sim.dynamics import MAX_STEER
 
-IDS = ["0.1.1.a", "0.1.1.b", "0.1.2.a", "0.1.3.a", "0.1.3.b", "0.1.4.a", "0.1.4.b"]
+IDS = [e["id"] for p in sorted(Path("course").glob("*/unit.yaml")) for e in yaml.safe_load(p.read_text())["exercises"]]  # every unit.yaml, so a new unit adds no line here
 
 
 def as_target(exercise_id, fn):
-    """The object an exercise grades: a Car for the all-yours exercise, else the function itself."""
+    """The object an exercise grades: a Car for the all-yours exercise, the (world_to_ego, mount) pair for 1.1.5.b, else the function itself."""
+    if exercise_id == "1.1.5.b":
+        return (geom.world_to_ego, fn)
     return Car(perception=fn, controller=lambda est, obs: fn()) if exercise_id == "0.1.4.b" else fn
 
 
@@ -33,6 +39,13 @@ def text(result):
 def test_lesson_titles_are_the_unit_yaml_titles():
     units = {y["id"]: y["title"] for y in (yaml.safe_load(p.read_text()) for p in Path("course").glob("*/unit.yaml"))}
     assert LESSON_TITLES == {unit: units[unit] for unit in LESSON_TITLES}
+
+
+def test_two_unit_modules_claiming_one_lesson_id_raise():
+    unit = lambda *lesson: types.SimpleNamespace(LESSON=lesson)  # noqa: E731
+    assert lesson_titles([unit("9.9.1", "One"), unit("9.9.2", "Two")]) == {"9.9.1": "One", "9.9.2": "Two"}
+    with pytest.raises(ValueError, match="duplicate lesson id '9.9.1'"):
+        lesson_titles([unit("9.9.1", "One"), unit("9.9.1", "Again")])
 
 
 @pytest.mark.parametrize("exercise_id, label", [
@@ -265,7 +278,7 @@ def telemetry_that(make_tel, *, completed, mean_lat, off_road=False):
 )
 def test_the_gate_decides_on_completion_and_mean_lateral_error(monkeypatch, make_tel, completed, mean_lat, off_road, verdict):
     tel = telemetry_that(make_tel, completed=completed, mean_lat=mean_lat, off_road=off_road)
-    monkeypatch.setattr(_drive, "run", lambda car, scenario, on_step=None: tel)
+    monkeypatch.setattr(_drive, "run", lambda car, scenario, on_step=None, camera=None: tel)
     if verdict == "pass":
         assert "completed gentle" in _drive.gate(Car(), show=False)
     else:
@@ -275,7 +288,7 @@ def test_the_gate_decides_on_completion_and_mean_lateral_error(monkeypatch, make
 
 
 def test_show_draws_the_dashboard_once_per_run_only_when_asked(monkeypatch, make_tel):
-    monkeypatch.setattr(_drive, "run", lambda car, scenario, on_step=None: telemetry_that(make_tel, completed=True, mean_lat=0.1))
+    monkeypatch.setattr(_drive, "run", lambda car, scenario, on_step=None, camera=None: telemetry_that(make_tel, completed=True, mean_lat=0.1))
     shown = []
     monkeypatch.setattr(_drive, "show_figure", shown.append)
     _drive.gate(Car(), show=False)
@@ -381,3 +394,133 @@ def test_practice_prints_whether_an_ungraded_answer_is_right_and_never_raises(go
 def test_practice_prints_a_tuple_of_numpy_scalars_as_plain_numbers(capsys):
     grade_pkg.practice("point", (np.float64(2.5534472), np.float64(1.2742297)), (2.553, 1.274), tol=0.001)
     assert "point: (2.55345, 1.27423)" in capsys.readouterr().out
+
+
+# --- a near miss must not read "expected 3.14159, got 3.14159" ---------------------------------------------------
+
+
+def expected_got(failure):
+    lines = _lines(failure, "Exercise A", "checked", "hint")
+    return {line.split(":")[0].strip(): line.split(":", 1)[1].strip() for line in lines[1:]}
+
+
+def test_a_failure_whose_numbers_differ_in_the_7th_digit_shows_two_different_numbers_and_the_gap():
+    shown = expected_got(Failure("off", expected=3.14159265, got=3.14159))
+    assert shown["expected"] == "3.141593" and shown["got"] == "3.14159 (off by 2.7e-06)"
+    arrays = expected_got(Failure("off", expected=np.array([1234.5678, 2.0]), got=np.array([1234.56789, 2.0])))
+    assert arrays["expected"] != arrays["got"].split(" (")[0] and arrays["got"].endswith("(off by 9e-05)")
+    assert fmt_pair((4, 1), np.array([4.0000001, 1.0]))[1].endswith("(off by 1e-07)")  # a tuple against an array
+
+
+@pytest.mark.parametrize("expected, got", [(3.14159, 3.14159), (0.2, 0.25), (np.array([1.0, 2.0]), np.array([1.0, 2.0])), (np.nan, np.nan)])
+def test_values_that_are_equal_or_already_read_differently_print_as_before(expected, got):
+    assert fmt_pair(expected, got) == (fmt(expected), fmt(got))
+
+
+def test_a_pre_formatted_string_is_refused_by_the_pair_formatter_and_printed_as_text_by_the_report():
+    with pytest.raises(TypeError):
+        fmt_pair("s 20.000000 m", (20.0, 0.1))
+    assert expected_got(Failure("off", expected="nan", got=3.0)) == {"checked": "checked", "expected": "nan", "got": "3", "hint": "hint"}
+
+
+def test_a_mistake_that_equals_the_right_answer_is_never_matched():
+    right = np.array([4.0, 1.0])
+    candidates = [("coincides", right.copy()), ("distinct", right + 0.5), ("other shape", np.zeros(3))]
+    assert matching_mistakes(right + 5e-7, right, candidates, 1e-6) == []  # the near miss equals "coincides" too: it is not a mistake there
+    assert matching_mistakes(right + 0.5, right, candidates, 1e-6) == ["distinct"]
+    assert matching_mistakes(np.zeros(3), right, candidates, 1e-6) == ["other shape"]
+
+
+def test_a_real_near_miss_from_1_1_2_shows_two_different_numbers():
+    result = check("1.1.2.a", lambda pose, p: geom.world_to_ego(pose, p) + 1e-7, show=False, report=False)
+    shown = {line.split(":")[0].strip(): line.split(":", 1)[1].strip() for line in result.details[1:] if ":" in line}
+    assert not result.passed and shown["expected"] != shown["got"].split(" (")[0] and "(off by 1e-07)" in shown["got"]
+
+
+def _shown(result):
+    return {line.split(":")[0].strip(): line.split(":", 1)[1].strip() for line in result.details[1:] if ":" in line}
+
+
+def test_a_1_1_3_near_miss_and_a_1_1_4_near_miss_each_show_different_expected_and_got_lines():
+    from _course import REPO, load_solution
+    road_frame, relative = load_solution(REPO, "1.1.3").to_road_frame, load_solution(REPO, "1.1.4").relative_pose
+
+    def s_off(*args):
+        s, d = road_frame(*args)
+        return s + 2e-6, d
+
+    def translation_off(a, b):
+        out = np.array(relative(a, b), float)
+        out[0, -1] += 2e-6  # the x of the shift, in a 3x3 or a 4x4
+        return out
+
+    for exercise, fn in (("1.1.3.a", s_off), ("1.1.4.a", translation_off)):
+        result = check(exercise, fn, show=False, report=False)
+        shown = _shown(result)
+        assert not result.passed and shown["expected"] != shown["got"], (exercise, shown)
+
+
+# --- practice() shows float noise as 0 on a pass and the raw numbers on a fail ------------------------------------
+
+
+def test_a_passing_practice_prints_noise_below_the_tolerance_as_0_and_states_the_tolerance(capsys):
+    grade_pkg.practice("A", np.array([[0.0, 1.0], [-1.0, 6.1232e-17]]), [[0, 1], [-1, 0]], tol=1e-9)
+    out = capsys.readouterr().out
+    assert "e-17" not in out and "all within 1e-09" in out and "\N{CHECK MARK}" in out
+    grade_pkg.practice("pair", (6e-17, 0.5), (0, 0.5), tol=1e-9)
+    assert "pair: (0, 0.5) (shown as 0: all within 1e-09)" in capsys.readouterr().out
+
+
+def test_a_failing_practice_prints_its_raw_numbers(capsys):
+    grade_pkg.practice("A", np.array([6.1232e-17, 0.5]), np.array([0.0, 0.0]), tol=1e-9)
+    out = capsys.readouterr().out
+    assert "e-17" in out and "\N{BALLOT X}" in out and "shown as 0" not in out
+
+
+def test_a_real_1_1_2_lab_practice_prints_no_e_minus_17_noise(capsys):
+    """The lab's own `practice(...)` statement for R^T R - I, run on the reference rotation matrix."""
+    cells = parse_lab((REPO / "course" / "1.1.2-the-view-from-the-drivers-seat" / "lab.py").read_text())
+    statement = next(ast.get_source_segment(cell.source, node) for cell in cells if cell.kind == "code" and "R transposed times R" in cell.source
+                     for node in ast.walk(ast.parse(cell.source))
+                     if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "practice" and "R transposed times R" in ast.get_source_segment(cell.source, node))
+    assert float(np.abs(geom.rotation_matrix(2.2).T @ geom.rotation_matrix(2.2) - np.eye(2)).max()) > 0  # the noise is really there
+    eval(statement, {"practice": grade_pkg.practice, "np": np, "R": geom.rotation_matrix(2.2)})
+    out = capsys.readouterr().out
+    assert "e-17" not in out and "e-18" not in out and "\N{CHECK MARK}" in out and "all within 1e-12" in out
+
+
+# --- learner code may edit its arguments in place; the grader's arrays must not change ----------------------------
+
+
+def test_call_hands_the_learner_copies_of_every_array_and_container_of_arrays_and_the_failure_stays_honest():
+    road, extra, options = np.arange(6.0).reshape(3, 2), np.array([1.0, 2.0]), {"w": np.ones(2)}
+    original = road.copy()
+
+    def mutating(line, parts, opts, scale=None):
+        line += 100.0
+        parts[0] += 100.0
+        opts["w"] += 100.0
+        scale += 100.0
+        return float(line[0, 0])
+
+    got = call(mutating, road, [extra, 7], options, scale=extra, given="a road")
+    assert got == 100.0 and np.array_equal(road, original) and np.array_equal(extra, [1.0, 2.0]) and np.array_equal(options["w"], np.ones(2))
+    failure = Failure("wrong", expected=road[0, 0], got=got)
+    assert expected_got(failure)["expected"] == "0" and expected_got(failure)["got"] == "100"  # the grader's own value, not the shifted one
+
+
+def test_a_real_1_1_2_grader_is_not_fooled_by_a_learner_that_wipes_its_input_after_answering():
+    solution = load_solution(REPO, "1.1.2")
+
+    def wiping(pose, points):
+        answer = solution.world_to_ego(pose, points)
+        points[...] = 0.0  # the grader reads its own points again afterwards (the round trip back to the world)
+        return answer
+
+    result = check("1.1.2.a", wiping, show=False, report=False)
+    assert result.passed, "\n".join(result.details)
+
+
+def test_fmt_gap_shows_noise_below_the_tolerance_as_0_and_a_real_gap_as_it_is():
+    assert fmt_gap(3.6e-14, 1e-9, ".2g") == "0" and fmt_gap(3.6e-14, 1e-9) == "0"
+    assert fmt_gap(2.5e-3, 1e-9, ".2g") == "0.0025" and fmt_gap(float("nan"), 1e-9, ".2g") == "nan"
