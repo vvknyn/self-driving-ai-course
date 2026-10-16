@@ -24,7 +24,7 @@ def _loop_stats(errors: list[float]) -> dict[str, float]:
 @exercise(
     "0.1.1.a",
     checked=f"mean_abs, max_abs and rms of seeded arrays (negatives included) against a python-loop computation, to {TOL}",
-    hint='lecture 0.1.1, section "Summarising lane error"',
+    section="Summarising lane error",
 )
 def _lane_error_stats(fn, show, on_step):
     rng = np.random.default_rng(101)
@@ -44,7 +44,7 @@ def _lane_error_stats(fn, show, on_step):
 @exercise(
     "0.1.1.b",
     checked="the count of steps with |error| strictly greater than the threshold, at the default 0.9 and at custom thresholds",
-    hint='lecture 0.1.1, section "Counting steps off the lane"',
+    section="Counting steps off the lane",
 )
 def _steps_off_lane(fn, show, on_step):
     rng = np.random.default_rng(102)

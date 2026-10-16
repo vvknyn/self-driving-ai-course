@@ -183,3 +183,16 @@ def test_the_committed_dist_figures_are_byte_copies_of_the_units_figures(unit):
     for png in pngs:
         copy = REPO / "course" / "dist" / "figures" / unit_slug(unit["id"]) / png.name
         assert copy.is_file() and copy.read_bytes() == png.read_bytes(), copy
+
+
+@pytest.mark.parametrize("alt", ["`frame[0, 0]`", "a [b] c [d]", "plain"])
+def test_figure_refs_are_rewritten_whatever_brackets_the_alt_holds(tmp_path, alt):
+    (tmp_path / "figures").mkdir()
+    (tmp_path / "figures" / "x.png").write_bytes(b"png")
+    out = bundler.rewrite_figures("0.1.1", "0-1-1", tmp_path, f"![{alt}](figures/x.png)\n![{alt}](./figures/x.png \"t\")")
+    assert out == f"![{alt}](/learnfsd-course/figures/0-1-1/x.png)\n![{alt}](/learnfsd-course/figures/0-1-1/x.png \"t\")"
+
+
+def test_a_leftover_local_figure_path_fails_the_build(tmp_path):  # alt nested two deep is beyond the matcher
+    with pytest.raises(BuildError, match="left unrewritten"):
+        bundler.rewrite_figures("0.1.1", "0-1-1", tmp_path, "![deep [[x]]](figures/x.png)")

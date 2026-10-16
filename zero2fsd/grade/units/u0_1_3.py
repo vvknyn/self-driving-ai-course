@@ -34,7 +34,7 @@ def _hit_rate_text(hits: int) -> str:
     "0.1.3.a",
     checked=(f"offset and heading on {N_POSES} seeded straight-road poses (up to 1 m off centre, up to 0.15 rad yawed): "
              f"at least {MIN_HIT_RATE:.0%} within {OFFSET_TOL} m and {HEADING_TOL} rad and valid"),
-    hint='lecture 0.1.3, section "From masks to a lane estimate"',
+    section="From masks to a lane estimate",
 )
 def _estimate_lane(fn, show, on_step):
     hits, first_miss = 0, None
@@ -55,7 +55,7 @@ def _estimate_lane(fn, show, on_step):
 @exercise(
     "0.1.3.b",
     checked=f"your perception inside the provided car on `{GATE_SCENARIO}`: it must complete with mean |lat| < {GATE_MEAN_LAT} m",
-    hint='lecture 0.1.3, section "Swap your perception into the car"',
+    section="Swap your perception into the car",
 )
 def _perception_gate(fn, show, on_step):
     with learner_code("Car(perception=your function)"):

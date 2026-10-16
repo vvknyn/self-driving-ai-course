@@ -19,7 +19,7 @@ from zero2fsd.car import Car, Telemetry, run
 from zero2fsd.car.runner import COLUMNS, StepHook
 from zero2fsd.dashboard import dashboard
 from zero2fsd.grade import check
-from zero2fsd.grade._report import Failure
+from zero2fsd.grade._report import Failure, exercise_label
 from zero2fsd.grade.units.u0_1_2 import NOISE_SIGMA
 from zero2fsd.palette import SCENE
 from zero2fsd.preview import get
@@ -85,11 +85,11 @@ def _at_boundary(exercise_id: str):
     try:
         yield
     except Failure as exc:
-        raise TypeError(f"{exercise_id}: {exc.headline}") from exc
+        raise TypeError(f"{exercise_label(exercise_id)}: {exc.headline}") from exc
     except TypeError as exc:
         if _learner_line(exc) is not None:
             raise
-        raise TypeError(f"{exercise_id}: {exc}") from exc
+        raise TypeError(f"{exercise_label(exercise_id)}: {exc}") from exc
 
 
 def _preview(exercise_id: str, kind: str):

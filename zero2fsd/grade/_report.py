@@ -99,18 +99,31 @@ def call(fn, *args, given: str, **kwargs):
         return fn(*args, **kwargs)
 
 
+LESSON_TITLES = {"0.1.1": "Meet your car", "0.1.2": "Images are arrays", "0.1.3": "Your first perception box", "0.1.4": "Closing the loop"}  # = each unit.yaml title (a test keeps them equal)
+
+
+def exercise_label(exercise_id: str) -> str:
+    """`0.1.2.a` -> `Exercise A (Images are arrays)`: what the learner sees instead of the dotted id."""
+    unit, _, suffix = exercise_id.rpartition(".")
+    return f"Exercise {suffix.upper()} ({LESSON_TITLES[unit]})"
+
+
 _SHOWN_LABELS = {"given": "input", "expected": "expected", "got": "got"}
 
 
-def _lines(failure: Failure, exercise_id, checked, hint) -> list[str]:
+def _lines(failure: Failure, label, checked, hint) -> list[str]:
     fields = [("checked", failure.checked or checked),
               *((label, failure.shown[key]) for key, label in _SHOWN_LABELS.items() if key in failure.shown),
               ("hint", hint)]
-    return [f"\N{BALLOT X} {exercise_id}: {failure.headline}", *(f"    {name + ':':<10}{fmt(value)}" for name, value in fields)]
+    return [f"\N{BALLOT X} {label}: {failure.headline}", *(f"    {name + ':':<10}{fmt(value)}" for name, value in fields)]
 
 
-def exercise(exercise_id: str, *, checked: str, hint: str):
-    """Register a checker `(target, show, on_step) -> str` (what passed); it raises `Failure` for the first problem."""
+def exercise(exercise_id: str, *, checked: str, section: str):
+    """Register a checker `(target, show, on_step) -> str` (what passed); it raises `Failure` for the first problem.
+
+    Reports name the exercise by `exercise_label`, never the dotted id; `section` is the lecture section the hint points to."""
+    label = exercise_label(exercise_id)
+    hint = f'lecture "{LESSON_TITLES[exercise_id.rpartition(".")[0]]}", section "{section}"'
 
     def register(checker):
         @functools.wraps(checker)
@@ -118,8 +131,8 @@ def exercise(exercise_id: str, *, checked: str, hint: str):
             try:
                 message = checker(target, show, on_step)
             except Failure as failure:
-                return Result(False, _lines(failure, exercise_id, checked, hint))
-            return Result(True, [f"\N{CHECK MARK} {exercise_id}: {message}"])
+                return Result(False, _lines(failure, label, checked, hint))
+            return Result(True, [f"\N{CHECK MARK} {label}: {message}"])
 
         if exercise_id in EXERCISES:
             raise ValueError(f"duplicate exercise id {exercise_id!r}")

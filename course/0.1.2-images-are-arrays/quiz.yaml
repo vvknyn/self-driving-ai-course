@@ -1,72 +1,132 @@
 - id: q1
-  type: numeric
-  prompt: "A camera frame has shape `(180, 320, 3)`. How many numbers does it hold?"
-  answer: 172800
-  tolerance: 0
-  explain: "Multiply the sizes of the three axes: $180 \\times 320 \\times 3 = 172{,}800$. That is 57,600 pixels, each with a red, a green and a blue value."
+  type: mcq
+  prompt: "A frame has shape `(180, 320, 3)`. How many numbers does it hold?"
+  choices:
+    - "57,600"
+    - "960"
+    - "172,800"
+    - "503"
+  answer: 2
+  explain: "A frame holds $180 \\times 320 \\times 3 = 172{,}800$ numbers: 57,600 pixels, each with three colour values. 57,600 counts the pixels only."
   section: a-frame-is-a-grid-of-numbers
 - id: q2
   type: mcq
-  prompt: "`frame` has shape `(180, 320, 3)`. What is `frame[0, 319]`?"
+  prompt: "Which pixel is `frame[0, 319]`?"
   choices:
-    - "The red, green and blue values of the top-left pixel"
-    - "The red, green and blue values of the top-right pixel"
-    - "The red, green and blue values of the bottom-right pixel"
-    - "An error: index 319 is out of range"
-  answer: 1
-  explain: "The first index is the row, and row 0 is the **top**. The second is the column, and column 319 is the last one, at the right edge. Leaving out the channel index returns all three colour values of that pixel. The bottom-right pixel would be `frame[179, 319]`."
-  section: a-frame-is-a-grid-of-numbers
+    - "the top-right corner"
+    - "the top-left corner"
+    - "the bottom-right corner"
+    - "the bottom-left corner"
+  answer: 0
+  explain: "The first index is the row and row 0 is the top; the second is the column and column 319 is the last, on the right. So row 0, column 319 is the top-right corner."
+  section: finding-one-pixel-row-column-channel
 - id: q3
-  type: numeric
-  prompt: "How far is the colour $(100, 100, 100)$ from road grey $(90, 90, 95)$?"
-  answer: 15
-  tolerance: 0.01
-  explain: "Differences $(10, 10, 5)$; squares $(100, 100, 25)$, which add up to 225; and $\\sqrt{225} = 15$. Close to road grey, and very far from either paint colour."
-  section: colour-is-a-point-in-space
+  type: mcq
+  prompt: "Yellow paint is (230, 200, 40) and road is (90, 90, 95). In the blue-channel image `frame[:, :, 2]`, how does the yellow line look?"
+  choices:
+    - "brighter than the road"
+    - "the same brightness as the road"
+    - "brighter than the sky"
+    - "darker than the road"
+  answer: 3
+  explain: "Blue is the third value: 40 for yellow, 95 for road. A smaller value is darker, so in the blue channel the yellow line is darker than the road, while in red and green it is brighter."
+  section: finding-one-pixel-row-column-channel
 - id: q4
   type: mcq
-  prompt: "The simulator paints yellow as exactly $(230, 200, 40)$. Why does `np.all(frame == yellow, axis=-1)` find almost no yellow pixels in a frame with camera noise of $\\sigma = 6$?"
+  prompt: "What is the shape of `frame[100:180]`?"
   choices:
-    - "Noise changes the paint's colour to a different colour, such as orange."
-    - "A noisy pixel matches only if all three of its nudges round to 0, and with $\\sigma = 6$ that happens for about 3 pixels in 10,000."
-    - "`==` cannot compare arrays of different shapes."
-    - "Noise makes the yellow line thinner, so there are fewer pixels to find."
+    - "(100, 320, 3)"
+    - "(80, 320, 3)"
+    - "(81, 320, 3)"
+    - "(180, 320, 3)"
   answer: 1
-  explain: "One nudge rounds to 0 with probability 0.066 when $\\sigma = 6$, so all three do with probability $0.066^3 = 0.0003$. The pixels still look yellow, and each is within about 30 of yellow; they are just never exactly on it. That is why you test for *close enough* with a distance and a threshold."
-  section: why-exact-equality-fails
+  explain: "The stop is left out: rows 100 to 179, which is $180 - 100 = 80$ rows. Columns and colours are untouched."
+  section: slicing-taking-a-block-of-rows
 - id: q5
-  type: numeric
-  prompt: "The true mask has 20 paint pixels. Your mask marks 15 of them, plus 5 pixels that are not paint. What is the IoU?"
-  answer: 0.6
-  tolerance: 0.001
-  explain: "The intersection is the 15 pixels marked in both. The union is the 20 true pixels plus your 5 wrong ones, 25. IoU $= 15 / 25 = 0.6$. Missing 5 true pixels and adding 5 false ones both cost you."
-  section: scoring-a-mask-with-iou
+  type: mcq
+  prompt: "What is the distance between the colours (0, 0, 0) and (3, 4, 12)?"
+  choices:
+    - "19"
+    - "169"
+    - "13"
+    - "12"
+  answer: 2
+  explain: "$\\sqrt{3^2 + 4^2 + 12^2} = \\sqrt{9 + 16 + 144} = \\sqrt{169} = 13$. 169 is the sum before the root; 19 adds the differences without squaring."
+  section: colour-is-a-point-in-space
 - id: q6
-  type: numeric
-  prompt: "Paint covers 1.2% of a frame. What is the IoU of a mask that marks no pixels at all?"
+  type: mcq
+  prompt: "Which simulator colour is closest to white paint, and so the most likely to be mistaken for it?"
+  choices:
+    - "sky"
+    - "road"
+    - "grass"
+    - "yellow paint"
   answer: 0
-  tolerance: 0
-  explain: "Nothing is marked, so the intersection is empty: the IoU is 0 divided by the number of true paint pixels, which is 0. The same mask is *right* about 98.8% of the pixels, which is why pixel accuracy is the wrong score when the thing you look for is rare."
-  section: scoring-a-mask-with-iou
+  explain: "White to sky is 116.4; to yellow paint 204.2, to road 257.0 and to grass 270.9. The nearest colour is the one a loose threshold would mistake for white first."
+  section: colour-is-a-point-in-space
 - id: q7
   type: mcq
-  prompt: "In a noisy frame, no white paint pixel is more than 25 from white, and the nearest pixel that is not white paint is 92 from white. Which threshold $\\tau$ separates white paint from everything else?"
+  prompt: "With `noise_sigma=6`, about what share of the nudges lie between −6 and +6?"
   choices:
-    - "$\\tau = 5$"
-    - "$\\tau = 60$"
-    - "$\\tau = 120$"
-    - "$\\tau = 255$"
+    - "all of them"
+    - "about 7 in 10"
+    - "about 1 in 15"
+    - "about 1 in 100"
   answer: 1
-  explain: "$\\tau$ must be bigger than the largest distance noise produces (25), and smaller than the distance to the nearest other colour (92). Only 60 sits in that gap. $\\tau = 5$ misses most of the paint; $\\tau = 120$ reaches into the sky and marks thousands of sky pixels as paint."
-  section: paint-is-a-colour-threshold
+  explain: "Measured on a frame, 72.1% of nudges fall within one $\\sigma$ of zero. Almost all (99.8%) fall within $\\pm 18$, but not literally all of them."
+  section: noise-no-two-pixels-quite-alike
 - id: q8
   type: mcq
-  prompt: "What does `np.array([90], dtype=np.uint8) - np.array([230], dtype=np.uint8)` give?"
+  prompt: "Why does `frame == yellow` find almost no yellow pixels in a noisy frame?"
   choices:
-    - "`[-140]`"
-    - "`[116]`"
-    - "`[0]`"
-    - "An `OverflowError`"
+    - "noise turns yellow pixels into grass"
+    - "`==` only works on float arrays"
+    - "the simulator paints yellow differently on each road"
+    - "all three channels' nudges must round to exactly 0, and each does so only about 1 time in 15"
+  answer: 3
+  explain: "A channel survives only if its nudge rounds to 0, which at $\\sigma = 6$ is about 0.066, or 1 in 15. All three must survive: about $0.066^3 \\approx 0.0003$."
+  section: the-tempting-shortcut-exact-equality
+- id: q9
+  type: mcq
+  prompt: "Which threshold for white paint would also mark sky pixels in the noisy frame?"
+  choices:
+    - "40"
+    - "60"
+    - "120"
+    - "80"
+  answer: 2
+  explain: "White paint pixels are at most 24.8 from white, and the nearest sky pixel is 92.2 away. Any threshold between those two is safe, which includes 40, 60 and 80; 120 reaches past the sky."
+  section: paint-is-a-colour-threshold
+- id: q10
+  type: mcq
+  prompt: "`frame` has shape (180, 320, 3) and `yellow` has shape (3,). What is the shape of `np.linalg.norm(frame.astype(float) - yellow, axis=-1)`?"
+  choices:
+    - "(180, 320)"
+    - "(180, 320, 3)"
+    - "(3,)"
+    - "(57600,)"
+  answer: 0
+  explain: "Broadcasting subtracts yellow from every pixel and keeps the shape (180, 320, 3). Taking the length along the last axis, the colour axis, leaves one distance per pixel: (180, 320)."
+  section: paint-is-a-colour-threshold
+- id: q11
+  type: mcq
+  prompt: "A mask marks 6 of the 10 true paint pixels, plus 2 pixels that are not paint. What is its IoU?"
+  choices:
+    - "0.6"
+    - "0.75"
+    - "0.8"
+    - "0.5"
+  answer: 3
+  explain: "Both: 6. Either: $6 + 4 + 2 = 12$ (6 right, 4 missed, 2 wrong). $6 / 12 = 0.5$. 0.6 is the share of the paint found, which ignores the false marks."
+  section: scoring-a-mask-intersection-over-union
+- id: q12
+  type: mcq
+  prompt: "Both arrays are uint8. A road pixel's red is 90 and yellow's red is 230. What does `frame - yellow` give for that channel?"
+  choices:
+    - "−140"
+    - "116"
+    - "0"
+    - "an OverflowError"
   answer: 1
-  explain: "A `uint8` cannot hold a negative number, so NumPy wraps the result around, silently, by adding 256: $-140 + 256 = 116$. No error, no warning. Convert with `.astype(float)` before you subtract image data."
+  explain: "uint8 arithmetic wraps around by 256: $90 - 230 = -140$, and $-140 + 256 = 116$. NumPy raises no error for array subtraction, so the bug is silent."
   section: the-uint8-wraparound-trap
