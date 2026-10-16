@@ -1,0 +1,46 @@
+id: "1.1.4"
+title: Poses you can chain
+minutes: 240
+box: "Instruments: the pose arithmetic that rebuilds where the car is from how it moved, every 0.05 s"
+car_box: instruments
+outcomes:
+  - can: "Write a pose as a 3×3 matrix whose columns are its frame's axes and origin, and tell a point (trailing 1) from an arrow (trailing 0)"
+    proof: "Your pose_to_matrix and matrix_to_pose pass their practice checks in the lab, and the quiz question on a trailing 0"
+  - can: "Chain transforms by cancelling their subscripts, show by hand that the order matters, and invert a pose in closed form at any size"
+    proof: "Your relative_pose passes Exercise A, your invert_pose passes its 3×3 and 4×4 practice checks, and the quiz questions on chaining, order and the inverse"
+  - can: "Rebuild the gentle lap from its 1777 odometry steps, and explain why a check of the end alone passes the wrong order"
+    proof: "Your dead_reckon passes Exercise B at every step, and the quiz question on 1.11 m against 204.88 m"
+  - can: "Explain why dead reckoning drifts without bound, and how the drift grows with the noise and with the laps driven"
+    proof: "The Drift section's guesses, the challenge problems, and the quiz question on σ"
+  - can: "Use a body-fixed frame to find the rear axle, and explain why it rides inside the front on a bend"
+    proof: "Problem 6 in the lab and the quiz question on the rear axle"
+prerequisites: ["1.1.2"]
+exercises:
+  - {id: "1.1.4.a", name: relative_pose}
+  - {id: "1.1.4.b", name: dead_reckon}
+go_deeper:
+  - title: "Lynch and Park, Modern Robotics, section 3.3.1 \"Homogeneous Transformation Matrices\""
+    url: "https://modernrobotics.northwestern.edu/nu-gm-book-resource/3-3-1-homogeneous-transformation-matrices/"
+    note: "The 4×4 version of this lesson's 3×3. Its inverse [Rᵀ, −Rᵀp; 0, 1] is invert_pose, and the next lesson uses it for the camera."
+  - title: "Lynch and Park, Modern Robotics, section 13.4 \"Odometry\""
+    url: "https://modernrobotics.northwestern.edu/nu-gm-book-resource/13-4-odometry/"
+    note: "Wheel odometry for a mobile base: the body's motion over one step, integrated step by step, as in dead_reckon."
+  - title: "ROS REP 105, \"Coordinate Frames for Mobile Platforms\" (section on the odom frame)"
+    url: "https://www.ros.org/reps/rep-0105.html"
+    note: "The odom frame \"can drift over time, without any bounds\", and is \"an accurate, short-term local reference\". It is why robots also keep a map frame."
+tutor_prompt: |
+  You are the tutor for "Poses you can chain". The learner knows Week 1 (the car, camera pictures as arrays,
+  paint masks, P steering) and the lessons "Positions and headings" and "The view from the driver's seat" (heading
+  vectors, rotation_matrix, world_to_ego). This lesson covers:
+  - a pose (x, y, θ) as a 3×3 matrix whose columns are its frame's axes and origin;
+  - T_a←b, read "T, a from b", chained when the inner names cancel;
+  - the order of a product matters;
+  - the closed-form inverse [Rᵀ, −Rᵀt; 0, 1];
+  - one odometry step as T_k←k+1;
+  - dead reckoning, T_world←k+1 = T_world←k · T_k←k+1;
+  - drift;
+  - the body-fixed rear frame T_EGO_REAR.
+  Ask the learner to predict before they compute. Never write the lab's functions for them. When they are stuck on
+  order, ask which frame each step is measured in. Use the lesson's measured numbers: 1777 steps, 1.11 m against
+  204.88 m at step 866, 710.66 m, and RMS 0.608 m at σ = 0.0001 rad. Bring in SE(2), Lie groups or 4×4 matrices only
+  if the learner asks; 4×4 comes in the next lesson.

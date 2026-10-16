@@ -1,0 +1,27 @@
+- id: c1
+  front: "What are the columns of a pose's 3×3 matrix?"
+  back: "The forward axis, the left axis and the origin, in world numbers; the bottom row is $(0, 0, 1)$. At step 400: $(0.7623, 0.6473)$, $(-0.6473, 0.7623)$ and $(154.6587, 19.8543)$."
+- id: c2
+  front: "Trailing 1 or trailing 0: what is the difference?"
+  back: "A 1 makes a point: it is turned and moved. A 0 makes an arrow: it is only turned, so it has a direction but no place."
+- id: c3
+  front: "How do you read $T_{a\\leftarrow b}$, and when can two be multiplied?"
+  back: "\"T, a from b\": it takes numbers in frame $b$ to frame $a$. $T_{a\\leftarrow b} \\cdot T_{b\\leftarrow c} = T_{a\\leftarrow c}$: the inner names must match and cancel."
+- id: c4
+  front: "What is the closed-form inverse of a pose matrix?"
+  back: "$\\begin{bmatrix} R^{\\mathsf T} & -R^{\\mathsf T}\\mathbf{t} \\\\ 0 & 1 \\end{bmatrix}$, at any size. On the lap, `invert_pose(T) @ T` is the identity to $2.2\\times10^{-16}$."
+- id: c5
+  front: "What is one odometry step, as a pose?"
+  back: "$T_{k\\leftarrow k+1} = T_{\\text{world}\\leftarrow k}^{-1} \\cdot T_{\\text{world}\\leftarrow k+1}$. At step 100: 0.4000 m forward, 0.00079 m left, 0.00027 rad of turn."
+- id: c6
+  front: "Dead reckoning: which side does the step go on?"
+  back: "The right: $T_{\\text{world}\\leftarrow k+1} = T_{\\text{world}\\leftarrow k} \\cdot T_{k\\leftarrow k+1}$. On the left, the end is 1.11 m off but step 866 is 204.88 m off, so check every pose."
+- id: c7
+  front: "What is drift?"
+  back: "Error that grows because each estimate is built on the one before. At $\\sigma = 0.0001$ rad per step: 0.608 m RMS after one lap and 2.506 m after 16."
+- id: c8
+  front: "Why does $\\theta$ from `matrix_to_pose` jump at step 1021?"
+  back: "`atan2` returns an angle from $-\\pi$ to $\\pi$, but the record's yaw keeps climbing to 6.2264. Wrap the difference before comparing."
+- id: c9
+  front: "What is `T_EGO_REAR`?"
+  back: "`pose_to_matrix((-2.7, 0, 0))`: the rear frame, 2.7 m behind the front axle and fixed to the car's body, so one product with it places the rear axle at every step."
