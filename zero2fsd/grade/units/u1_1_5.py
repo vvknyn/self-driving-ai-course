@@ -214,9 +214,25 @@ def lens_shift_hint(fn, u: float, v: float) -> str:
     T, ray = geom.T_ego_cam(-LOW_LENS_M, PITCH_RAD), geom.pixel_ray(Camera(), u, v)
     shifted = geom.transform_points(T, ray)  # what a ray treated as a point turns into
     w1 = T[:3, 3] + (-T[2, 3] / shifted[2]) * shifted
-    if np.allclose(ground_point(fn, T, u, v, mount_label=mount_label(-LOW_LENS_M, PITCH_RAD)), w1, atol=GROUND_TOL, equal_nan=False):
+    if np.allclose(ground_point(fn, T, u, v, mount_label=mount_label(-LOW_LENS_M, PITCH_RAD)), w1, atol=GROUND_TOL, rtol=0.0, equal_nan=False):
         return "; your ray probably picked up the lens's shift (w = 1): a ray is a direction and only turns"
-    return "; every ray points up or level in your ego numbers: turn the ray by the mount's 3×3 block, so that its third number is negative below the horizon"
+    above = ground_point(fn, SPEC_MOUNT, *pixels_in(ROWS_ABOVE)[0])
+    if not np.isnan(above).any():  # nan below the horizon yet a point above it: the test for "no road" is the wrong way round
+        return "; your answer is nan for the pixels that look down and a road point for the ones that look up, so the nan test is the wrong way round: return nan only when the turned ray's third number is 0 or positive"
+    return "; check that you turn the ray by the mount's 3×3 block only (w = 0) before reading its third number, and that you return nan only when that number is 0 or positive"
+
+
+def road_point_slip(T: np.ndarray, u: float, v: float, got: np.ndarray) -> str:
+    """Name the slip whose road point IS the learner's, or fall back to the formula; a road point is the lens position t plus λ steps along the turned ray r."""
+    ray = geom.pixel_ray(Camera(), u, v)
+    R, t = T[:3, :3], T[:3, 3]
+    r = R @ ray
+    lam = -t[2] / r[2]
+    for words, point in (("you shifted by the lens position and then turned the sum, R(λ·ray + t); turn the ray first, then add t: t + λ·(R·ray)", R @ (lam * ray + t)),
+                         ("you left out the lens position t; a road point is t + λ·r", lam * r)):
+        if np.allclose(got, point, atol=GROUND_TOL, rtol=0.0):
+            return words
+    return "a road point is g = t + λr: the lens position t as it is, plus λ = −t_z / r_z steps along the turned ray r"
 
 
 @exercise(
@@ -237,7 +253,7 @@ def _ray_to_ground(fn, show, on_step):
                           given=f"the first one: pixel ({u:.1f}, {v:.1f})", expected=triple(want), got=triple(got))
         aloft = max(answers, key=lambda a: abs(a[2][2]))
         if abs(aloft[2][2]) > GROUND_TOL:
-            raise Failure(f"your point is {aloft[2][2]:.3g} m above the road; a road point has up = 0, which is what λ = −t_z / r_z guarantees",
+            raise Failure(f"your point is {aloft[2][2]:.3g} m above the road, and a road point has up = 0: {road_point_slip(geom.T_ego_cam(height_m, pitch_rad), aloft[0], aloft[1], aloft[2])}",
                           given=f"pixel ({aloft[0]:.1f}, {aloft[1]:.1f}) with {where}", expected=triple(aloft[3]), got=triple(aloft[2]))
         gaps = ground_gaps(answers)
         worst = int(np.argmax(gaps))

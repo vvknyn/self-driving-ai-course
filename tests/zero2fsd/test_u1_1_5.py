@@ -267,7 +267,7 @@ def test_c_gives_a_cause_only_when_every_pixel_is_nan(capsys):
     passed, text = failure_text("1.1.5.c", preset("1.1.5.c", "direction_with_w1")["ray_to_ground"], capsys)
     assert not passed and "(w = 1)" in text
     passed, text = failure_text("1.1.5.c", lambda T, ray: np.full(3, np.nan), capsys)  # all nan, but not the shifted ray's answer
-    assert not passed and "(w = 1)" not in text and "every ray points up or level" in text
+    assert not passed and "(w = 1)" not in text and "return nan only when" in text
 
 
 # --- the mistakes the lecture names, the pair's order, and C at other mounts -------------------------------------------------
@@ -311,7 +311,25 @@ def test_c_names_the_lens_shift_only_when_the_answer_is_the_shifted_ray(capsys):
     def never_turned(T, ray):  # the camera-numbers ray used as it is: its third number is +1
         return _ground(np.eye(3), T[:3, 3], ray)
     passed, text = failure_text("1.1.5.c", never_turned, capsys)
-    assert not passed and "w = 1" not in text and "every ray points up or level in your ego numbers" in text
+    assert not passed and "w = 1" not in text and "every ray points up or level" not in text and "return nan only when" in text
+
+    def inverted_guard(T, ray):  # nan for the rays that look down, a point for the rest
+        r = T[:3, :3] @ ray
+        return np.full(3, np.nan) if r[2] < 0 else T[:3, 3] - T[2, 3] / r[2] * r  # above the horizon it still computes lam r
+    passed, text = failure_text("1.1.5.c", inverted_guard, capsys)
+    assert not passed and "the nan test is the wrong way round" in text and "w = 1" not in text
+
+
+def test_c_names_a_road_point_that_is_off_the_road_from_what_it_matches(capsys):
+    def shift_then_turn(T, ray):
+        r = T[:3, :3] @ ray
+        return T[:3, :3] @ (-T[2, 3] / r[2] * ray + T[:3, 3])
+    def no_lens(T, ray):
+        r = T[:3, :3] @ ray
+        return -T[2, 3] / r[2] * r
+    for stub, words in ((shift_then_turn, "turned the sum"), (no_lens, "left out the lens position")):
+        passed, text = failure_text("1.1.5.c", stub, capsys)
+        assert not passed and words in text and "guarantees" not in text
 
 
 def test_c_wants_three_nans_above_the_horizon_not_two(capsys):
