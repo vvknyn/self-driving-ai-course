@@ -2,7 +2,7 @@
 # # Lab: Closing the loop
 #
 # You will see what feedback buys, write the P steering law `p_steer`, find out why a car holds a bend off the centre,
-# tune the gains, and build a car in which every box is yours. Read the lecture first; this lab points back to its
+# tune the gains, and build a car whose perception and steering are your own code. Read the lecture first; this lab points back to its
 # sections by title and follows its order.
 #
 # Run the cells from top to bottom (Shift+Enter). Each problem has a "Guess first" line: write your guess down before you
@@ -22,13 +22,15 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 
-from zero2fsd.car import Car, LaneEstimate, provided, run
-from zero2fsd.car.provided import FAR_ROWS, MIN_PIXELS, NEAR_ROWS, paint_masks
+from zero2fsd.car import Car, LaneEstimate, Observation, provided, run
+from zero2fsd.car.provided import FAR_ROWS, MIN_PIXELS, NEAR_ROWS, lane_point, paint_masks
 from zero2fsd.dashboard import dashboard
 from zero2fsd.grade import check, practice
+from zero2fsd.palette import CHROME, QUANTITY
 from zero2fsd.score import metrics
 from zero2fsd.sim import Camera
 from zero2fsd.sim.dynamics import DT, MAX_STEER, WHEELBASE
+from zero2fsd.sim.scenarios import TARGET_SPEED
 
 camera = Camera()
 
@@ -38,11 +40,12 @@ def ends(tel):
     return "completes" if tel.completed else f"leaves the road at {tel.progress_m[-1]:.1f} m, t = {tel.t[-1]:.2f} s"
 
 # %% [markdown]
-# The next cell holds helpers for later problems: a perfect-box car, a way to lift the wheel's speed limit, and the median
-# offset inside the bends. Run it; you do not need to read it.
+# ### Provided setup: helper functions for later problems (run this cell; you do not need to read it)
 
 # %%
 from contextlib import contextmanager
+
+from zero2fsd.palette import shades
 
 from zero2fsd.car.types import Action
 from zero2fsd.sim import BicycleState, dynamics, make_scenario
@@ -114,7 +117,7 @@ def replay(bias):
 
 
 BIAS = 0.002  # rad
-print(f"{BIAS} rad is {math.degrees(BIAS):.2f} degrees")
+print(f"{BIAS} rad is {math.degrees(BIAS):.3f} degrees")
 runs = {
     "closed loop": closed,
     "open loop, exact replay": run(Car(controller=replay(0.0)), "gentle"),
@@ -122,13 +125,13 @@ runs = {
     f"open loop, wheel {BIAS} rad off": run(Car(controller=replay(BIAS)), "gentle"),
 }
 plt.figure(figsize=(9, 3.5))
-for name, tel in runs.items():
-    print(f"{name:32}: {ends(tel)}, mean |lat| {metrics(tel)['mean_abs_lat']:.3f} m")
-    plt.plot(tel.t, tel.lat, label=name)
+for (name, tel), colour in zip(runs.items(), shades(QUANTITY["e_off"], len(runs))):
+    print(f"{name:32}: {ends(tel)}, mean |e| {metrics(tel)['mean_abs_lat']:.3f} m")
+    plt.plot(tel.t, tel.lat, color=colour)
+    plt.text(tel.t[-1], tel.lat[-1], f" {name}", color=colour, fontsize=8, va="center")  # the label sits at the end of its line
 plt.xlim(0, 20)
 plt.xlabel("time (s)")
 plt.ylabel("offset (m), left +")
-plt.legend(fontsize=8)
 plt.show()
 
 # %% [markdown]
@@ -143,15 +146,16 @@ practice("open-loop leave time (s)", t_leave, 8.40, tol=0.05)
 # %% [markdown]
 # The exact replay drives the identical lap, so the recording is right. With 0.11 degrees of error, the replay leaves
 # the road on the first straight, while the closed-loop car barely notices: 0.381 m instead of 0.376 m. Nothing in
-# the replay measures the error, so it adds up; the closed loop measures it every 0.05 s and steers against it.
+# the replay measures the error, so it adds up; the closed loop measures it every 0.05 s and steers against it. For
+# comparison, a car that never steers (wheels held straight) leaves `gentle` at 117.0 m, 14.70 s in.
 #
 # ![](figures/open_vs_closed.png)
 #
 # ![](figures/loop_kinds.png)
 #
-# ## 2. The P controller
+# ## 2. Steering in proportion to the error
 #
-# The worked example of "The P controller": the steering is the negative of two terms, one for the offset and one for
+# The worked example of "Steering in proportion to the error": the steering is the negative of two terms, one for the offset and one for
 # the heading. `provided.steer_p(est, k_off, k_head)` is the provided car's version; you write your own below.
 #
 # **Problem 2.** The car is 0.3 m left of centre and pointing 0.1 rad *right* (heading −0.1). What steering angle does the
@@ -165,7 +169,7 @@ steer_by_hand = None  # your code
 practice("steering angle (rad)", steer_by_hand, 0.165, tol=0.001)
 
 # %% [markdown]
-# ### Graded exercise: `p_steer`
+# ### Exercise A: `p_steer`
 #
 # Write the P law as a function of the estimate and the two gains. The check tries six named cases (signs, both clips, a
 # missing estimate) and 30 random ones.
@@ -187,7 +191,7 @@ def p_steer(est, k_off, k_head):
 check("0.1.4.a", p_steer)
 
 # %% [markdown]
-# Next, the push test of "The P controller": the wheels are held 0.025 rad left for the first second, which leaves the car
+# Next, the push test of "Steering in proportion to the error": the wheels are held 0.025 rad left for the first second, which leaves the car
 # 0.50 m left of the centre, and then the law takes over. The runs stop after 12 s, still on the first straight, where
 # the provided box is almost exact. First with the offset term only, `k_head = 0`.
 #
@@ -206,8 +210,8 @@ def pushed(k_head, k_off=0.35):
 tel = pushed(0.0)
 print(f"handover at 1.0 s: {tel.lat[PUSH_STEPS]:.2f} m left of the centre, heading {tel.head_err[PUSH_STEPS]:+.3f} rad")
 plt.figure(figsize=(9, 3.2))
-plt.plot(tel.t, tel.lat)
-plt.axhline(0, color="0.5", lw=1)
+plt.plot(tel.t, tel.lat, color=QUANTITY["e_off"])
+plt.axhline(0, color=CHROME["border"], lw=1)
 plt.xlabel("time (s)")
 plt.ylabel("offset (m), left +")
 plt.show()
@@ -238,17 +242,18 @@ practice("swing past the centre (m)", swing, 0.135, tol=0.002)
 # %%
 plt.figure(figsize=(9, 3.5))
 settle = {}
-for k_head in (0.0, 0.5, 1.0, 2.0, 2.7, 5.0):
+head_gains = (0.0, 0.5, 1.0, 2.0, 2.7, 5.0)
+for k_head, colour in zip(head_gains, shades(QUANTITY["e_off"], len(head_gains))):
     tel = pushed(k_head)
     outside = np.nonzero(np.abs(tel.lat) >= 0.05)[0]  # steps more than 5 cm from the centre
     settle[k_head] = tel.t[outside[-1] + 1] - PUSH_STEPS * DT
     print(f"k_head = {k_head:3}: furthest past the centre {-tel.lat[PUSH_STEPS:].min():+.3f} m, "
           f"within 5 cm for good {settle[k_head]:.2f} s after the handover")
-    plt.plot(tel.t, tel.lat, label=f"k_head = {k_head}")
-plt.axhline(0, color="0.5", lw=1)
+    plt.plot(tel.t, tel.lat, color=colour)
+    plt.text(tel.t[-1], tel.lat[-1], f" k_head = {k_head}", color=colour, fontsize=8, va="center")
+plt.axhline(0, color=CHROME["border"], lw=1)
 plt.xlabel("time (s)")
 plt.ylabel("offset (m), left +")
-plt.legend(fontsize=8)
 plt.show()
 
 # %% [markdown]
@@ -376,14 +381,14 @@ for s in (24, 30, 36, 44, 48):
 # The next cell drives `gentle` with the provided box and your `p_steer` for a 3 by 3 grid of gains (lecture: "Tuning your
 # car"). Run it after the exercise above passes.
 #
-# **Guess first:** which of the nine pairs has the smallest mean |lat|, and does any leave the road?
+# **Guess first:** which of the nine pairs has the smallest mean |e|, and does any leave the road?
 
 # %%
 try:
     for k_off in (0.35, 1.4, 3.0):
         for k_head in (0.5, 1.0, 2.7):
             tel = run(Car(controller=lambda est, obs, a=k_off, b=k_head: p_steer(est, a, b)), "gentle")
-            print(f"k_off {k_off:4}, k_head {k_head:3}: {ends(tel):38} mean |lat| {metrics(tel)['mean_abs_lat']:.3f} m")
+            print(f"k_off {k_off:4}, k_head {k_head:3}: {ends(tel):38} mean |e| {metrics(tel)['mean_abs_lat']:.3f} m")
 except NotImplementedError:
     print("Write p_steer above first, then run this cell again.")
 
@@ -400,12 +405,13 @@ except NotImplementedError:
 try:
     tel = run(Car(controller=lambda est, obs: p_steer(est, 6.0, 2.7)), "gentle")
     print(f"k_off 6.0: {ends(tel)}")
-    t_crash = tel.t[-1]
 except NotImplementedError:
     print("Write p_steer above first, then run this cell again.")
-    t_crash = None
 
-practice("leave time (s)", t_crash, 4.30, tol=0.05)
+# %%
+leave_s = None  # your code: the time at which this run ended, from tel.t[-1]
+
+practice("leave time (s)", leave_s, 4.30, tol=0.05)
 
 # %% [markdown]
 # The wheels turn at most 0.05 rad per step. At this gain a few centimetres of offset ask for a big change of steering,
@@ -413,11 +419,19 @@ practice("leave time (s)", t_crash, 4.30, tol=0.05)
 #
 # ![](figures/gain_sweep.png)
 #
-# ## 7. Closing the loop
+# ![](figures/wheel_lag.png)
 #
-# Every box of the car becomes yours. First, paste your `estimate_lane` from the lab for *Your first perception box* into
-# the next cell, replacing the skeleton. If it used your own `paint_masks`, paste that above it. The cell sees the same
-# names as that lab: `math`, `np`, `camera`, `paint_masks`, `NEAR_ROWS`, `FAR_ROWS`, `MIN_PIXELS`, `LaneEstimate`.
+# ## 7. Your whole car
+#
+# ### Exercise B: `my_car`
+#
+# Your perception box and your steering become one car. The paint masks and the speed controller stay the provided ones.
+#
+# 1. Paste your `estimate_lane` from the lab for *Your first perception box* into the next cell, replacing the skeleton.
+# 2. If it used your own `paint_masks`, paste that above it; otherwise leave the provided one.
+#
+# The cell sees every name that lab's setup cell gives you (for example `math`, `np`, `camera`, `paint_masks`,
+# `NEAR_ROWS`, `FAR_ROWS`, `MIN_PIXELS`, `LaneEstimate`, `lane_point`).
 
 # %% tags=["exercise:0.1.4.b"]
 def estimate_lane(obs):
@@ -432,9 +446,9 @@ def estimate_lane(obs):
 
 
 # %% [markdown]
-# Now the controller and the car (lecture: "Closing the loop"). `my_controller` returns your `p_steer` with the gains
+# Now the controller and the car (lecture: "Your whole car"). `my_controller` returns your `p_steer` with the gains
 # below; a controller that returns a number is a steering angle, and the `Car` holds the speed for you. Then build
-# `my_car` from your two boxes. The check needs it to complete `gentle` with mean |lat| under 0.5 m.
+# `my_car` from your two boxes. The check needs it to complete `gentle` with mean |e| under 0.5 m.
 
 # %% tags=["exercise:0.1.4.b"]
 K_OFF, K_HEAD = 0.35, 2.7  # the provided gains; section 6 showed others
@@ -456,7 +470,7 @@ check("0.1.4.b", my_car)
 
 # %% [markdown]
 # Run your car on both roads at the provided gains and at 0.5 and 1.0, the pair the lecture found for this box.
-# **Guess first:** which of the four runs leave the road?
+# **Guess first:** your box is not the provided one. Which of the four runs leave the road?
 
 # %%
 if isinstance(my_car, Car):
@@ -465,7 +479,7 @@ if isinstance(my_car, Car):
             for road in ("gentle", "curvy"):
                 car = Car(perception=estimate_lane, controller=lambda est, obs, g=gains: p_steer(est, *g))
                 tel = run(car, road)
-                print(f"gains {gains}, {road:6}: {ends(tel):38} mean |lat| {metrics(tel)['mean_abs_lat']:.3f} m")
+                print(f"gains {gains}, {road:6}: {ends(tel):38} mean |e| {metrics(tel)['mean_abs_lat']:.3f} m")
     except NotImplementedError:
         print("Finish estimate_lane and p_steer above, then run this cell again.")
 else:
@@ -491,7 +505,7 @@ def teammate_controller(est, obs):
 
 
 tel = run(Car(controller=teammate_controller), "gentle")
-print(f"{ends(tel)}, mean |lat| {metrics(tel)['mean_abs_lat']:.3f} m")
+print(f"{ends(tel)}, mean |e| {metrics(tel)['mean_abs_lat']:.3f} m")
 for k in range(0, len(tel.t), 10):
     print(f"t = {tel.t[k]:3.1f} s: offset {tel.lat[k]:+.3f} m, heading {tel.head_err[k]:+.3f} rad, wheel {tel.steer[k]:+.3f} rad")
 dashboard(tel)
@@ -520,12 +534,12 @@ except NotImplementedError:
     print("Write fixed_controller above, then run this cell again.")
     fixed_mean = None
 
-practice("mean |lat| of the fixed car (m)", fixed_mean, 0.376, tol=0.002)
+practice("mean |e| of the fixed car (m)", fixed_mean, 0.376, tol=0.002)
 
 # %% [markdown]
 # ## 9. A 1988 car that learned to steer
 #
-# ALVINN replaced both boxes with one network that read pixels and distances and gave a steering direction (lecture:
+# ALVINN replaced both boxes with one network that read pixels and proximity and gave a steering direction (lecture:
 # "A 1988 car that learned to steer"). Read the paper's Figure 1 and "Network Architecture", then answer the lecture's
 # three questions in your own words.
 #
@@ -555,11 +569,11 @@ mean_e = {}
 for k_off in (4.5, 5.0):
     with without_wheel_limit():
         tel = perfect_run("gentle", lambda est, obs, k_off=k_off: provided.steer_p(est, k_off, 1.0))
-    mean_e[k_off] = None  # your code: the mean |lat| of this run, from `metrics(tel)`
+    mean_e[k_off] = None  # your code: the mean |e| of this run, from `metrics(tel)`
     print(f"k_off {k_off}: {ends(tel)}")
 
-practice("mean |lat| at k_off 4.5 (m)", mean_e[4.5], 0.000, tol=0.003)
-practice("mean |lat| at k_off 5.0 (m)", mean_e[5.0], 0.078, tol=0.003)
+practice("mean |e| at k_off 4.5 (m)", mean_e[4.5], 0.000, tol=0.003)
+practice("mean |e| at k_off 5.0 (m)", mean_e[5.0], 0.078, tol=0.003)
 
 # %% [markdown]
 # **Two predictions.** Use the bias formula of Problem 7 with the `gentle` biases to predict the bend offsets of the 2× car,
@@ -578,7 +592,7 @@ practice("predicted offset at 1.5 and 2.7 (m)", pred_15, 0.025, tol=0.003)
 # %% [markdown]
 # ## What's next
 #
-# ALVINN aimed at the road centre 7 m ahead. To aim at a point ahead, a controller must say where that point is, and the
+# ALVINN aimed at the road centre 7 m ahead; the picture below marks a third point, 10 m ahead. To aim at a point ahead, a controller must say where that point is, and the
 # answer depends on who measures it: pixels, metres forward and left of the car, or metres along the road. The next
 # lesson, *Frames and transforms*, moves a point from one frame to another.
 #

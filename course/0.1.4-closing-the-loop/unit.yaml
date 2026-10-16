@@ -5,11 +5,11 @@ box: "Controller: the steering law that turns your lane estimate into a wheel an
 car_box: steer
 outcomes:
   - can: "Explain why a closed-loop controller corrects an error that an open-loop plan lets grow, and write a P steering law with the right signs, the 0.5 rad clip and a straight wheel when the estimate is not valid"
-    proof: "Your p_steer passes check(\"0.1.4.a\") in the lab, and the quiz questions on open loop and on the signs"
+    proof: "Your p_steer passes Exercise A in the lab, and the quiz questions on open loop and on the signs"
   - can: "Explain what the heading gain does to a return to the centre, and predict what too little and too much gain do to the car, including why the wheel's speed limit caps the useful gain"
     proof: "The push-test, tuning and too-much-gain problems of the lab, and the quiz questions on the heading gain and on k_off = 6"
   - can: "Build a car that runs your own perception and your own controller, and complete gentle with it"
-    proof: "Your my_car passes check(\"0.1.4.b\") in the lab"
+    proof: "Your my_car passes Exercise B in the lab"
   - can: "Compute the offset a P-steered car carries in a steady bend, say how the box's two biases change it, and explain why the provided car leaves curvy"
     proof: "The holding-a-bend and box-bias problems of the lab, and the quiz questions on bends and on curvy"
 prerequisites: ["0.1.3"]
@@ -25,7 +25,7 @@ go_deeper:
     note: "Eq. 7 on p. 684 is a steering law of the same family as yours, with a heading gain of 1; compare it with the law you wrote."
   - title: "Pomerleau, ALVINN: An Autonomous Land Vehicle in a Neural Network (1988): start with Figure 1 and \"Network Architecture\""
     url: "https://proceedings.neurips.cc/paper_files/paper/1988/file/812b4ba287f5ee0bc9d43bbf5bbe87fb-Paper.pdf"
-    note: "The results on pp. 308-309 and the forks on p. 312 show what the network did on the real road; also the module paper."
+    note: "The results on pp. 308-309 and the forks on p. 312 show what the network did on the real road. It is also this module's paper."
 paper:
   title: "ALVINN: An Autonomous Land Vehicle in a Neural Network (Pomerleau, NIPS 1988)"
   url: "https://proceedings.neurips.cc/paper_files/paper/1988/file/812b4ba287f5ee0bc9d43bbf5bbe87fb-Paper.pdf"
@@ -55,4 +55,4 @@ tutor_prompt: |
   3. Within the first three questions, test the misconception: ask what I expect if k_off goes from 2 to 6, and why.
   4. Ask at least one question where I compute a steering angle from an offset and heading you give me, one where I explain what the heading term does when the car is already heading back to the centre, and one where I compute the settled offset in a bend of a radius you give me.
   5. Keep your turns short: two or three sentences, then the question.
-  6. After about five exchanges, stop. List what I explained well, and what I should revisit, naming these lecture sections: "Open loop and closed loop", "The P controller", "How the heading gain shapes the return", "Holding a bend", "Where the box pulls the car", "Why the provided car leaves curvy", "Tuning your car", "Closing the loop", "A 1988 car that learned to steer".
+  6. After about five exchanges, stop. List what I explained well, and what I should revisit, naming these lecture sections: "Open loop and closed loop", "Steering in proportion to the error", "How the heading gain shapes the return", "Holding a bend", "Where the box pulls the car", "Why the provided car leaves curvy", "Tuning your car", "Your whole car", "A 1988 car that learned to steer".

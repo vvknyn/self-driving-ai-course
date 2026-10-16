@@ -19,7 +19,7 @@
   - $-0.275$ rad
   answer: 3
   explain: '$\delta = -(0.35 \times 0.4 + 2.7 \times 0.05) = -(0.14 + 0.135) = -0.275$ rad: both errors are to the left, so the wheel turns right, against both. $+0.275$ has the signs flipped, $-0.14$ forgets the heading term, and $-0.5$ is the clip, which only applies when the sum is larger than 0.5.'
-  section: the-p-controller
+  section: steering-in-proportion-to-the-error
 - id: q3
   type: mcq
   prompt: In the push test the car comes back to the centre with no swing when the heading gain is 1. What does the steering law do at that gain?
@@ -40,7 +40,7 @@
   section: holding-a-bend
 - id: q5
   type: mcq
-  prompt: On `curvy`'s left bend the provided car's box has an offset bias and a heading bias, and the car ends up predicted +2.039 m from the centre. The yellow line is 1.8 m away. Which error does most of the damage, and why?
+  prompt: On `curvy`'s left bend the provided car's box has an offset bias and a heading bias, and the bias formula predicts +2.039 m from the centre. The yellow line is 1.8 m away. Which error does most of the damage, and why?
   choices:
   - 'The heading bias: the law multiplies heading by 2.7 and offset by 0.35, so a heading error counts 7.71 m per radian.'
   - 'The offset bias: the box reports the car too far left.'
