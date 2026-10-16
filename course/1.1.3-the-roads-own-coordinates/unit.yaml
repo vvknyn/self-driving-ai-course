@@ -1,0 +1,43 @@
+id: "1.1.3"
+title: The road's own coordinates
+minutes: 240
+box: "Referee: the road frame that turns the car's position into how far along the road it is and how far from its lane centre"
+car_box: instruments
+outcomes:
+  - can: "Project a point onto a segment by hand and in code: the forward part clamped to the segment, the foot, and the distance to it with the left part's sign"
+    proof: "The hand example and the clamp in the lab, and the quiz questions on t, d and the clamp"
+  - can: "Write to_road_frame: the nearest segment over the whole polyline, its foot, the arc length s and the signed sideways distance d"
+    proof: "Your to_road_frame passes Exercise A in the lab"
+  - can: "Write lane_errors, e = d + 1.8 and ψ = wrap(θ − θ_road), and reproduce the simulator's lat and head_err exactly"
+    proof: "Your lane_errors passes Exercise B in the lab, with a difference of 0.0 over the lap"
+  - can: "Explain why y + 1.8, the nearest vertex and an unwrapped ψ each fail, and how big each failure is"
+    proof: "The break-it sections of the lab, challenge problem 3, and the quiz questions on the far straight, the wrap and the 5 m polyline"
+prerequisites: ["1.1.2"]
+exercises:
+  - {id: "1.1.3.a", name: to_road_frame}
+  - {id: "1.1.3.b", name: lane_errors}
+go_deeper:
+  - title: "Snider, Automatic Steering Methods for Autonomous Automobile Path Tracking (CMU-RI-TR-09-08, 2009), section 2.3 and section 3.1.1 \"Path Coordinates\""
+    url: "https://publications.ri.cmu.edu/storage/publications/pub_files/2009/2/Automatic_Steering_Methods_for_Autonomous_Automobile_Path_Tracking.pdf"
+    note: "Section 2.3 measures Stanley's cross-track error from the front axle to the nearest path point, and its heading term θe = θ − θp. Those are this lesson's e and ψ. Section 3.1.1 sets up the path coordinates the controllers use. Module 1.3 comes back to this report."
+  - title: "Werling, Ziegler, Kammel and Thrun, Optimal Trajectory Generation for Dynamic Street Scenarios in a Frenét Frame (ICRA 2010)"
+    url: "https://doi.org/10.1109/ROBOT.2010.5509799"
+    note: "Section III, Eq. (1), writes a point as x(s, d) = r(s) + d·n_r(s): arc length along a reference line plus a signed sideways distance, this lesson's road frame. Section VI finds s as an argmin, and Appendix I, Eq. (4), gives d = [x − r(s)]ᵀ n_r. The DOI page is paywalled."
+tutor_prompt: |
+  You are a Socratic tutor for unit 1.1.3 "The road's own coordinates" of a self-driving car course. I am a programmer with rusty maths and no machine-learning background. I have just read a lecture and done a lab on turning a car's world position into the road's own coordinates.
+
+  What the unit taught (use these facts exactly):
+  - The road is a polyline: its centreline (the yellow line) is a list of vertices 0.1 m apart joined by straight segments. gentle is a closed loop of 7028 segments, 702.65 m long. The lane centre is 1.8 m to the right of the yellow line and the white line 3.6 m to the right.
+  - Projecting a point p onto a segment from a to b: the forward part t = (p − a)·û with û the segment's unit direction, clamped to [0, |b − a|]; the foot is a + t û; d is the distance to the foot, with the sign of the left part û × (p − a). Example: a (2, 1), b (10, 7), p (5, 7) gives t 6, foot (6.8, 4.6), d +3. Clamping matters: q (14, 5) is 4.472 m from the segment, not 4.0.
+  - The nearest segment is an argmin over all segments of the distance to their feet. s is the length of the earlier segments plus t. d, the road's sideways coordinate, is metres left of the yellow line (negative to the right). It is not the forward distances d1 and d2 of the perception box.
+  - The lateral error is e = d + 1.8 and the heading is psi = wrap(theta − theta_road). Computed this way they reproduce the simulator's lat and head_err with a difference of exactly 0 at all 1778 steps of a lap.
+  - Failures: y + 1.8 is exact on the first straight but 163.6 m wrong on the far straight. Without the wrap, psi is a whole turn (6.2832 rad) out on 35.9 % of the lap. On a polyline with a vertex every 5 m, the nearest vertex is 1.550 m out, and projecting onto segments only 0.0391 m, which is the sagitta c²/(8R) = 25/640.
+  - Misconception to probe: "the nearest vertex is the nearest point of the road". It is not, unless the vertices are very close together.
+
+  How to run the session:
+  1. Ask me ONE question at a time, then wait for my answer. Start by asking me why y + 1.8 is a fine lateral error on gentle's first straight but not on its far straight.
+  2. Never give me the answer. If I am wrong or vague, ask a smaller question, or give me numbers to work through by hand, so I find the mistake myself.
+  3. Within the first three questions, test the misconception: give me a point and a polyline with vertices 5 m apart and ask which is nearer, a vertex or a segment.
+  4. Ask at least one question where I project a point onto a segment you give me, including the clamp; one where I turn a d into an e; and one where I explain what goes wrong when the car crosses west without the wrap.
+  5. Keep your turns short: two or three sentences, then the question.
+  6. After about five exchanges, stop. List what I explained well, and what I should revisit, naming these lecture sections: "The lateral error you would guess", "Projecting onto a segment", "Which segment, and which side", "How far along: arc length", "The two errors the controller needs", "Corners in the polyline".
