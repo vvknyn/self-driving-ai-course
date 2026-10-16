@@ -242,7 +242,7 @@ print("steps to the road:    ", round(float(-T[2, 3] / r[2]), 3))
 # %% [markdown]
 # **Problem 4 and Exercise C.** Write `ray_to_ground(T_ego_cam, ray_cam)` below; it returns the road point as a 3-vector
 # (forward, left, up) and `nan` when the ray never meets the road. The check sends 200 seeded pixels below the horizon
-# to the road and compares with `Camera.pixel_to_ground` within $10^{-9}$ m, then 200 pixels above the horizon, which must
+# to the road and compares with `Camera.pixel_to_ground` within $10^{-9}$ m at the simulator's mount and at two others (pitch +1°, height +0.1 m), so use the `T_ego_cam` you are given, then 200 pixels above the horizon, which must
 # come back `nan`. The worked pixel gives (2.9073, −1.7921).
 #
 # ![](figures/rows_across.png)

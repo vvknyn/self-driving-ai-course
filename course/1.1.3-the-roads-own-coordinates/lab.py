@@ -372,7 +372,7 @@ practice("segments, worst |d| error (m)", p, 0.0391, tol=1e-4)
 #
 # ## What's next
 #
-# You can now turn a position and a yaw into `s` and `d`, and from them `e` and `psi`, the two numbers the controller steers on. In the
+# You can now turn a position and a yaw into `e` and `psi`, the two numbers the controller steers on, by way of the road's own `s` and `d`. In the
 # next lesson, *Poses you can chain*, the car loses the outside world and has to find out where it is from how it moved.
 #
 # ![](figures/next_lesson.png)
