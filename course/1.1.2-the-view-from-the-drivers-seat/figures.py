@@ -239,7 +239,7 @@ def _two_dots(d, path):
     inset.plot(*zip(v, foot), color=EGO, ls="--", lw=2)
     arrow(inset, tuple(v - 0.5 * v / np.linalg.norm(v)), tuple(v), TEXT, lw=3.5)
     inset.plot(*zip(foot - 0.12 * h, foot - 0.12 * h + 0.12 * n, foot + 0.12 * n), color=EGO, lw=1.5)
-    say(inset, tuple(v), f"{num(left)} m\nalong " + r"$\hat{n}$", dx=36, dy=-50, ha="center", colour=EGO)
+    say(inset, tuple(v), f"{num(left)} m\nalong " + r"$\hat{n}$", dx=14, dy=20, ha="center", colour=EGO)
     _save(fig, path)
 
 
@@ -359,7 +359,8 @@ def _order_trap(d, path):
     draw_lines(ax, lane_lines(d.gentle, 120, 200, d.pose, n=500), ego=True, box=((10, -90), (-15, 35)))
     car_dot(ax, (0, 0))
     ax.plot(right[1], right[0], "o", color=EGO, markersize=11, zorder=5)
-    say(ax, (right[1], right[0]), f"subtract, then turn\n({right[0]:.3f}, {right[1]:.3f})", dx=22, dy=-48, ha="left", colour=EGO)
+    say(ax, (right[1], right[0]), f"subtract, then turn\n({right[0]:.3f}, {right[1]:.3f})", dx=22, dy=-48, ha="left", colour=EGO, arrow=True)
+    say(ax, (0, 0), "car", dx=-4, dy=-30, badge=True, arrow=True)
     ax.plot(wrong[1], wrong[0], "x", color=GREY, markersize=14, markeredgewidth=3, zorder=5)
     say(ax, (wrong[1], wrong[0]), f"turn, then subtract\n({num(wrong[0])}, {num(wrong[1])})", dx=-24, dy=64, ha="right", colour=GREY, arrow=True)
     ego_axes(ax, (10, -90), (-15, 35))
@@ -437,13 +438,13 @@ def _quads(d, path):
     say(ax, (px, py), "car", dx=-12, dy=-24, ha="right", badge=True)
     ax.set(xlim=xlim, ylim=ylim, xlabel="east (m)", ylabel="north (m)")
     ax.set_aspect("equal", adjustable="box")
-    centre = pick.mean(axis=0)
-    half = 0.75 * float(np.ptp(pick, axis=0).max())
+    ends = pick[np.argsort(pick[:, 1])[:2]]  # the two corners at one end of the strip, 0.5 m apart
+    centre, half = ends.mean(axis=0), 0.4  # a 0.8 m window: over 10 times the main panel's scale
     inset = zoom_inset(ax, [0.02, 0.62, 0.42, 0.36], (centre[0] - half, centre[0] + half), (centre[1] - half, centre[1] + half))
     inset.add_patch(Polygon(pick, closed=True, fc=EGO, ec=EGO, alpha=0.45))
     inset.plot(pick[:, 0], pick[:, 1], "o", color=EGO, markersize=8)
-    corner = pick[int(np.argmin(pick[:, 1]))]
-    say(inset, tuple(corner), f"4 corners, each\n({corner[0]:.1f}, {corner[1]:.1f})", dx=118, dy=58, colour=EGO, badge=True, arrow=True)
+    for corner, word, dx, dy in zip(ends, ("one corner:", "the next corner:"), (110, 110), (-8, 70)):
+        say(inset, tuple(corner), f"{word}\n({corner[0]:.1f}, {corner[1]:.1f})", dx=dx, dy=dy, colour=EGO, badge=True, arrow=True)
     _save(fig, path)
 
 
@@ -460,9 +461,9 @@ def _shape_trap(d, path):
         ax.plot(left, fwd, "o", color=EGO, markersize=11, zorder=5)
         ax.plot(wl, wf, "x", color=GREY, markersize=14, markeredgewidth=3, zorder=5)
     say(ax, (right[0, 1], right[0, 0]), f"rows @ rot:\n({num(right[0, 0])}, {num(right[0, 1])})", dx=-30, dy=-40, ha="right", colour=EGO, badge=True, arrow=True)
-    say(ax, (right[1, 1], right[1, 0]), f"({num(right[1, 0])}, {num(right[1, 1])})", dx=26, dy=0, ha="left", colour=EGO, badge=True)
+    say(ax, (right[1, 1], right[1, 0]), f"({num(right[1, 0])}, {num(right[1, 1])})", dx=26, dy=0, ha="left", colour=EGO, badge=True, arrow=True)
     say(ax, (wrong[0, 1], wrong[0, 0]), f"rot @ rows:\n({num(wrong[0, 0])}, {num(wrong[0, 1])})", dx=-24, dy=-8, ha="right", colour=GREY, badge=True, arrow=True)
-    say(ax, (wrong[1, 1], wrong[1, 0]), f"({num(wrong[1, 0])}, {num(wrong[1, 1])})", dy=-36, colour=GREY, badge=True)
+    say(ax, (wrong[1, 1], wrong[1, 0]), f"({num(wrong[1, 0])}, {num(wrong[1, 1])})", dy=-36, colour=GREY, badge=True, arrow=True)
     say(ax, (19.5, 25.5), "no error\nmessage", colour=TEXT, badge=True)
     ego_axes(ax, xlim, ylim)
     ax.set_title("the car's own frame")

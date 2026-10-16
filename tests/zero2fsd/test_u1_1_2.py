@@ -89,6 +89,14 @@ def shrunk_yaw(pose, p):  # a mistake the grader does not know by name: the yaw 
     return geom.world_to_ego((*pose[:2], 0.9 * pose[2]), p)
 
 
+def from_north(pose, p):  # the yaw taken from north (the y axis) instead of east
+    return geom.world_to_ego((*pose[:2], math.pi / 2 - pose[2]), p)
+
+
+def offset_yaw(pose, p):  # a rotation mistake the grader does not know and the reviewer did not name
+    return geom.world_to_ego((*pose[:2], pose[2] + 0.3), p)
+
+
 MISTAKES = {  # wrong answer -> the words its message must hold, and the section it must point to
     "swap": (r_not_transposed, "yaw pi/2: this is the swap", "Undo is the transpose"),
     "no rotation": (no_rotation, "yaw pi/2: this is no rotation", "Two dot products make a frame change"),
@@ -97,7 +105,9 @@ MISTAKES = {  # wrong answer -> the words its message must hold, and the section
     "inverse": (inverse, "this is ego_to_world", "Undo is the transpose"),
     "order": (left_first, "forward and left are in the wrong order", "Two dot products make a frame change"),
     "left flipped": (left_flipped, "left has the wrong sign", "Two dot products make a frame change"),
-    "sin and cos swapped": (sin_cos_swapped, "yaw 0 has no rotation at all", "Two dot products make a frame change"),
+    "sin and cos swapped": (sin_cos_swapped, "where R(0) must be the identity", "Two dot products make a frame change"),
+    "yaw measured from north": (from_north, "where R(0) must be the identity", "Two dot products make a frame change"),
+    "yaw offset by 0.3 rad": (offset_yaw, "where R(0) must be the identity", "Two dot products make a frame change"),  # in neither list
     "yaw scaled by 0.9": (shrunk_yaw, "a rotation mistake: check R(θ)ᵀ, θ in radians", "The rotation matrix"),  # not in the grader's list
 }
 

@@ -47,7 +47,7 @@ $$
 \end{aligned}
 $$
 
-![The arrow v from the car's front axle to the lane-centre point 10 m further along, 8.179 m east and 6.093 m north, with the car's heading arrow and left arrow drawn in purple. Dashed lines from the tip of v meet the two arrows' directions at right angles: 10.189 m along the heading arrow, and 0.453 m along the left arrow. A magnified inset shows the right angle where the dashed line meets the left arrow's direction.](figures/two_dots.png)
+![The arrow v from the car's front axle to the lane-centre point 10 m further along, 8.179 m east and 6.093 m north, with the car's heading arrow and left arrow drawn in purple. Dashed lines from the tip of v meet the two arrows' directions at right angles: 10.189 m along the heading arrow, and 0.453 m along the left arrow. A magnified inset shows the right angle where the short dashed line meets the heading line.](figures/two_dots.png)
 
 Those are the bottom panel's numbers for this point: 10.189 m ahead and 0.453 m to the left. Your `forward_left(theta, v)` from *Positions and headings* gives the same pair, (10.189, 0.453). It computes the left part as the cross product $\hat{h}\times\mathbf{v}$, which is the same multiply-and-add in a different order.
 
@@ -182,7 +182,7 @@ The camera never moves one point. To draw one picture, with the car parked on th
 
 The quads come in three arrays, one for each kind. The road surface's has shape (146, 4, 2): 146 quads, 4 corners each, 2 numbers per corner. 146 strips 0.5 m long cover 73 m, from 3 m behind the car to 70 m ahead. The white line's array has the same shape, and the yellow dashes' is (103, 4, 2). So the camera calls `world_to_ego` 3 times per picture, with a whole array each time.
 
-![The road around the car parked on the lane centre 150 m along gentle, seen from above, with every quad outlined: strips of road surface 0.5 m long, strips of white line, and yellow dashes. One road quad is shaded, with its 4 corners marked as dots. Each corner is 2 numbers, east and north. A magnified inset shows the shaded quad, and a badge marks the car.](figures/quads.png)
+![The road around the car parked on the lane centre 150 m along gentle, seen from above, with every quad outlined: strips of road surface 0.5 m long, strips of white line, and yellow dashes. One road quad is shaded, with its 4 corners marked as dots. Each corner is 2 numbers, east and north. A magnified inset, over 10 times the scale of the main panel, shows two of the shaded quad's corners, 0.5 m apart, with their east and north numbers; a badge marks the car.](figures/quads.png)
 
 In NumPy a list of N points is stored as rows: shape (N, 2), one row per point, east part first. The maths above wrote arrows as columns. To use R(θ) on rows, flip the product around. A row written before a matrix is dotted with each of the matrix's columns. The columns of R(θ) are the heading and left arrows, so a row $\mathbf{v}$ times R(θ) gives $(\mathbf{v}\cdot\hat{h},\ \mathbf{v}\cdot\hat{n})$: forward, then left. That is $R(\theta)^{\mathsf T}\mathbf{v}$, written as a row.
 
@@ -275,7 +275,13 @@ Park the car on `straight` 50 m from the start, 0.3 m left of the lane centre, p
 
 ![Two camera pictures of a car parked on straight, stacked: 50 m from the start, 0.3 m left of the lane centre, pointing 0.05 rad right. Top: through the right transform; the perception box reads an offset of 0.3063 m and a heading of −0.0517 rad. Bottom: through the swap; it reads 0.2964 m and +0.0506 rad.](figures/park_box.png)
 
-The controller steers by $-(k_{\text{off}} \cdot \text{offset} + k_{\text{head}}\,\psi)$ from *Closing the loop*, with the box's heading in place of ψ. With that sign flipped, a car pointing a little to one side is told it points to the other, so it steers further the way it already points and the error feeds itself. After the first step e is $2.51\times10^{-5}$ m. It flips sign and grows to 0.0382 m at 1.00 s and 0.2724 m at 2.00 s; then it swings back across the lane centre and leaves the lane at 2.95 s.
+The controller steers by the rule from *Closing the loop*, with the box's heading in place of ψ:
+
+$$
+\delta = -(k_{\text{off}} \cdot \text{offset} + k_{\text{head}}\,\psi)
+$$
+
+With that sign flipped, a car pointing a little to one side is told it points to the other, so it steers further the way it already points and the error feeds itself. After the first step e is $2.51\times10^{-5}$ m. It changes sign and grows to 0.0382 m at 1.00 s and 0.2724 m at 2.00 s; then it swings back across the lane centre and leaves the lane at 2.95 s.
 
 So a test of a transform needs yaws where sin θ is well away from 0, like π/2 and −3π/4, and many random poses. The lab checks the four yaws in the table and 40 random poses against the simulator's own transform; at those 40, the swap is off by up to 704 m and no rotation by up to 751 m.
 
@@ -300,7 +306,13 @@ Both problems explain the swapped car's run on `straight`.
 1. **Why the swap flips the heading.** For small angles cos θ ≈ 1 and sin θ ≈ θ, an approximation; at 0.02 rad, cos θ = 0.9998 and sin θ = 0.0200.
    - (a) Show that R(θ) = R(−θ)ᵀ for every θ. Write R(θ)ᵀ and R(θ) for a small θ, and explain why, on `straight`, the swapped box reads the heading as −ψ while the offset hardly changes. Compare with the parked car's numbers above, and with a second parked car pointing 0.02 rad left.
    - (b) On a straight, the car's yaw changes at $v\,\delta / L$ radians per second, with v = 8.0 m/s and L = 2.7 m, the wheelbase from *Meet your car*. Leave out the offset term and show that, with the swap, ψ grows by a factor of $\mathrm{e}$ every 0.125 s, where $\mathrm{e}$ is the number 2.718 from *Closing the loop*, not the offset $e$, while the right transform shrinks it just as fast. Fitting the swapped car's own steps gives a growth of 2.387 per second instead. Which part of the answer is right, and which is not?
-   - (c) Optional. Keep both terms. Using the front-axle model, the offset changes at $v(\psi + \delta)$ metres per second. Write both rates as a matrix times (e, ψ), and use this fact, stated without proof, to find how fast the swapped car's error grows and how often it swings. For a matrix [[a, b], [c, d]], write tr = a + d and det = ad − bc. If (tr/2)² is less than det, the motion is a swing whose size grows like $\mathrm{e}^{(\mathrm{tr}/2)\,\text{time}}$ and which repeats every 2π/√(det − (tr/2)²) seconds. If (tr/2)² is bigger than det, there is no swing: the motion is two exponentials, with rates tr/2 + √((tr/2)² − det) and tr/2 − √((tr/2)² − det) per second. Compare with the fit.
+   - (c) Optional.
+     <details>
+     <summary>Optional (c): the matrix form, with the fact it needs</summary>
+
+     Keep both terms. Using the front-axle model, the offset changes at $v(\psi + \delta)$ metres per second. Write both rates as a matrix times (e, ψ), and use this fact, stated without proof, to find how fast the swapped car's error grows and how often it swings. For a matrix [[a, b], [c, d]], write tr = a + d and det = ad − bc. If (tr/2)² is less than det, the motion is a swing whose size grows like $\mathrm{e}^{(\mathrm{tr}/2)\,\text{time}}$ and which repeats every 2π/√(det − (tr/2)²) seconds. If (tr/2)² is bigger than det, there is no swing: the motion is two exponentials, with rates tr/2 + √((tr/2)² − det) and tr/2 − √((tr/2)² − det) per second. Compare with the fit.
+
+     </details>
 2. **Turns add up.** Using the angle-sum rules, cos(a + b) = cos a cos b − sin a sin b and sin(a + b) = sin a cos b + cos a sin b, show that R(a)R(b) = R(a + b). Then show that the car's heading arrow, sent into its own ego frame, is (1, 0) at every pose.
 
 <details>

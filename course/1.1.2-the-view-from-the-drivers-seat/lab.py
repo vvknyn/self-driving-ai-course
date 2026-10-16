@@ -193,7 +193,7 @@ practice("largest round-trip error (m)", round_trip, 0, tol=1e-12)
 # and check that the shape comes back unchanged and that the three answers match the lecture's table.
 
 # %%
-quads = np.zeros((146, 4, 2)) + lane_points[0]
+quads = np.zeros((146, 4, 2)) + lane_points[0]  # an array shaped like the road's (146, 4, 2), every corner at one point
 ego_quads = None  # your code: the road's array through world_to_ego
 ego_lane = None  # your code: the three lane-centre points through world_to_ego
 
@@ -253,7 +253,7 @@ practice("pictures that differ", pictures, 0, tol=0)
 # ![](figures/renderer_steps.png)
 
 # %% [markdown]
-# **Exercise B** puts your function in the camera and drives `gentle`. The provided car must complete it with a mean
+# **Exercise B** first compares your function with the renderer's transform entry by entry at 40 seeded poses, then puts it in the camera and drives `gentle`. The provided car must complete it with a mean
 # distance from the lane centre under 0.5 m. With the right transform the lap is identical to the provided one, near 0.376 m.
 
 # %%

@@ -23,7 +23,7 @@ NAMED_YAWS = {  # yaw label -> (yaw, what a pass at that yaw proves)
 }
 NAME_TOL = 1e-6  # how close `got` must be to a known wrong answer for the message to name that mistake
 GENERAL = ("a rotation mistake: check R(θ)ᵀ, θ in radians, and that you subtract t before rotating", "The rotation matrix")
-YAW_0 = ("yaw 0 has no rotation at all, so this is not a turn mistake: subtract the car's position first, then return (forward, left)",
+YAW_0 = ("wrong even at yaw 0, where R(0) must be the identity [[1, 0], [0, 1]]: check that rotation_matrix(0) gives it, that you subtract the car's position, and that you return (forward, left)",
          "Two dot products make a frame change")
 
 
@@ -45,7 +45,7 @@ def known_mistakes(pose, point):
 
 
 def name_the_mistake(pose, point, got, label):
-    """The headline for a wrong answer `got`: the mistake it matches, else yaw 0's text or the general rotation hint."""
+    """The headline for a wrong answer `got`: the mistake it matches, else yaw 0's text (the answer matches no known mistake, so say what yaw 0 must give) or the general rotation hint."""
     for answer, (what, section) in known_mistakes(pose, point):
         if got.shape == answer.shape and np.allclose(got, answer, atol=NAME_TOL):
             return f'wrong at yaw {label}: {what}. See the section "{section}"'
@@ -119,7 +119,7 @@ def check_against_renderer(fn) -> float:
 
 @exercise(
     "1.1.2.b",
-    checked=f"your world_to_ego inside the simulator's camera: the provided car must complete `{GATE_SCENARIO}` on the pictures it draws",
+    checked=f"your world_to_ego against the renderer's transform at {N_POSES} seeded poses, entry by entry, then inside the simulator's camera: the provided car must complete `{GATE_SCENARIO}` on the pictures it draws",
     section="Swap your transform into the renderer",
 )
 def _renderer_gate(fn, show, on_step):
