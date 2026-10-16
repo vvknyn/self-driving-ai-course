@@ -14,7 +14,7 @@ from _course import REPO, declared_exercises, load_solution
 from zero2fsd.car import Car, run
 from zero2fsd.car.provided import K_HEAD, K_OFF, estimate_lane, paint_masks, steer_p
 from zero2fsd.grade._report import EXERCISES, Failure
-from zero2fsd.preview import PREVIEWS, Kind, get, register
+from zero2fsd.preview import PREVIEWS, Error, Kind, get, register, settled
 from zero2fsd.preview.units.u0_1 import OVERLAY, STATS_ROAD
 from zero2fsd.score import metrics
 from zero2fsd.sim import BicycleState, Camera, make_scenario
@@ -201,3 +201,33 @@ def test_the_image_preview_paints_each_mask_in_its_own_colour_and_leaves_the_res
 def test_the_image_preview_reports_a_wrong_answer_as_a_failure(noisy, answer, said):
     with pytest.raises(Failure, match=re.escape(said)):
         get("0.1.2.a").build(answer, noisy)
+
+
+# --- error stats: float noise is not a value --------------------------------------------------------------------
+
+def with_noise(fn, noise):
+    """`fn` with `noise` added to every number it returns: a right answer with rounding error on it."""
+    return lambda *args: np.asarray(fn(*args), dtype=float) + noise
+
+
+def test_settled_floors_an_error_below_its_tolerance_and_nothing_else():
+    stats = {"gap": Error(3e-14, 1e-9), "real": Error(0.02, 1e-9), "plain": 4e-14, "count": 0.0}
+    assert settled(stats) == {"gap": 0.0, "real": 0.02, "plain": 4e-14, "count": 0.0}
+    assert all(type(v) is float for v in settled(stats).values() if v)
+
+
+def test_a_gap_preview_shows_float_noise_as_0_and_a_real_gap_unchanged(canned):
+    reference = reference_answer("1.1.2.a")
+    assert get("1.1.2.a").build(with_noise(reference, 5e-14), canned) == {"largest difference from the renderer's transform (m)": 0.0}
+    real = get("1.1.2.a").build(with_noise(reference, 1e-3), canned)
+    assert real["largest difference from the renderer's transform (m)"] == pytest.approx(1e-3, rel=0.1)
+
+
+def test_another_units_error_stat_is_floored_too_and_its_other_stats_are_not():
+    drive = run(Car(), get("1.1.4.b").road)
+    reference = reference_answer("1.1.4.b")
+    stats = get("1.1.4.b").build(with_noise(reference, 3e-14), drive)
+    assert stats == {"worst error over the lap (m)": 0.0, "error at the end (m)": 0.0}
+    assert get("1.1.4.b").build(with_noise(reference, 1e-3), drive)["worst error over the lap (m)"] > 1e-4
+    unfloored = get("1.1.1.b").build(lambda yaw, arrows: np.full((len(arrows), 2), 4e-14), run(Car(), get("1.1.1.b").road))
+    assert unfloored["largest left per step (m)"] == 4e-14  # a plain value: noise-sized, but not an error

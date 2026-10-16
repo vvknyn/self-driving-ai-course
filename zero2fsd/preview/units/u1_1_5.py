@@ -7,9 +7,9 @@ import numpy as np
 
 from ... import geom
 from ...grade._report import Failure
-from ...grade.units.u1_1_5 import N_PICTURES, ground_answers, ground_gaps, mount, mount_pair, pictures_that_differ, pixel_gap
+from ...grade.units.u1_1_5 import GROUND_TOL, N_PICTURES, PIXEL_TOL, ground_answers, ground_gaps, mount, mount_pair, pictures_that_differ, pixel_gap
 from ...sim import Camera
-from .. import register
+from .. import Error, register
 
 ROAD = "gentle"  # the lab's own drive: a mount that is wrong shows on its bend
 
@@ -29,7 +29,7 @@ def _mount_stats(fn, tel):
         T = mount(fn)
     camera = Camera()
     seen = geom.ray_to_ground(T, geom.pixel_ray(camera, camera.cx, 150))
-    return {"ground distance seen in row 150 (m)": float(seen[0]), "largest pixel difference from the renderer (px)": pixel_gap(T)}
+    return {"ground distance seen in row 150 (m)": float(seen[0]), "largest pixel difference from the renderer (px)": Error(pixel_gap(T), PIXEL_TOL)}
 
 
 @register("1.1.5.b", "stats", road=ROAD)
@@ -45,4 +45,4 @@ def _swapped_mount_stats(target, tel):
 def _ray_stats(fn, tel):
     with plain_errors():
         gaps = ground_gaps(ground_answers(fn))
-    return {"largest ground difference (m)": float(np.max(gaps))}
+    return {"largest ground difference (m)": Error(np.max(gaps), GROUND_TOL)}

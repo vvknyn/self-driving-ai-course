@@ -8,7 +8,7 @@ import numpy as np
 
 from ..car.runner import StepHook
 from . import units
-from ._report import EXERCISES, LESSON_TITLES, REPORT, Result, fmt, fmt_pair, lesson_titles
+from ._report import EXERCISES, LESSON_TITLES, REPORT, Result, fmt, fmt_expected_got, lesson_titles, zero_below
 
 # importing a unit registers its exercises; its LESSON files the unit's title for the reports
 LESSON_TITLES.update(lesson_titles(importlib.import_module(f"{units.__name__}.{unit.name}") for unit in pkgutil.iter_modules(units.__path__)))
@@ -34,17 +34,6 @@ def check(exercise_id: str, fn_or_box, show: bool = True, on_step: StepHook | No
     return result
 
 
-def zero_below(value, tol: float):
-    """`value` with every number of magnitude below `tol` replaced by 0, in the same container (array, tuple or list) it came in."""
-    if isinstance(value, np.ndarray) and value.dtype.kind == "f":
-        return np.where(np.abs(value) < tol, 0.0, value)
-    if type(value) in (tuple, list):
-        return type(value)(zero_below(v, tol) for v in value)
-    if isinstance(value, float | np.floating) and abs(value) < tol:
-        return 0.0
-    return value
-
-
 def practice(what: str, got, want, tol: float = 1e-6) -> None:
     """Ungraded self-check for a lab's practice problem: `got` stays None until you answer; prints the verdict.
 
@@ -60,7 +49,7 @@ def practice(what: str, got, want, tol: float = 1e-6) -> None:
         shown, raw = fmt(zero_below(got, tol)), fmt(got)
         print(f"{GREEN}\N{CHECK MARK} {what}: {shown}{f' (shown as 0: all within {tol:g})' if shown != raw else ''}{RESET}")
     else:
-        expected, actual = fmt_pair(want, got)
+        expected, actual = fmt_expected_got(want, got)
         print(f"{RED}\N{BALLOT X} {what}: expected {expected}, got {actual}{RESET}")
 
 

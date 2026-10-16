@@ -10,7 +10,7 @@ from ...car import Car
 from ...sim import BicycleState, Camera
 from ...sim.camera import to_vehicle
 from .._drive import GATE_SCENARIO, gate
-from .._report import Failure, call, exercise, fmt
+from .._report import Failure, call, exercise, fmt, fmt_gap, matching_mistakes
 
 LESSON = ("1.1.2", "The view from the driver's seat")  # (unit id, title): grade/__init__ files it in LESSON_TITLES
 TOL, N_POSES, N_POINTS = 1e-9, 40, 25
@@ -22,6 +22,7 @@ NAMED_YAWS = {  # yaw label -> (yaw, what a pass at that yaw proves)
     "-3pi/4": (-3 * math.pi / 4, "tells R from its transpose, and from no rotation"),
 }
 NAME_TOL = 1e-6  # how close `got` must be to a known wrong answer for the message to name that mistake
+RUN_A_FIRST = ". Run Exercise A first: it names the mistake"
 SECTION = "Two dot products make a frame change"  # where the general message points: it names no cause
 
 
@@ -44,11 +45,18 @@ def known_mistakes(pose, point):
     ]
 
 
+def matched_mistake(pose, point, got) -> str | None:
+    """The sentence naming the known mistake `got` equals at `pose` and `point`, else None. A mistake that is right at this pose is never named."""
+    answers = [(note, answer) for answer, note in known_mistakes(pose, point)]
+    for what, section in matching_mistakes(got, geom.world_to_ego(pose, point), answers, NAME_TOL)[:1]:
+        return f'{what}. See the section "{section}"'
+    return None
+
+
 def name_the_mistake(pose, point, got, label):
     """The headline for a wrong answer `got`: the mistake it matches, else only what the grader saw (how far off, or a constant gap)."""
-    for answer, (what, section) in known_mistakes(pose, point):
-        if got.shape == answer.shape and np.allclose(got, answer, rtol=0, atol=NAME_TOL):
-            return f'wrong at yaw {label}: {what}. See the section "{section}"'
+    if (named := matched_mistake(pose, point, got)) is not None:
+        return f"wrong at yaw {label}: {named}"
     right = geom.world_to_ego(pose, point)
     if got.shape != right.shape:
         seen = f"returned shape {got.shape}, expected {right.shape}"
@@ -59,20 +67,28 @@ def name_the_mistake(pose, point, got, label):
     return f'wrong at yaw {label}: {seen}. See the section "{SECTION}"'
 
 
-def renderer_gap(fn) -> float:
-    """Largest difference (m) between `fn` and the renderer's own transform over 40 seeded poses of 25 points each."""
+def renderer_worst(fn):
+    """(largest difference (m) between `fn` and the renderer's own transform over 40 seeded poses of 25 points each, the (pose, point, `fn`'s answer) where it is)."""
     rng = np.random.default_rng(1102)
     poses = np.column_stack([rng.uniform(-200, 200, N_POSES), rng.uniform(-200, 200, N_POSES), rng.uniform(-4 * math.pi, 4 * math.pi, N_POSES)])
     points = rng.uniform(-200, 200, (N_POSES, N_POINTS, 2))
-    worst = 0.0
+    worst, where = -1.0, None
     for (x, y, theta), pts in zip(poses, points):
         given = f"pose ({x:.1f}, {y:.1f}, {theta:.3f}) and {N_POINTS} points"
         got = np.asarray(call(fn, (float(x), float(y), float(theta)), pts, given=given), dtype=float)
         if got.shape != pts.shape:
             raise Failure(f"returned shape {got.shape}, expected {pts.shape}", given=given)
         forward, left = to_vehicle(BicycleState(x, y, theta, 0.0, 0.0), pts[:, 0], pts[:, 1])
-        worst = max(worst, float(np.abs(got - np.stack([forward, left], axis=-1)).max()))
-    return worst
+        off = np.abs(got - np.stack([forward, left], axis=-1)).max(axis=-1)
+        i = int(np.argmax(off))
+        if np.isnan(off[i]) or off[i] > worst:  # a nan answer is the worst there is
+            worst, where = float(off[i]), ((float(x), float(y), float(theta)), pts[i], got[i])
+    return worst, where
+
+
+def renderer_gap(fn) -> float:
+    """Largest difference (m) between `fn` and the renderer's own transform over 40 seeded poses of 25 points each."""
+    return renderer_worst(fn)[0]
 
 
 @exercise(
@@ -97,7 +113,7 @@ def _world_to_ego(fn, show, on_step):
     if got.shape != want.shape or not np.allclose(got, want, rtol=0, atol=TOL):
         matrix_first = geom.rotation_matrix(pose[2]).T @ (rows - np.array(pose[:2]))
         what = ("this is matrix @ rows: with 2 points it runs and mixes the points' parts; points stored as rows go on the left, rows @ R"
-                if got.shape == want.shape and np.allclose(got, matrix_first, rtol=0, atol=NAME_TOL) else "wrong for 2 points stored as rows")
+                if matching_mistakes(got, want, [("matrix @ rows", matrix_first)], NAME_TOL) else "wrong for 2 points stored as rows")
         raise Failure(f'{what}. See the section "Every point at once"', given=given, expected=want, got=got)
     rng = np.random.default_rng(1103)
     cloud = rng.uniform(-200, 200, (146, 4, 2))
@@ -111,15 +127,17 @@ def _world_to_ego(fn, show, on_step):
                       given=f"pose {pose} and a (146, 4, 2) array of points")
     worst = check_against_renderer(fn)
     proved = "; ".join(f"yaw {label} {proof}" for label, (_, proof) in NAMED_YAWS.items())
-    return f"all four yaws pass ({proved}), and so do the shape and the round trip; largest difference from the renderer's transform {worst:.2g} m over {N_POSES} poses"
+    return f"all four yaws pass ({proved}), and so do the shape and the round trip; largest difference from the renderer's transform {fmt_gap(worst, TOL, ".2g")} m over {N_POSES} poses"
 
 
 def check_against_renderer(fn) -> float:
-    """Fail unless `fn` matches the renderer's transform entry by entry; return the largest difference (m)."""
-    worst = renderer_gap(fn)
-    if worst > TOL:
-        raise Failure(f"differs from the renderer's transform by up to {worst:.3g} m", expected=f"at most {TOL:g} m",
-                      given=f"{N_POSES} seeded poses, yaws up to ±4π")
+    """Fail unless `fn` matches the renderer's transform entry by entry; return the largest difference (m).
+    The headline names the known mistake the worst point's answer equals, if any: Exercise A's names, without the extra hop."""
+    worst, (pose, point, got) = renderer_worst(fn)
+    if not worst <= TOL:  # nan is a miss
+        named = matched_mistake(pose, point, got)
+        raise Failure(f"differs from the renderer's transform by up to {worst:.3g} m" + (f": {named}" if named else RUN_A_FIRST),
+                      expected=f"at most {TOL:g} m", given=f"{N_POSES} seeded poses, yaws up to ±4π")
     return worst
 
 
@@ -129,9 +147,9 @@ def check_against_renderer(fn) -> float:
     section="Swap your transform into the renderer",
 )
 def _renderer_gate(fn, show, on_step):
+    check_against_renderer(fn)  # the entries first: a drive can pass on a transform that is slightly wrong
     try:
-        check_against_renderer(fn)  # the entries first: a drive can pass on a transform that is slightly wrong
         return gate(Car(), show, on_step, camera=Camera(world_to_ego=fn))
     except Failure as failure:
-        failure.headline = f"{failure.headline}. Run Exercise A first: it names the mistake"
+        failure.headline += RUN_A_FIRST
         raise

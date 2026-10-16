@@ -109,6 +109,17 @@ def test_a_wrong_relative_pose_that_matches_no_named_mistake_gets_no_guess():
     assert "two poses away from the axes" in details and "That is what you get" not in details
 
 
+def test_a_near_miss_where_the_mistakes_coincide_with_the_right_answer_names_none():
+    """For the same pose twice, every mistake of the lesson gives the identity: the right answer. None of them may be named."""
+    def near_miss(a, b):
+        out = np.array(solution.relative_pose(a, b), float)
+        if np.array_equal(a, b):
+            out[0, -1] += 5e-7
+        return out
+    details = failing_details("1.1.4.a", near_miss)
+    assert "the same pose twice" in details and "That is what you get" not in details
+
+
 @pytest.mark.parametrize("break_it, words", [
     (lambda T: np.diag([1.0, 1.0, 2.0]) @ T, "last row"),
     (lambda T: T + np.array([[0, 0, 0], [0, 0, 0], [0, 1e-3, 0]]), "last row"),
@@ -177,3 +188,8 @@ def test_the_trailing_one_and_the_wrapped_angle_the_lab_prints():
     gap = np.array([geom.matrix_to_pose(geom.pose_to_matrix(tuple(p)))[2] for p in poses]) - poses[:, 2]
     assert math.isclose(abs(gap[1021]), 2 * math.pi, abs_tol=1e-9) and np.abs(gap[:1021]).max() < 1e-12
     assert np.array_equal(np.nonzero(np.abs(gap) > 1)[0], np.nonzero(poses[:, 2] > math.pi)[0])
+
+
+def test_a_pass_with_float_noise_reports_a_worst_error_of_0():
+    result = check("1.1.4.b", lambda start, steps: solution.dead_reckon(start, steps) + 3.6e-14, show=False)
+    assert result.passed and "worst 0 m" in result.details[0]

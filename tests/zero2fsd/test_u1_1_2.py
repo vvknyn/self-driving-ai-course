@@ -169,7 +169,27 @@ def test_a_pass_says_what_each_named_yaw_proved():
 
 
 def test_the_renderer_failure_sends_the_learner_back_to_exercise_a():
-    assert "Run Exercise A first" in run_check("1.1.2.b", r_not_transposed).details[0]
+    assert "Run Exercise A first" in run_check("1.1.2.b", offset_by_a_hand).details[0]
+
+
+@pytest.mark.parametrize(("yaw", "error"), [(0.0, 2e-9), (math.pi, 5e-7)])
+def test_a_near_miss_where_a_mistake_is_the_right_answer_names_no_mistake(yaw, error):
+    """At yaw 0 and pi, R is its own transpose: the swap, no rotation and others equal the right answer there, so none may be named."""
+    def near_miss(pose, p):
+        return solution(pose, p) + (error if pose[2] == yaw else 0.0)
+    headline = run_check("1.1.2.a", near_miss).details[0]
+    assert "off by the same" in headline and "this is" not in headline, headline
+
+
+@pytest.mark.parametrize("name, said", [("r_not_transposed", "this is the swap"), ("no_rotation", "this is no rotation")])
+def test_the_renderer_check_names_the_mistake_its_worst_point_makes(name, said):
+    headline = run_check("1.1.2.b", preset(name)).details[0]
+    assert said in headline and "Run Exercise A first" not in headline  # it already names the mistake
+
+
+def test_the_renderer_check_says_only_the_gap_when_no_known_mistake_matches():
+    headline = run_check("1.1.2.b", offset_by_a_hand).details[0]
+    assert "differs from the renderer's transform" in headline and "this is" not in headline and "Run Exercise A first" in headline
 
 
 def test_matrix_at_rows_is_named_when_two_points_run_without_an_error():
@@ -226,8 +246,15 @@ def test_the_preview_counts_pictures_and_pixels_that_differ(canned):
     assert (swap_pictures, none_pictures) == (17, 17) and swap_pixels > 0 and none_pixels > swap_pixels
     stats = get("1.1.2.b").build(r_not_transposed, canned)
     assert stats == {f"pictures that differ from the simulator's (of {PICTURES} sampled)": 17.0, "pixels that differ": float(swap_pixels)}
-    assert get("1.1.2.a").build(solution, canned) == {"largest difference from the renderer's transform (m)": renderer_gap(solution)}
+    assert get("1.1.2.a").build(solution, canned) == {"largest difference from the renderer's transform (m)": 0.0}  # the reference's own rounding gap (renderer_gap) is noise
+    assert 0 < renderer_gap(solution) < 1e-12
 
 
 def test_the_provided_transform_in_the_camera_changes_nothing():
     assert Camera(world_to_ego=solution).world_to_ego is solution and Camera().world_to_ego is geom.world_to_ego
+
+
+def test_a_pass_with_float_noise_reports_a_largest_difference_of_0():
+    noisy = lambda pose, p: solution(pose, p) + 3.6e-14
+    result = run_check("1.1.2.a", noisy)
+    assert result.passed and "largest difference from the renderer's transform 0 m" in result.details[0]

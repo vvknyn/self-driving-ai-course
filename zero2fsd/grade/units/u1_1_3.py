@@ -184,8 +184,8 @@ def _to_road_frame(fn, show, on_step):
                     f": d matches but s is {s_gap:.6g} m out" if d_gap <= TOL else
                     f": s matches but d is {d_gap:.6g} m out" if s_gap <= TOL else
                     f": s is {s_gap:.6g} m out and d is {d_gap:.6g} m out")
-            raise Failure("s or d does not match the simulator" + hint, given=given,
-                          expected=f"s {want_s:.6f} m, d {want_d:+.6f} m", got=f"s {s:.6f} m, d {d:+.6f} m")
+            raise Failure("s or d does not match the simulator" + hint, given=f"{given}; expected and got are (s, d) in m",
+                          expected=(want_s, want_d), got=(s, d))
     return f"{len(scenes)} points match the simulator's own s and d within {TOL:g}"
 
 
@@ -216,6 +216,6 @@ def _lane_errors(fn, show, on_step):
             hint = f"; this is the answer for {' and '.join(named)}" if named else (
                 f": e is {abs(e - want_e):.6g} m out" if not psi_bad else f": psi is {psi_misfit(road, pose, psi):.6g} rad out" if not e_bad else
                 f": e is {abs(e - want_e):.6g} m out and psi is {psi_misfit(road, pose, psi):.6g} rad out")
-            raise Failure(("e" if e_bad and not psi_bad else "psi" if psi_bad and not e_bad else "e and psi") + " does not match the simulator" + hint, given=given,
-                          expected=f"e {want_e:+.6f} m, psi {want_psi:+.6f} rad", got=f"e {e:+.6f} m, psi {psi:+.6f} rad")
+            raise Failure(("e" if e_bad and not psi_bad else "psi" if psi_bad and not e_bad else "e and psi") + " does not match the simulator" + hint, given=f"{given}; expected and got are (e in m, psi in rad)",
+                          expected=(want_e, want_psi), got=(e, psi))
     return f"{len(scenes)} poses match the simulator's own e and psi within {TOL:g}"

@@ -59,12 +59,15 @@ def fmt(value, digits: int = SIGNIFICANT_DIGITS) -> str:
 
 
 def fmt_pair(expected, got) -> tuple[str, str]:
-    """`fmt` of an expected/got pair.  When two different numbers read alike (same text, or the same 6 significant digits, whatever
-    container each is in), print digits until they differ and give the gap with `got`."""
+    """`fmt` of an expected/got pair of NUMBERS (or arrays or tuples of them; a str raises TypeError: format after, never before, this).
+    When two different numbers read alike (same text, or the same 6 significant digits, whatever container each is in), print digits
+    until they differ and give the gap with `got`."""
+    if isinstance(expected, str) or isinstance(got, str):
+        raise TypeError("fmt_pair takes numbers: a pre-formatted string cannot be told apart from its pair")
     try:
         want, have = np.asarray(expected, float), np.asarray(got, float)
         gap = float(np.max(np.abs(want - have))) if want.shape == have.shape else 0.0
-    except (TypeError, ValueError):  # not numbers: nothing to tell apart
+    except (TypeError, ValueError):  # not numbers (None, a Car): nothing to tell apart
         return fmt(expected), fmt(got)
     if not gap > 0:  # equal, nan or a shape mismatch the grader names itself
         return fmt(expected), fmt(got)
@@ -76,6 +79,40 @@ def fmt_pair(expected, got) -> tuple[str, str]:
             break
     shown = fmt(expected, digits), fmt(got, digits)
     return shown if digits == SIGNIFICANT_DIGITS else (shown[0], f"{shown[1]} (off by {gap:.2g})")
+
+
+def zero_below(value, tol: float):
+    """`value` with every number of magnitude below `tol` replaced by 0, in the same container (array, tuple or list) it came in."""
+    if isinstance(value, np.ndarray) and value.dtype.kind == "f":
+        return np.where(np.abs(value) < tol, 0.0, value)
+    if type(value) in (tuple, list):
+        return type(value)(zero_below(v, tol) for v in value)
+    if isinstance(value, float | np.floating) and abs(value) < tol:
+        return 0.0
+    return value
+
+
+def fmt_gap(value, tol: float, spec: str | None = None) -> str:
+    """A worst or largest error for a message, with float noise below the grader's tolerance `tol` shown as 0; `spec` is a format spec (default: `fmt`)."""
+    floored = zero_below(float(value), tol)
+    return fmt(floored) if spec is None else format(floored, spec)
+
+
+def fmt_expected_got(expected, got) -> tuple[str, str]:
+    """What a report prints for an expected/got pair: numbers go through `fmt_pair`; text is a description, printed as it is."""
+    if isinstance(expected, str) or isinstance(got, str):
+        return fmt(expected), fmt(got)
+    return fmt_pair(expected, got)
+
+
+def matching_mistakes(got, right, candidates, tol: float) -> list:
+    """The labels of the known mistakes whose output `got` equals within `tol`.  A mistake whose own output equals `right` within `tol`
+    (at yaw 0, R is its transpose) is skipped: it gives the right answer there, so naming it would accuse code that is not wrong.
+    `candidates` is an iterable of (label, output)."""
+    got, right = np.asarray(got, float), np.asarray(right, float)
+    close = lambda a, b: a.shape == b.shape and bool(np.allclose(a, b, rtol=0.0, atol=tol))  # noqa: E731
+    outputs = [(label, np.asarray(wrong, float)) for label, wrong in candidates]
+    return [label for label, wrong in outputs if close(got, wrong) and not close(right, wrong)]
 
 
 def is_real(value) -> bool:
@@ -175,7 +212,7 @@ _SHOWN_LABELS = {"given": "input", "expected": "expected", "got": "got"}
 def _lines(failure: Failure, label, checked, hint) -> list[str]:
     shown = {key: fmt(value) for key, value in failure.shown.items()}
     if "expected" in shown and "got" in shown:
-        shown["expected"], shown["got"] = fmt_pair(failure.shown["expected"], failure.shown["got"])
+        shown["expected"], shown["got"] = fmt_expected_got(failure.shown["expected"], failure.shown["got"])
     fields = [("checked", fmt(failure.checked or checked)),
               *((name, shown[key]) for key, name in _SHOWN_LABELS.items() if key in shown),
               ("hint", fmt(hint))]

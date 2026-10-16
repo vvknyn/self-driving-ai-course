@@ -17,7 +17,7 @@ from zero2fsd.car.runner import COLUMNS
 from zero2fsd.grade import _drive, check
 from zero2fsd.grade._drive import GATE_SCENARIO
 from zero2fsd.grade._poses import LOOKAHEAD, sample_poses
-from zero2fsd.grade._report import EXERCISES, LESSON_TITLES, NOT_IMPLEMENTED, REPORT, Failure, _lines, call, exercise_label, fmt, fmt_pair, lesson_titles
+from zero2fsd.grade._report import EXERCISES, LESSON_TITLES, NOT_IMPLEMENTED, REPORT, Failure, _lines, call, exercise_label, fmt, fmt_gap, fmt_pair, lesson_titles, matching_mistakes
 from zero2fsd.sim.dynamics import MAX_STEER
 
 IDS = [e["id"] for p in sorted(Path("course").glob("*/unit.yaml")) for e in yaml.safe_load(p.read_text())["exercises"]]  # every unit.yaml, so a new unit adds no line here
@@ -412,15 +412,52 @@ def test_a_failure_whose_numbers_differ_in_the_7th_digit_shows_two_different_num
     assert fmt_pair((4, 1), np.array([4.0000001, 1.0]))[1].endswith("(off by 1e-07)")  # a tuple against an array
 
 
-@pytest.mark.parametrize("expected, got", [(3.14159, 3.14159), (0.2, 0.25), (np.array([1.0, 2.0]), np.array([1.0, 2.0])), (np.nan, np.nan), ("a", 3)])
+@pytest.mark.parametrize("expected, got", [(3.14159, 3.14159), (0.2, 0.25), (np.array([1.0, 2.0]), np.array([1.0, 2.0])), (np.nan, np.nan)])
 def test_values_that_are_equal_or_already_read_differently_print_as_before(expected, got):
     assert fmt_pair(expected, got) == (fmt(expected), fmt(got))
+
+
+def test_a_pre_formatted_string_is_refused_by_the_pair_formatter_and_printed_as_text_by_the_report():
+    with pytest.raises(TypeError):
+        fmt_pair("s 20.000000 m", (20.0, 0.1))
+    assert expected_got(Failure("off", expected="nan", got=3.0)) == {"checked": "checked", "expected": "nan", "got": "3", "hint": "hint"}
+
+
+def test_a_mistake_that_equals_the_right_answer_is_never_matched():
+    right = np.array([4.0, 1.0])
+    candidates = [("coincides", right.copy()), ("distinct", right + 0.5), ("other shape", np.zeros(3))]
+    assert matching_mistakes(right + 5e-7, right, candidates, 1e-6) == []  # the near miss equals "coincides" too: it is not a mistake there
+    assert matching_mistakes(right + 0.5, right, candidates, 1e-6) == ["distinct"]
+    assert matching_mistakes(np.zeros(3), right, candidates, 1e-6) == ["other shape"]
 
 
 def test_a_real_near_miss_from_1_1_2_shows_two_different_numbers():
     result = check("1.1.2.a", lambda pose, p: geom.world_to_ego(pose, p) + 1e-7, show=False, report=False)
     shown = {line.split(":")[0].strip(): line.split(":", 1)[1].strip() for line in result.details[1:] if ":" in line}
     assert not result.passed and shown["expected"] != shown["got"].split(" (")[0] and "(off by 1e-07)" in shown["got"]
+
+
+def _shown(result):
+    return {line.split(":")[0].strip(): line.split(":", 1)[1].strip() for line in result.details[1:] if ":" in line}
+
+
+def test_a_1_1_3_near_miss_and_a_1_1_4_near_miss_each_show_different_expected_and_got_lines():
+    from _course import REPO, load_solution
+    road_frame, relative = load_solution(REPO, "1.1.3").to_road_frame, load_solution(REPO, "1.1.4").relative_pose
+
+    def s_off(*args):
+        s, d = road_frame(*args)
+        return s + 2e-6, d
+
+    def translation_off(a, b):
+        out = np.array(relative(a, b), float)
+        out[0, -1] += 2e-6  # the x of the shift, in a 3x3 or a 4x4
+        return out
+
+    for exercise, fn in (("1.1.3.a", s_off), ("1.1.4.a", translation_off)):
+        result = check(exercise, fn, show=False, report=False)
+        shown = _shown(result)
+        assert not result.passed and shown["expected"] != shown["got"], (exercise, shown)
 
 
 # --- practice() shows float noise as 0 on a pass and the raw numbers on a fail ------------------------------------
@@ -482,3 +519,8 @@ def test_a_real_1_1_2_grader_is_not_fooled_by_a_learner_that_wipes_its_input_aft
 
     result = check("1.1.2.a", wiping, show=False, report=False)
     assert result.passed, "\n".join(result.details)
+
+
+def test_fmt_gap_shows_noise_below_the_tolerance_as_0_and_a_real_gap_as_it_is():
+    assert fmt_gap(3.6e-14, 1e-9, ".2g") == "0" and fmt_gap(3.6e-14, 1e-9) == "0"
+    assert fmt_gap(2.5e-3, 1e-9, ".2g") == "0.0025" and fmt_gap(float("nan"), 1e-9, ".2g") == "nan"

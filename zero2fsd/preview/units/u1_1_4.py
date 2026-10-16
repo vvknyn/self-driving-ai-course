@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from ...grade.units.u1_1_4 import matrix, step_between
-from .. import register
+from ...grade.units.u1_1_4 import POS_TOL, matrix, step_between
+from .. import Error, register
 
 ROAD = "gentle"
 
@@ -33,4 +33,4 @@ def _rebuilt_lap(fn, tel):
     steps = np.stack([matrix(*step_between(a, b)) for a, b in zip(poses[:-1], poses[1:])])
     got = _checked(fn(matrix(*poses[0]), steps), (len(poses), 3, 3), "dead_reckon")
     error = np.hypot(got[:, 0, 2] - poses[:, 0], got[:, 1, 2] - poses[:, 1])
-    return {"worst error over the lap (m)": float(error.max()), "error at the end (m)": float(error[-1])}
+    return {"worst error over the lap (m)": Error(error.max(), POS_TOL), "error at the end (m)": Error(error[-1], POS_TOL)}

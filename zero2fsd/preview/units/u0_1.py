@@ -7,7 +7,7 @@ from numbers import Real
 from ...car import Car, provided
 from ...grade._drive import GATE_SCENARIO, require_car
 from ...grade.units.u0_1_2 import as_masks
-from .. import register
+from .. import Error, register
 
 STATS_ROAD = "curvy"  # the lab's own stats drive: `gentle` never leaves the lane, so a count of off-lane steps would be 0
 _BARE = object()  # the label of a bare number: unlike None, no dict key can be it
@@ -15,7 +15,7 @@ OVERLAY = {"yellow": (255, 0, 255), "white": (0, 255, 255)}  # where the learner
 
 
 def _as_stats(got, name: str) -> dict[str, float]:
-    """A function's answer as {label: float}: a dict keeps its keys, a single number is labelled `name`.
+    """A function's answer as {label: float}: a dict keeps its keys (an `Error` stays one), a single number is labelled `name`.
 
     Rejects anything that is not a real number (bool included) with a plain-language TypeError,
     so a learner who returns "3" sees what was expected instead of a float() traceback."""
@@ -24,7 +24,7 @@ def _as_stats(got, name: str) -> dict[str, float]:
         if not isinstance(value, Real) or isinstance(value, bool):
             what = "a number or a dict of numbers" if label is _BARE else f"a number for {label!r}"
             raise TypeError(f"expected {what}, got {type(value).__name__}")
-    return {str(name if label is _BARE else label): float(value) for label, value in pairs}
+    return {str(name if label is _BARE else label): value if isinstance(value, Error) else float(value) for label, value in pairs}
 
 
 @register("0.1.1.a", "stats", road=STATS_ROAD)

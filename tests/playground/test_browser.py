@@ -28,6 +28,7 @@ from playground_browser import (EDITOR_READY, P_STEER, exercise_url, open_ready,
                                 wait_settled, wait_state)
 from zero2fsd.car import Car, run  # noqa: E402
 from zero2fsd.grade import check  # noqa: E402
+from zero2fsd.grade._report import exercise_label  # noqa: E402
 from zero2fsd.preview import get as get_preview  # noqa: E402
 from zero2fsd.sim.camera import Camera  # noqa: E402
 from zero2fsd.sim.dynamics import DT  # noqa: E402
@@ -747,7 +748,7 @@ def test_wrong_return_type(page, base_url, kind, returned, type_name):
     wait_state(page, "error")
     shown = page.inner_text("#stdout")
     assert message in shown
-    assert record["id"] in shown  # the shim's `_at_boundary` prefixes the exercise id
+    assert exercise_label(record["id"]) in shown  # the shim's `_at_boundary` prefixes the exercise label, never the dotted id
     assert type_name in shown
     assert "numpy" not in shown.lower()
 
@@ -1061,7 +1062,7 @@ def test_worker_answers_a_learner_that_is_neither_function_nor_car_with_one_repl
         else:
             assert ended[0]["type"] == "error" and ended[0]["request"] == RUN_MESSAGE[record["kind"]], ended
             assert ended[0]["message"] == f"{type(native).__name__}: {native}", ended
-            assert record["id"] in ended[0]["message"] and type_name in ended[0]["message"], ended
+            assert exercise_label(record["id"]) in ended[0]["message"] and type_name in ended[0]["message"], ended
     held = shim.learner_object(f"{record['name']} = None\n", record["name"])
     native = shim.check_code(held, record["id"])
     replies = exchange(page, {"type": "check", "code": f"{record['name']} = None  # your code\n", "exercise": record})

@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from ...grade.units.u1_1_2 import renderer_gap
+from ...grade.units.u1_1_2 import TOL, renderer_gap
 from ...sim import BicycleState, Camera, make_scenario
-from .. import register
+from .. import Error, register
 
 PICTURES = 18  # pictures sampled along the canned drive: enough to tell a transform from another, quick enough for the browser
 
@@ -23,7 +23,7 @@ def differing_pictures(fn, tel, count: int = PICTURES) -> tuple[int, int]:
 
 @register("1.1.2.a", "stats", road="gentle")
 def _world_to_ego(fn, tel):
-    return {"largest difference from the renderer's transform (m)": renderer_gap(fn)}
+    return {"largest difference from the renderer's transform (m)": Error(renderer_gap(fn), TOL)}
 
 
 @register("1.1.2.b", "stats", road="gentle")

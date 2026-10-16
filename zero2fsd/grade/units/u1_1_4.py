@@ -8,7 +8,7 @@ import operator
 import numpy as np
 
 from ...car import Car, run
-from .._report import Failure, Threshold, call, exercise, vs_limit
+from .._report import Failure, Threshold, call, exercise, fmt_gap, matching_mistakes, vs_limit
 
 LESSON = ("1.1.4", "Poses you can chain")  # (unit id, title): grade/__init__ files it in LESSON_TITLES
 ROAD = "gentle"
@@ -46,9 +46,9 @@ def not_rigid(m) -> str | None:
     return None
 
 
-def named_mistake(got, candidates: dict[str, np.ndarray]) -> str:
-    """The sentence naming every common mistake whose output `got` equals (a case can fit two), or "" when it fits none."""
-    names = [name for name, wrong in candidates.items() if np.abs(got - wrong).max() < RIGID_TOL]
+def named_mistake(got, want, candidates: dict[str, np.ndarray]) -> str:
+    """The sentence naming every common mistake whose output `got` equals (a case can fit two) and `want` does not, or "" when it fits none."""
+    names = matching_mistakes(got, want, candidates.items(), RIGID_TOL)
     return f" That is what you get from {' or from '.join(names)}." if names else ""
 
 
@@ -158,8 +158,8 @@ def relative_pose_error(fn) -> float:
             raise Failure(f"{name}: the result is not a pose matrix: {why}." + any_size, given=f"{name}: T_a =\n{show(a)}\nT_b =\n{show(b)}", got=show(got))
         worst = max(worst, float(np.abs(got - want).max()))
         if worst >= REL_TOL:
-            raise Failure(f"{name}: off by {worst:.3g}, the limit is {REL_TOL:g}." + any_size + (named_mistake(got, relative_mistakes(a, b)) if size == 3 else ""),
-                          given=f"{name}: T_a =\n{show(a)}\nT_b =\n{show(b)}", expected=show(want), got=show(got))
+            raise Failure(f"{name}: off by {worst:.3g}, the limit is {REL_TOL:g}." + any_size + (named_mistake(got, want, relative_mistakes(a, b)) if size == 3 else ""),
+                          given=f"{name}: T_a =\n{show(a)}\nT_b =\n{show(b)}", expected=want, got=got)
     return worst
 
 
@@ -178,7 +178,7 @@ THRESHOLDS = {
 )
 def _relative_pose(fn, show, on_step):
     worst = relative_pose_error(fn)
-    return f"all {len(tuple(named_pairs())) + N_PAIRS} cases within {REL_TOL:g}: worst entry {worst:.2g} {vs_limit(worst, REL_TOL)}"
+    return f"all {len(tuple(named_pairs())) + N_PAIRS} cases within {REL_TOL:g}: worst entry {fmt_gap(worst, REL_TOL, ".2g")} {vs_limit(worst, REL_TOL)}"
 
 
 @exercise(
@@ -195,9 +195,9 @@ def _dead_reckon(fn, show, on_step):
         k = int(np.argmax(position / POS_TOL + entry / ANGLE_TOL))
         raise Failure(
             f"pose {k} of {len(poses)} is {position[k]:.4g} m and {yaw[k]:.3g} rad of yaw off (the end is {position[-1]:.4g} m off): "
-            f"every pose is checked, the limit is {POS_TOL:g} m." + named_mistake(got, reckon_mistakes(poses, steps)),
-            given=f"the first pose and {len(steps)} steps of {ROAD}", expected=f"x, y = ({poses[k, 0]:.3f}, {poses[k, 1]:.3f})",
-            got=f"x, y = ({got[k, 0, 2]:.3f}, {got[k, 1, 2]:.3f})",
+            f"every pose is checked, the limit is {POS_TOL:g} m." + named_mistake(got, np.stack([matrix(*p) for p in poses]), reckon_mistakes(poses, steps)),
+            given=f"the first pose and {len(steps)} steps of {ROAD}; expected and got are pose {k}'s (x, y) in m",
+            expected=poses[k, :2], got=got[k, :2, 2],
         )
-    return (f"{len(poses)} poses rebuilt from {len(steps)} steps: worst {position.max():.2g} m {vs_limit(position.max(), POS_TOL, 'm')}, "
-            f"end {position[-1]:.2g} m, worst yaw error {yaw.max():.2g} rad")
+    return (f"{len(poses)} poses rebuilt from {len(steps)} steps: worst {fmt_gap(position.max(), POS_TOL, ".2g")} m {vs_limit(position.max(), POS_TOL, 'm')}, "
+            f"end {fmt_gap(position[-1], POS_TOL, ".2g")} m, worst yaw error {fmt_gap(yaw.max(), ANGLE_TOL, ".2g")} rad")

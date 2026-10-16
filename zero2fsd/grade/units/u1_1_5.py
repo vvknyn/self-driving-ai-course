@@ -10,7 +10,7 @@ from ...car import Car
 from ...sim import BicycleState, Camera, make_scenario
 from ...sim.scenarios import TARGET_SPEED
 from .._drive import GATE_MEAN_LAT, GATE_SCENARIO, gate
-from .._report import Failure, call, exercise, fmt, learner_code
+from .._report import Failure, call, exercise, fmt, fmt_gap, learner_code, matching_mistakes
 
 LESSON = ("1.1.5", "The camera's point of view")  # (unit id, title): grade/__init__ files it in LESSON_TITLES
 HEIGHT_M, PITCH_RAD = 1.4, math.radians(5.0)  # the simulator's own mount: what the learner's T_ego_cam must rebuild
@@ -98,9 +98,8 @@ def check_mount(fn) -> np.ndarray:
     that names the mistake the 4×4 matches, else which way the lens points, where it sits, or the first entry that differs. The entries are
     compared at three settings, and the pixels last: the pixels alone cannot see a bottom row, and the drive cannot see a wrong sign it never uses."""
     T, given = mount(fn), f"T_ego_cam({HEIGHT_M:g}, {PITCH_RAD:.4f})"
-    for headline, build in MISTAKES:
-        if np.allclose(T, build(HEIGHT_M, PITCH_RAD), rtol=0.0, atol=MISTAKE_TOL):
-            raise Failure(headline, given=given, got=fmt(T))
+    for headline in matching_mistakes(T, SPEC_MOUNT, [(headline, build(HEIGHT_M, PITCH_RAD)) for headline, build in MISTAKES], MISTAKE_TOL)[:1]:
+        raise Failure(headline, given=given, got=fmt(T))
     axis, want = geom.transform_directions(T, [0.0, 0.0, 1.0]), geom.transform_directions(SPEC_MOUNT, [0.0, 0.0, 1.0])
     if not np.allclose(axis, want, atol=AXIS_TOL, rtol=0.0):
         raise Failure(f"your lens looks {look_words(axis)}; it must look {look_words(want)}", given=f"{given} turns the lens axis (0, 0, 1) as a direction",
@@ -147,7 +146,7 @@ def pictures_that_differ(camera: Camera, scenario: str = GATE_SCENARIO) -> int:
 def _mount(fn, show, on_step):
     T = check_mount(fn)
     axis = geom.transform_directions(T, [0.0, 0.0, 1.0])
-    return f"the 4×4 matches the reference mount, the lens axis is {triple(axis)} and {N_POINTS} road points land within {PIXEL_TOL:g} px of the simulator's (largest gap {fmt(pixel_gap(T))} px)"
+    return f"the 4×4 matches the reference mount, the lens axis is {triple(axis)} and {N_POINTS} road points land within {PIXEL_TOL:g} px of the simulator's (largest gap {fmt_gap(pixel_gap(T), PIXEL_TOL)} px)"
 
 
 def mount_pair(target) -> tuple:
@@ -267,4 +266,4 @@ def _ray_to_ground(fn, show, on_step):
     if lands:
         raise Failure(f"{len(lands)} of {N_POINTS} pixels above the horizon got a road point; their rays never meet the road, so the answer is nan",
                       given=f"the first one: pixel ({lands[0][0]:.1f}, {lands[0][1]:.1f})", expected="nan", got="a road point")
-    return f"{N_POINTS} pixels below the horizon land within {GROUND_TOL:g} m at each of {len(ENTRY_SETTINGS)} mounts (largest gap {fmt(largest)} m), and {N_POINTS} above it are nan"
+    return f"{N_POINTS} pixels below the horizon land within {GROUND_TOL:g} m at each of {len(ENTRY_SETTINGS)} mounts (largest gap {fmt_gap(largest, GROUND_TOL)} m), and {N_POINTS} above it are nan"
