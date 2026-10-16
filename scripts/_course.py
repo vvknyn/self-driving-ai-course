@@ -106,6 +106,11 @@ def parse_lab(text: str) -> list[Cell]:
     return cells
 
 
+def lab_code(text: str) -> str:
+    """The code cells of a percent-format lab.py joined into one parseable module (notebook magics become `pass`)."""
+    return "\n".join(re.sub(r"(?m)^(\s*)%.*", r"\1pass", cell.source) for cell in parse_lab(text) if cell.kind == "code")
+
+
 def _strings(value, path):
     """(field path, text) for every string under `value`, a url excepted."""
     if isinstance(value, str):
