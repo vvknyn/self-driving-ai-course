@@ -307,7 +307,7 @@ def _columns_axes(d, path):
     bottom.plot(*end, "o", color=TEXT, markersize=10, zorder=4)
     say(bottom, (x, y), f"({x:.3f}, {y:.3f})", dx=-4, dy=-24, ha="left")
     say(bottom, tuple(end), f"({end[0]:.3f}, {end[1]:.3f})", dx=22, dy=30, ha="right")
-    say(bottom, tuple((np.array([x, y]) + corner) / 2), f"{fwd:.3f} m\nalong\ncolumn 1", dx=-34, dy=30, ha="right", colour=EGO, arrow=True)
+    say(bottom, tuple((np.array([x, y]) + corner) / 2), f"{fwd:.3f} m\nalong\ncolumn 1", dx=-14, dy=24, ha="right", colour=EGO, arrow=True)
     bottom.set(xlim=bot_x, ylim=bot_y, xlabel="east (m)", ylabel="north (m)", title="world coordinates")
     bottom.set_aspect("equal", adjustable="box")
     width = 0.30
@@ -583,7 +583,7 @@ def _e_vs_s(d, path):
     bottom.set_ylim(-2.4, 2.3)
     bottom.set_xlabel("distance along the road (m)")
     bottom.axvspan(100, 165, color=FAINT, alpha=0.35, lw=0)
-    say(bottom, (132, -0.9), "first bend", colour=TEXT)
+    say(bottom, (132, -0.45), "first bend", colour=TEXT)
     for ax, scen in ((top, "straight"), (bottom, "gentle")):
         tel = d.tels[("right", scen)]
         k = int(np.argmin(np.abs(tel.progress_m - 160)))
