@@ -126,7 +126,7 @@ def canvas(height, *args, **kw):
 
 
 def save(fig, path):
-    fig.savefig(path, dpi=200)
+    fig.savefig(path)
 
 
 def note(ax, text, xy, off=(0, 0), colour=TEXT, line=False, **kw):

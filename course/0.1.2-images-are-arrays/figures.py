@@ -29,7 +29,7 @@ DIM, DIMMER = shades(BORDER, 5)[3], shades(BORDER, 5)[2]  # two quieter greys fr
 THOUSANDS = FuncFormatter(lambda value, _: f"{value:,.0f}")
 IOU_TRUTH = (slice(3, 5), slice(1, 6))  # iou_grid: the 10 true paint cells
 IOU_MARKED = ((slice(3, 5), slice(2, 6)), (slice(5, 6), slice(2, 6)))  # and the 12 cells the mask marks
-FIG_DPI, W = 200, 6.0  # every figure: 1200 px wide, shown at 600 px on a desktop and 330 px on a phone
+W = 6.0  # every figure: 1200 px wide at the figstyle dpi, shown at 600 px on a desktop and 330 px on a phone
 FS, TITLE = 17, 18  # smallest text, and titles, in points: a digit stays at least 9 px tall at 330 px wide
 CELL = 17  # the RGB digits drawn inside a zoomed pixel
 STYLE = {"font.size": FS, "axes.labelsize": FS, "axes.titlesize": TITLE, "axes.titlepad": 8, "xtick.labelsize": FS, "ytick.labelsize": FS}
@@ -40,7 +40,7 @@ def _fig(height):
 
 
 def _save(fig, path, **kwargs):
-    fig.savefig(path, dpi=FIG_DPI, **kwargs)
+    fig.savefig(path, **kwargs)
 
 
 def _frames(offset=0.0):

@@ -118,7 +118,7 @@ def _car_and_view(path):
     top.set(xlim=(x0, x0 + ZOOM_S[1] - ZOOM_S[0]), ylim=(-12.0, 14.0))
     top.set_title(f"From above, {ZOOM_S[0]:.0f} to {ZOOM_S[1]:.0f} m\ninto 'gentle'")
     fig.tight_layout()
-    fig.savefig(path, dpi=200)
+    fig.savefig(path)
 
 
 def _paint_box(road):
@@ -165,7 +165,7 @@ def _test_roads(path):
         _mark_route(ax, scenarios[name], direction_label=name == "straight")
         ax.set_title(f"'{name}': {scenarios[name].route_length:.1f} m")
         y_in += heights[name] + GAP_Y
-    fig.savefig(path, dpi=200)
+    fig.savefig(path)
 
 
 def _sign_convention(path):
@@ -181,7 +181,7 @@ def _sign_convention(path):
         ax.text(e, y - 2.9, f"e = {_minus(e)} m", color=color, ha="center", va="top", bbox=LABEL_BOX)
     ax.set_title("Lateral error e, measured at\nthe front axle (dot):\nleft of centre is positive")
     fig.tight_layout()
-    fig.savefig(path, dpi=200)
+    fig.savefig(path)
 
 
 def _report_card(path):
@@ -203,7 +203,7 @@ def _report_card(path):
     ax.text(tel.progress_m[-1] / 2, HALF, "painted lines, 1.8 m", color=TEXT, ha="center", va="bottom")
     ax.set(ylim=(0.0, 2.0), xlim=(0.0, tel.progress_m[-1]), xlabel=PROGRESS_LABEL, ylabel="distance from\nlane centre |e| (m)")
     fig.tight_layout()
-    fig.savefig(path, dpi=200)
+    fig.savefig(path)
 
 
 def _loop_diagram(path):
@@ -232,7 +232,7 @@ def _loop_diagram(path):
     ax.plot([1.5, 1.5, 1.8], [1.05, 0.5, 0.5], color=QUANTITY["e_off"], linewidth=2.5)
     ax.text(1.95, 0.5, "you measure here:\nlateral error e", color=QUANTITY["e_off"], ha="left", va="center")
     ax.text(cx, 7.3, "the loop runs every 0.05 s", ha="center", va="center")
-    fig.savefig(path, dpi=200)
+    fig.savefig(path)
 
 
 def _gentle_trace(path):
@@ -246,7 +246,7 @@ def _gentle_trace(path):
     ax.text(0.01, 0.0, "lane centre", transform=ax.get_yaxis_transform(), ha="left", va="top")
     ax.set(ylim=(-0.12, 0.75), xlabel=PROGRESS_LABEL, ylabel="lateral error e (m)\nleft of centre is +")
     fig.tight_layout()
-    fig.savefig(path, dpi=200)
+    fig.savefig(path)
 
 
 def _number_line(ax, limit, side_y):
@@ -275,7 +275,7 @@ def _cancel_numberline(path):
         ax.text((lo + hi) / 2, 0.82, text, ha="center", va="bottom")
     ax.plot(0.0, -0.17, "^", color=TEXT, markersize=13)
     ax.text(0.0, -0.3, "average = 0", ha="center", va="top")
-    fig.savefig(path, dpi=200)
+    fig.savefig(path)
 
 
 def _signed_mean_trap(path):
@@ -292,7 +292,7 @@ def _signed_mean_trap(path):
         ax.set(title=f"{name} car on 'curvy'", xlim=(0.0, tel.progress_m[-1]), ylim=(-1.0, 1.15), ylabel="lateral error e (m)\nleft of centre is +")
     fig.axes[1].set_xlabel(PROGRESS_LABEL)
     fig.tight_layout()
-    fig.savefig(path, dpi=200)
+    fig.savefig(path)
 
 
 def _fold_numberline(path):
@@ -325,7 +325,7 @@ def _fold_numberline(path):
     mean = np.abs(FIVE).mean()
     ax.plot(mean, -0.85, "^", color=TEXT, markersize=13)
     ax.text(mean, -0.97, f"average size = {mean:.2f} m", ha="center", va="top")
-    fig.savefig(path, dpi=200)
+    fig.savefig(path)
 
 
 def _squares_rms(path):
@@ -348,7 +348,7 @@ def _squares_rms(path):
     ax.add_patch(Rectangle((0.2, y), rms_side * inch, rms_side * inch, facecolor=QUANTITY["e_off"], edgecolor=TEXT, linewidth=2.5))
     ax.text(1.4, y + rms_side * inch / 2, f"average square:\n{(sides ** 2).mean():.3f} m²", ha="left", va="center")
     ax.text(0.2, y - 0.12, f"side {rms_side:.3f} m = RMS", ha="left", va="top")
-    fig.savefig(path, dpi=200)
+    fig.savefig(path)
 
 
 def _drive_a_b(path):
@@ -374,7 +374,7 @@ def _drive_a_b(path):
         ax.plot([left, left + side_b * inch], [1.0 + 0.2 * k * inch] * 2, color=TEXT, linewidth=0.8, alpha=0.6)
     ax.text(left + side_b * inch, 1.0 + side_b * inch + 0.1, "side 1.0 m, area = 25\nof A's squares", ha="right", va="bottom")
     ax.text(x0, 0.85, f"mean |e| {0.2:.1f} m, RMS {np.sqrt(0.2):.3f} m", ha="left", va="top")
-    fig.savefig(path, dpi=200)
+    fig.savefig(path)
 
 
 def _offlane_zone(path):
@@ -391,7 +391,7 @@ def _offlane_zone(path):
     ax.text(0.0, 1.8, "on the\nlane:\n|e| ≤\n0.9 m", ha="center", va="center")
     ax.set_title("The off-lane zone")
     fig.tight_layout()
-    fig.savefig(path, dpi=200)
+    fig.savefig(path)
 
 
 def _curvy_offlane(path):
@@ -416,7 +416,7 @@ def _curvy_offlane(path):
                 arrowprops={"arrowstyle": "->", "color": TEXT, "lw": 1.5})
     ax.set(ylim=(0.0, 2.1), xlabel=PROGRESS_LABEL, ylabel="distance from\nlane centre |e| (m)")
     fig.tight_layout()
-    fig.savefig(path, dpi=200)
+    fig.savefig(path)
 
 
 class _DoNothing:
@@ -465,7 +465,7 @@ def _yardstick(path):
                         xytext=(40, 78), color=QUANTITY["e_off"], ha="center",
                         arrowprops={"arrowstyle": "->", "color": QUANTITY["e_off"], "lw": 1.5})
             _zoom_on_bend(ax, sc.road, provided_run, nothing_run)
-    fig.savefig(path, dpi=200)
+    fig.savefig(path)
 
 
 def _array_ops(path):
@@ -498,7 +498,7 @@ def _array_ops(path):
                                edgecolor=TEXT, linewidth=1.5))
         ax.text(mid, top - 3.2, result, color=BACKGROUND if filled else TEXT, **code)
         ax.text(mid + cell, top - 3.2, "the answer", ha="left", va="center")
-    fig.savefig(path, dpi=200)
+    fig.savefig(path)
 
 
 def _next_lesson(path):
@@ -539,7 +539,7 @@ def _next_lesson(path):
         red, green, blue = (int(v) for v in patch[i, j])
         light = 0.299 * red + 0.587 * green + 0.114 * blue > 128
         zoom.text(j, i, f"R {red}\nG {green}\nB {blue}", ha="center", va="center", color=BACKGROUND if light else TEXT)
-    fig.savefig(path, dpi=200)
+    fig.savefig(path)
 
 
 def make(out_dir):

@@ -33,8 +33,8 @@ LABEL_BOX = {"boxstyle": "round,pad=0.2", "fc": PANEL, "ec": BORDER}  # text tha
 IMG_X, IMG_Y = (-0.5, CAMERA.width - 0.5), (CAMERA.height - 0.5, -0.5)  # image coordinates: row 0 at the top
 
 # Legibility: every text in every figure is FS points on a PNG W_IN inches wide, so a digit is about FS pixels tall at
-# dpi 100 (dpi cancels) and about FS * 330 / (100 * W_IN) when the PNG is shown 330 px wide.  PNGs are saved at SAVE_DPI (2x).  `_save` measures it and refuses under MIN_DIGIT_PX.
-FS, W_IN, DPI, SAVE_DPI, SHOWN_PX, MIN_DIGIT_PX = 18, 6.5, 100, 200, 330, 9
+# dpi 100 (dpi cancels) and about FS * 330 / (100 * W_IN) when the PNG is shown 330 px wide.  PNGs are saved at figstyle's dpi (savefig.dpi).  `_save` measures it and refuses under MIN_DIGIT_PX.
+FS, W_IN, DPI, SHOWN_PX, MIN_DIGIT_PX = 18, 6.5, 100, 330, 9
 RC = {"font.size": FS, "axes.titlesize": FS, "axes.labelsize": FS, "xtick.labelsize": FS, "ytick.labelsize": FS,
       "axes.titlepad": 8, "lines.linewidth": 2, "axes.linewidth": 1.2}
 LEGIBILITY = {}  # figure name -> (PNG width px, smallest text, its font size pt, effective digit px at 330 px wide)
@@ -45,13 +45,13 @@ def _digit_px(renderer, text):
 
 
 def _save(fig, path):
-    """Save at SAVE_DPI after checking that no text is under MIN_DIGIT_PX tall when the PNG is shown SHOWN_PX wide."""
+    """Save after checking that no text is under MIN_DIGIT_PX tall when the PNG is shown SHOWN_PX wide."""
     renderer = fig.canvas.get_renderer()
     shown = [(_digit_px(renderer, t) * SHOWN_PX / (fig.get_figwidth() * DPI), t) for t in fig.findobj(Text) if t.get_visible() and t.get_text().strip()]
     px, smallest = min(shown, key=lambda pair: pair[0])
     assert px >= MIN_DIGIT_PX, f"{path.name}: '{smallest.get_text()}' is {px:.2f} px tall at {SHOWN_PX} px wide"
-    LEGIBILITY[path.name] = (round(fig.get_figwidth() * SAVE_DPI), smallest.get_text(), smallest.get_fontsize(), round(px, 2))
-    fig.savefig(path, dpi=SAVE_DPI)
+    LEGIBILITY[path.name] = (round(fig.get_figwidth() * matplotlib.rcParams["savefig.dpi"]), smallest.get_text(), smallest.get_fontsize(), round(px, 2))
+    fig.savefig(path)
 
 
 def _panels(specs, left=1.0, right=0.2, top=0.2, gap=1.0, bottom=0.9, width=W_IN):
