@@ -4,7 +4,7 @@ You are bolting the camera onto the car. The spec sheet says it sits 1.4 m above
 
 By the end of this lesson you will write the camera's **mount**, where it sits on the car and how it is tipped, as one 4 by 4 matrix, `T_ego_cam`, and send any pixel's line of sight to the road with `ray_to_ground`. Then the simulator draws every camera picture through two pieces of your code, the `world_to_ego` you wrote in *The view from the driver's seat* and your mount, and the car still drives `gentle`.
 
-![Top: one camera picture from the first bend of gentle, drawn by the simulator. Bottom: the same moment drawn through the world_to_ego you wrote and the mount you write in this lesson. In 18 pictures sampled along the lap, not one of the 57,600 pixels differs, and the lap matches step for step: 1778 steps, and a mean distance from the lane centre of 0.376 m.](figures/result_first.png)
+![Top: one camera picture from the first bend of gentle, drawn by the simulator. Bottom: the same moment drawn through the world_to_ego you wrote and the mount you write in this lesson. In 18 pictures sampled along the lap, not one of the 57,600 pixels differs, and the lap matches step for step: 1778 steps, and a mean distance from the lane centre of 0.376 m. That 0.376 m is the provided car's own error: with the simulator's own camera it takes the same 1778 steps and gets the same 0.376 m, so a correct camera adds none.](figures/result_first.png)
 
 ## A third axis
 
@@ -16,7 +16,7 @@ The same choice falls out of arithmetic. *Positions and headings* gave you the 2
 
 **Guess first:** forward × left has a z part of +1. Which way does the whole arrow point? And which way does left × forward point?
 
-![The ego frame drawn in 3D on the car: x forward along the car, y to its left and z up, all three from the origin on the road under the front axle. The lens sits on the z axis at (0, 0, 1.4). A right hand curls its fingers from x toward y, and its thumb lies along z.](figures/ego_frame_3d.png)
+![The ego frame drawn in 3D on the car: x forward along the car, y to its left and z up, all three from the origin on the road under the front axle. The lens sits on the z axis at (0, 0, 1.4). A curved arrow shows how the right hand's fingers curl from x toward y; the thumb would point along z, up.](figures/ego_frame_3d.png)
 
 **Answer:** forward × left is (0, 0, 1), straight up, so z points up. Swap the order and left × forward is (0, 0, −1), straight down: like the 2D cross product, the 3D one changes sign when its two arrows swap. In this frame the lens is the point (0, 0, 1.4): 0 m ahead, 0 m left and 1.4 m up.
 
@@ -38,7 +38,7 @@ For **a** = (1, 0, 0) and **b** = (0, 1, 0): the x part is 0 × 0 − 0 × 1 = 0
 
 The rule also fixes which way a turn counts as positive. Point your right thumb along an axis, and your fingers curl the positive way round it. With the thumb up the z axis, the fingers carry forward toward left. So a positive turn about z is a turn to the left, the same direction as a positive yaw θ (read "theta"), the angle the car points in *Positions and headings*.
 
-![Looking down the z axis from above: the right thumb points up out of the page, and the fingers curl from x, forward, toward y, left. The curved arrow is the positive turn about z, a left turn, the direction of a positive yaw θ.](figures/right_hand_turn.png)
+![Looking down the z axis from above: the right thumb would point up out of the page, and a curved arrow shows how the fingers curl from x, forward, toward y, left. The curved arrow is the positive turn about z, a left turn, the direction of a positive yaw θ.](figures/right_hand_turn.png)
 
 ## Turning about each axis
 
@@ -55,7 +55,7 @@ $$
 
 Read $R_z(\theta)$ "R z of theta", the turn by θ about z. 150 m along `gentle` the provided car's yaw is 0.591 rad. The top-left 2 by 2 of $R_z(0.591)$ matches R(0.591) to the last digit, and up, (0, 0, 1), stays (0, 0, 1).
 
-The tip is a turn about y by an angle φ, read "phi". Aircraft texts and vehicle texts that follow the ISO 8855 standard write roll as φ and pitch as θ; this course spent θ on the car's heading first, so here φ is pitch. The same pattern of cos and sin moves to the x and z rows:
+The tip is a turn about y by an angle φ, read "phi". Aircraft texts and vehicle texts that follow the ISO 8855 standard write roll as φ and pitch as θ; this course spent θ on the car's yaw first, so here φ is pitch. The same pattern of cos and sin moves to the x and z rows:
 
 $$
 \begin{aligned}
@@ -68,7 +68,7 @@ $$
 
 **Guess first:** put your right thumb along y, to the car's left. Does a positive turn about y tip the nose down or up?
 
-![Three panels stacked, one per axis, each with the right thumb along the axis and a curved arrow for the positive turn. About x, roll: left tips toward up. About y, pitch: forward tips toward down. About z, yaw: forward turns toward left.](figures/three_rotations.png)
+![Three panels stacked, one per axis, each with a curved arrow for the positive turn: the fingers of the right hand curl that way when the thumb points along the axis. The pitch panel is seen from the car's left side, so forward points left; the other side views in this lesson are from the right. About x, roll: left tips toward up. About y, pitch: forward tips toward down. About z, yaw: forward turns toward left.](figures/three_rotations.png)
 
 **Answer:** down. With your thumb pointing left, your fingers curl from up toward forward and from forward toward down. Multiply forward, (1, 0, 0), by $R_y(\varphi)$ and you get the matrix's first column, (cos φ, 0, −sin φ) = (0.9962, 0, −0.0872): the nose drops 0.0872 m for every 0.9962 m it reaches ahead. **Positive pitch is nose down**, which is why the 5 degrees in *Your first perception box* was a positive 0.0873 rad. Flip the sign and the nose rises, to (0.9962, 0, +0.0872).
 
@@ -130,10 +130,10 @@ $$
 \end{aligned}
 $$
 
-Read $T_{\text{ego}\leftarrow\text{cam}}$ "T, ego from cam". With h = 1.4 m for the height, in full it is:
+Read $T_{\text{ego}\leftarrow\text{cam}}$ "T, ego from cam". With h = 1.4 m for the height, and s = sin φ and c = cos φ to keep the matrix narrow, in full it is:
 
 $$
-\begin{bmatrix} 0 & -\sin\varphi & \cos\varphi & 0 \\ -1 & 0 & 0 & 0 \\ 0 & -\cos\varphi & -\sin\varphi & h \\ 0 & 0 & 0 & 1 \end{bmatrix}
+\begin{bmatrix} 0 & -s & c & 0 \\ -1 & 0 & 0 & 0 \\ 0 & -c & -s & h \\ 0 & 0 & 0 & 1 \end{bmatrix}
 $$
 
 To use it, write a point in the optical frame as four numbers, its three coordinates and a 1, and multiply. The lens itself, (0, 0, 0, 1), comes out at (0, 0, 1.4, 1): the trailing 1 picks up the last column. In code this is `T_ego_cam(height_m, pitch_rad)`.
@@ -181,7 +181,7 @@ Work one point by hand: the road 10 m straight ahead, ego (10, 0, 0). The rows o
 
 The lens axis is not a place. It is a direction: it says which way the camera looks, not where anything is. Where does it point in the ego frame?
 
-Moving between frames treats the two differently. A point turns and shifts, because the origin moved. A direction only turns: the arrow from a lamp post to the top of its shadow points the same way whether you measure from the lens or from the ego origin.
+Moving between frames treats the two differently. A point turns and shifts, because the origin moved. A direction only turns: the direction "straight down the lane" is the same whether you stand at the lens or at the ego origin.
 
 The fourth number does this for you. Write a point with a 1 at the end, the trailing 1 from *Poses you can chain*, and the multiply adds the last column, **t**. Write a direction with a 0 at the end, and the last column is multiplied by 0 and drops out. That fourth number is called w: w = 1 for a point, w = 0 for a direction.
 
@@ -275,7 +275,7 @@ The box still places those far-band rows 5.59 m to 7.11 m ahead, so road truly 7
 
 **Answer:** only `gentle`. Tipped up, the car finishes `straight` with a mean distance from the lane centre of 0.004 m, against 0.000 m with the spec mount. It leaves `gentle` on the left at 86.3 m, 10.85 s in, 13.7 m *before* the first bend even starts. A level camera finishes `straight` with 0.016 m and leaves `gentle` at 123.0 m, 23 m into the bend.
 
-Why before the bend? Hold the car on the lane centre of `gentle`, pointing along it, and read the box. With the spec camera its heading stays within 0.002 rad of the truth, 0, all the way. Tipped up, it reads −0.002 rad at 20 m along, where the bend is still out of sight, then grows as the bend comes into view.
+Why before the bend? Hold the car on the lane centre of `gentle`, pointing along it, and read the box. With the spec camera its heading ψ (read "psi"; the yaw minus the lane's direction, wrapped, as in *Your first perception box*) stays within 0.002 rad of the truth, 0, all the way. Tipped up, it reads −0.002 rad at 20 m along, where the bend is still out of sight, then grows as the bend comes into view.
 
 ![The box's heading for a car held on the lane centre of gentle and pointing along it, from 20 m to 90 m along. With the spec camera it stays within 0.002 rad of 0. With the camera tipped 5 degrees up it falls to −0.035 rad at 60 m, −0.078 rad at 70 m and −0.286 rad at 90 m: the box says the car points right of the lane when it points straight along it. The first bend starts at 100 m.](figures/heading_pitch.png)
 
@@ -283,9 +283,9 @@ The road is drawn 70 m ahead, so the bend is in the picture from 30 m along. Tip
 
 The drive itself shows the same split. At 70 m along, the car is truly 0.505 m left and points 0.038 rad left. Through the spec camera, that same pose reads 0.498 m and +0.040 rad. Through the tipped-up camera it reads 0.744 m and −0.102 rad: right about the side, wrong about the heading.
 
-In the lab you swap your mount into the renderer. With the right sign, no sampled picture differs. Flip the sign of φ inside your `T_ego_cam` and all 18 differ, and the car leaves `gentle` at 86.3 m, exactly like the bracket tipped up: a sign error in the mount *is* a camera mounted wrong. Put `rot_x` where `rot_y` belongs and the camera rolls 5 degrees instead of pitching. It finishes `straight` 0.341 m right of the centre, after a mean of 0.314 m, and leaves `gentle` at 119.1 m.
+In the lab you swap your `world_to_ego` and your mount into the renderer. With the right sign, no sampled picture differs. Flip the sign of φ inside your `T_ego_cam` and all 18 differ, and the car leaves `gentle` at 86.3 m, exactly like the bracket tipped up: a sign error in the mount *is* a camera mounted wrong. Put `rot_x` where `rot_y` belongs and the camera rolls 5 degrees instead of pitching. It finishes `straight` 0.341 m right of the centre, after a mean of 0.314 m, and leaves `gentle` at 119.1 m.
 
-![Distance from the lane centre against distance along gentle for three mounts written as code and swapped into the renderer: your T_ego_cam, which finishes with a mean of 0.376 m; the same with the sign of φ flipped, which leaves at 86.3 m; and rot_x in place of rot_y, which leaves at 119.1 m.](figures/gate_breaks.png)
+![Distance from the lane centre against distance along gentle for three mounts written as code and swapped into the renderer: your T_ego_cam, which finishes with a mean of 0.376 m; the same with the sign of φ flipped, which leaves at 86.3 m; and rot_x in place of rot_y, which leaves at 119.1 m. The 0.376 m is the provided car's own error: the simulator's own camera gives the same 1778 steps and the same 0.376 m.](figures/gate_breaks.png)
 
 Height errors are kinder. A camera truly 1.2 m up sees row 150's road 2.492 m ahead. The box assumes 1.4 m and follows the same ray to 2.907 m, 7/6 as far, because the two triangles have the same shape.
 

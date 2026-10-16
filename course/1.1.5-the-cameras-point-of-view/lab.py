@@ -29,11 +29,12 @@ from zero2fsd.sim import BicycleState, Camera, make_scenario
 from zero2fsd.sim.scenarios import TARGET_SPEED
 
 # %% [markdown]
-# The next cell brings in the helpers from the earlier lessons that this lab builds on. To use your own from
-# *Poses you can chain*, replace the import with your function (it must keep the name).
+# The next cell brings in the helpers this lab builds on. `invert_pose` is yours from *Poses you can chain*: to use your own,
+# replace the import with your function (it must keep the name). `pixel_ray` is provided. Exercise B also needs your
+# `world_to_ego` from *The view from the driver's seat*; it is brought in next to that exercise.
 
 # %%
-from zero2fsd.geom import invert_pose, pixel_ray, pose_to_matrix, world_to_ego
+from zero2fsd.geom import invert_pose, pixel_ray
 
 camera = Camera()
 print(f"f = {camera.f:.0f} px, centre ({camera.cx}, {camera.cy}), height {camera.mount_height} m, pitch 5 degrees = {math.radians(5):.4f} rad")
@@ -68,12 +69,15 @@ def rot_z(a):
     return np.eye(3)  # your code
 
 
+from zero2fsd.geom import rotation_matrix
+
 x, y, z = np.eye(3)
 pitch = math.radians(5.0)
 print("forward x left =", np.cross(x, y), "(up)")
 practice("rot_z(pi/2) turns forward to left", rot_z(math.pi / 2) @ x, (0, 1, 0), tol=1e-12)
 practice("rot_x(pi/2) turns left to up", rot_x(math.pi / 2) @ y, (0, 0, 1), tol=1e-12)
-practice("rot_y(5 deg) turns forward to", rot_y(pitch) @ x, (0.9962, 0.0, -0.0872), tol=1e-4)
+practice("rot_y(5 deg) tips forward down", rot_y(pitch) @ x, (math.cos(pitch), 0.0, -math.sin(pitch)), tol=1e-12)
+practice("rot_z's top-left 2 by 2 is the 2D turn", rot_z(0.591)[:2, :2], rotation_matrix(0.591), tol=1e-12)
 
 # %% [markdown]
 # A positive turn about y tips the nose **down**: forward becomes (0.9962, 0, −0.0872). If you put the minus sign on the
@@ -112,8 +116,6 @@ print("B.T @ camera z axis   =", B.T @ [0, 0, 1], "(ego forward: a level camera 
 # **Problem 2.** Build the 4×4 `T_ego_cam(height_m, pitch_rad)` in the next section, then project 200 seeded road
 # points through `invert_pose(T_ego_cam(...))` and the pinhole step, and compare with the simulator's own camera.
 #
-# **Guess first:** how far, in pixels, will the largest difference be for a correct mount: 1 px, 0.01 px, or exactly 0?
-#
 # ## 4. Graded exercises
 #
 # ### Exercise A and Exercise B: `T_ego_cam`
@@ -122,9 +124,11 @@ print("B.T @ camera z axis   =", B.T @ [0, 0, 1], "(ego forward: a level camera 
 # `rot_y(pitch_rad) @ Bᵀ` in the top-left 3×3 block, the lens position (0, 0, `height_m`) in the last column, and
 # `0 0 0 1` below. A positive pitch tips the nose down.
 #
-# Exercise A checks that the lens axis points where it should and that 200 seeded road points land within $10^{-6}$ px of
-# where the simulator draws them. Exercise B puts your mount into the simulator's camera and drives `gentle` (lecture:
-# "A camera mounted wrong"): the car must complete it, and none of 18 sampled camera pictures may differ.
+# Exercise A checks that your 4×4 is a pure turn plus a shift (last row `0 0 0 1`), that it equals the reference entry by
+# entry at three settings, that the lens axis points where it should, and that 200 seeded road points land within
+# $10^{-6}$ px of where the simulator draws them. Exercise B takes the pair `(world_to_ego, T_ego_cam)`: it checks your mount as Exercise A does, then draws
+# 18 sampled camera pictures through your two functions (lecture: "A camera mounted wrong"); none may differ from the
+# simulator's, and the provided car must complete `gentle`.
 #
 # ![](figures/projected_points.png)
 #
@@ -162,7 +166,10 @@ rng = np.random.default_rng(0)
 forward, left = rng.uniform(2.0, 60.0, 200), rng.uniform(-8.0, 8.0, 200)
 ground = np.stack([forward, left, np.zeros(200)], axis=1)
 try:
-    p_cam = (invert_pose(T_ego_cam(1.4, math.radians(5))) @ np.c_[ground, np.ones(200)].T).T[:, :3]
+    mount = T_ego_cam(1.4, math.radians(5))
+    if not np.array_equal(mount[3], (0.0, 0.0, 0.0, 1.0)):
+        print(f"the last row of your 4×4 is {mount[3]}; it must be 0 0 0 1, or the shift is lost")
+    p_cam = (invert_pose(mount) @ np.c_[ground, np.ones(200)].T).T[:, :3]
     u = camera.cx + camera.f * p_cam[:, 0] / p_cam[:, 2]
     v = camera.cy + camera.f * p_cam[:, 1] / p_cam[:, 2]
     spec = np.array(camera.ground_to_pixel(forward, left))
@@ -199,9 +206,17 @@ practice("the lens (camera origin) in ego numbers", transform_points(T, (0, 0, 0
 practice("the lens axis as a direction, in ego numbers", transform_directions(T, (0, 0, 1)), (0.9962, 0.0, -0.0872), tol=1e-4)
 practice("the lens axis wrongly as a point (w = 1)", transform_points(T, (0, 0, 1)), (0.9962, 0.0, 1.3128), tol=1e-4)
 
+
+def row_of(p_cam):
+    return camera.cy + camera.f * p_cam[1] / p_cam[2]
+
+
+practice("forward as a direction lands on the horizon row", row_of(invert_pose(T)[:3, :3] @ x), 75.5, tol=0.01)
+practice("forward wrongly as a point (w = 1) lands in row", row_of((invert_pose(T) @ np.append(x, 1.0))[:3]), 276.59, tol=0.01)
+
 # %% [markdown]
 # As a direction the axis dips 5° below level; as a point it sits 1.3128 m up, which is nonsense for something that is
-# only a heading. Forward as a direction lands on the horizon, row 75.5; treated as a point it lands in row 276.6, off
+# only a direction. Forward as a direction lands on the horizon, row 75.5; treated as a point it lands in row 276.6, off
 # the bottom of the picture.
 #
 # ![](figures/horizon_w.png)
@@ -255,7 +270,7 @@ def ray_to_ground(T_ego_cam, ray_cam):
 check("1.1.5.c", ray_to_ground)
 
 # %% [markdown]
-# Every pixel below the horizon lands within $2\times10^{-16}$ m of the simulator's answer. Treat the ray as a point (`w = 1`) and
+# Every pixel below the horizon lands within $10^{-9}$ m of the simulator's answer (the reference gets $2\times10^{-16}$ m). Treat the ray as a point (`w = 1`) and
 # all 200 come back `nan`, because the shifted ray no longer points down.
 #
 # ![](figures/rows_pitch.png)
@@ -270,14 +285,14 @@ check("1.1.5.c", ray_to_ground)
 
 # %%
 try:
-    for mounted, label in ((T_ego_cam(1.4, pitch), "tipped down 5 deg (correct)"), (T_ego_cam(1.4, -pitch), "tipped UP 5 deg")):
-        tel = run(Car(), "gentle", camera=Camera(T_ego_cam=mounted))
-        print(f"{label}: completed {tel.completed}, ended after {tel.progress_m[-1]:.1f} m, mean |lateral error| {np.mean(np.abs(tel.lat)):.3f} m")
+    for road, mounted, label in ((r, T_ego_cam(1.4, p), name) for r in ("straight", "gentle") for p, name in ((pitch, "tipped down 5 deg (correct)"), (-pitch, "tipped UP 5 deg"))):
+        tel = run(Car(), road, camera=Camera(T_ego_cam=mounted))
+        print(f"{road}, {label}: completed {tel.completed}, ended after {tel.progress_m[-1]:.1f} m, mean distance from the lane centre {np.mean(np.abs(tel.lat)):.3f} m")
 except NotImplementedError:
     print("Write T_ego_cam above first, then run this cell again.")
 
 # %% [markdown]
-# The correct mount completes `gentle` with a mean error of 0.376 m. Tipped up, the car leaves the lane at 86.3 m, before
+# The correct mount completes `gentle` with a mean distance from the lane centre of 0.376 m, step for step the same 1778 steps as with the simulator's own camera. Tipped up, the car leaves the lane at 86.3 m, before
 # the first bend: the far band places road 20 to 70 m ahead only 5.6 to 7.1 m ahead, so the bend reads as a sharp turn.
 # On `straight` the same mistake drives to the end (mean 0.004 m).
 #
@@ -285,11 +300,16 @@ except NotImplementedError:
 #
 # ![](figures/heading_pitch.png)
 #
-# Now the swap for grading: your `T_ego_cam` goes into the camera and the provided car drives `gentle`. Expect a mean
-# distance from the lane centre near 0.376 m, and no camera pictures that differ.
+# Now the swap for grading: your `T_ego_cam` goes into the camera and the provided car drives `gentle`. Your pair is checked first, then the
+# car drives. Expect 0.376 m: that is the provided car's own error on `gentle` with the simulator's camera, step for step the
+# same 1778 steps; a correct mount adds nothing to it. The pass line also says no camera pictures differ.
 
-# %%
-check("1.1.5.b", T_ego_cam)
+# %% tags=["exercise:1.1.5.b"]
+from zero2fsd.geom import world_to_ego  # swap in your own from *The view from the driver's seat*
+
+camera_mount = (world_to_ego, T_ego_cam)  # the pair the simulator draws a camera picture through
+
+check("1.1.5.b", camera_mount)
 
 # %% [markdown]
 # ![](figures/gate_breaks.png)
@@ -306,7 +326,7 @@ check("1.1.5.b", T_ego_cam)
 try:
     for height in (1.2, 1.6):
         tel = run(Car(), "gentle", camera=Camera(T_ego_cam=T_ego_cam(height, pitch)))
-        print(f"camera at {height} m: completed {tel.completed}, mean |lateral error| {np.mean(np.abs(tel.lat)):.3f} m")
+        print(f"camera at {height} m: completed {tel.completed}, mean distance from the lane centre {np.mean(np.abs(tel.lat)):.3f} m")
 except NotImplementedError:
     print("Write T_ego_cam above first, then run this cell again.")
 

@@ -3,7 +3,9 @@ import math
 
 import numpy as np
 
-__all__ = ["T_ego_cam", "ray_to_ground"]
+from zero2fsd.geom import world_to_ego
+
+__all__ = ["T_ego_cam", "ray_to_ground", "camera_mount"]
 
 CAM_FROM_EGO = np.array([[0.0, -1.0, 0.0], [0.0, 0.0, -1.0], [1.0, 0.0, 0.0]])  # B: ego (forward, left, up) -> optical (right, down, forward)
 
@@ -25,3 +27,6 @@ def ray_to_ground(T_ego_cam, ray_cam):
     if r[2] >= 0:
         return np.full(3, np.nan)  # level or climbing: it never meets the road
     return lens + (-lens[2] / r[2]) * r
+
+
+camera_mount = (world_to_ego, T_ego_cam)  # B: the pair the simulator draws a camera picture through

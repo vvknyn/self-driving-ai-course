@@ -9,6 +9,7 @@ import pytest
 import yaml
 
 import zero2fsd.grade as grade_pkg
+from zero2fsd import geom
 from zero2fsd.car import Car, LaneEstimate, provided, run
 from zero2fsd.car.runner import COLUMNS
 from zero2fsd.grade import _drive, check
@@ -21,7 +22,9 @@ IDS = [e["id"] for p in sorted(Path("course").glob("*/unit.yaml")) for e in yaml
 
 
 def as_target(exercise_id, fn):
-    """The object an exercise grades: a Car for the all-yours exercise, else the function itself."""
+    """The object an exercise grades: a Car for the all-yours exercise, the (world_to_ego, mount) pair for 1.1.5.b, else the function itself."""
+    if exercise_id == "1.1.5.b":
+        return (geom.world_to_ego, fn)
     return Car(perception=fn, controller=lambda est, obs: fn()) if exercise_id == "0.1.4.b" else fn
 
 

@@ -13,7 +13,7 @@ outcomes:
 prerequisites: ["1.1.4"]
 exercises:
   - {id: "1.1.5.a", name: T_ego_cam}
-  - {id: "1.1.5.b", name: T_ego_cam}
+  - {id: "1.1.5.b", name: camera_mount}
   - {id: "1.1.5.c", name: ray_to_ground}
 go_deeper:
   - title: "ROS REP 103, Standard Units of Measure and Coordinate Conventions, section \"Coordinate Frame Conventions\" (Chirality, Axis Orientation, Suffix Frames)"
@@ -24,7 +24,7 @@ go_deeper:
     note: "A short lecture on reading a rotation matrix's columns as the turned frame's axes, the idea behind R_y(φ) Bᵀ."
   - title: "Lynch and Park, Modern Robotics, video 3.3.1 \"Homogeneous Transformation Matrices\""
     url: "https://modernrobotics.northwestern.edu/nu-gm-book-resource/3-3-1-homogeneous-transformation-matrices/"
-    note: "The 4 by 4 turn-plus-shift matrix, its closed-form inverse and the trailing 1, in the robotics notation you will meet next."
+    note: "The 4 by 4 turn-plus-shift matrix, the bottom row 0 0 0 1, the trailing 1 that makes a point four numbers, and the inverse as the frames swapped, in standard robotics notation."
 tutor_prompt: |
   You are a Socratic tutor for unit 1.1.5 "The camera's point of view" of a self-driving car course. I am a programmer with rusty maths and no machine-learning background. I have just read a lecture and done a lab on the camera's mount and on where each pixel looks on the road.
 

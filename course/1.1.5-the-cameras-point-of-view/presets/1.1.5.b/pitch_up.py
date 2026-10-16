@@ -2,6 +2,8 @@ import math
 
 import numpy as np
 
+from zero2fsd.geom import world_to_ego
+
 B = np.array([[0.0, -1.0, 0.0], [0.0, 0.0, -1.0], [1.0, 0.0, 0.0]])  # ego (forward, left, up) -> optical (right, down, forward)
 
 
@@ -15,3 +17,6 @@ def T_ego_cam(height_m, pitch_rad):
     T[:3, :3] = rot_y(-pitch_rad) @ B.T  # the sign of the pitch is flipped: the camera tips up
     T[:3, 3] = (0.0, 0.0, height_m)
     return T
+
+
+camera_mount = (world_to_ego, T_ego_cam)

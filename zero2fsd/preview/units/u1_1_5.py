@@ -7,7 +7,7 @@ import numpy as np
 
 from ... import geom
 from ...grade._report import Failure
-from ...grade.units.u1_1_5 import N_PICTURES, ground_answers, ground_gaps, mount, pictures_that_differ, pixel_gap
+from ...grade.units.u1_1_5 import N_PICTURES, ground_answers, ground_gaps, mount, mount_pair, pictures_that_differ, pixel_gap
 from ...sim import Camera
 from .. import register
 
@@ -33,10 +33,12 @@ def _mount_stats(fn, tel):
 
 
 @register("1.1.5.b", "stats", road=ROAD)
-def _swapped_mount_stats(fn, tel):
+def _swapped_mount_stats(target, tel):
     with plain_errors():
-        T = mount(fn)
-    return {f"pictures that differ (of {N_PICTURES})": float(pictures_that_differ(T, tel.scenario))}
+        world_to_ego, fn = mount_pair(target)
+        camera = Camera(world_to_ego=world_to_ego, T_ego_cam=mount(fn))
+        differ = pictures_that_differ(camera, tel.scenario)
+    return {f"pictures that differ (of {N_PICTURES})": float(differ)}
 
 
 @register("1.1.5.c", "stats", road=ROAD)
