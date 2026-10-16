@@ -129,14 +129,24 @@ def save(fig, path):
     fig.savefig(path)
 
 
+def minus(text):
+    """Numbers formatted with a hyphen read as a dash; the axis tick labels already use the real minus sign."""
+    return text.replace("-", "−")
+
+
+def label(ax, x, y, text, **kw):
+    """`ax.text` with real minus signs."""
+    return ax.text(x, y, minus(text), **kw)
+
+
 def note(ax, text, xy, off=(0, 0), colour=TEXT, line=False, **kw):
     """Text on the picture, `off` points from the data point `xy`, with a thin line back to it if `line`."""
     props = {"arrowstyle": "-", "color": TEXT, "lw": 1, "shrinkA": 0, "shrinkB": 4} if line else None
-    return ax.annotate(text, xy, off, textcoords="offset points", color=colour, arrowprops=props, **kw)
+    return ax.annotate(minus(text), xy, off, textcoords="offset points", color=colour, arrowprops=props, **kw)
 
 
 def corner(ax, text, x, y, colour=TEXT, **kw):
-    return ax.text(x, y, text, transform=ax.transAxes, color=colour, **kw)
+    return label(ax, x, y, text, transform=ax.transAxes, color=colour, **kw)
 
 
 def dot(ax, x, y, colour=TEXT, size=9):
@@ -151,9 +161,9 @@ def yellow_line(ax, y=OFF_ROAD_OFFSET):
     ax.axhline(y, color=YELLOW, lw=2.5, zorder=1)
 
 
-def shade_bends(ax, spans):
+def shade_bends(ax, spans, alpha=0.12):
     for a, b in spans:
-        ax.axvspan(a, b, color=TEXT, alpha=0.12, lw=0)
+        ax.axvspan(a, b, color=TEXT, alpha=alpha, lw=0)
 
 
 def curvy_spans(turn):
@@ -261,7 +271,7 @@ def offset_only(path):
     dot(ax, tel.t[cross_i], tel.lat[cross_i])
     dot(ax, tel.t[trough], tel.lat[trough])
     note(ax, f"handover:\n{tel.lat[PUSH_STEPS]:.2f} m left", (tel.t[PUSH_STEPS], tel.lat[PUSH_STEPS]), (20, 14), line=True, va="center")
-    note(ax, f"crosses at {tel.t[cross_i]:.2f} s,\npointing {abs(tel.head_err[cross_i]):.3f} rad right", (tel.t[cross_i], tel.lat[cross_i]), (40, 58), line=True, va="center")
+    note(ax, f"first step past the centre,\n{tel.t[cross_i]:.2f} s, pointing\n{abs(tel.head_err[cross_i]):.3f} rad right", (tel.t[cross_i], tel.lat[cross_i]), (40, 70), line=True, va="center")
     note(ax, f"{abs(tel.lat[trough]):.3f} m past", (tel.t[trough], tel.lat[trough]), (30, -4), line=True, va="center")
     corner(ax, "push: 0.025 rad\nleft for 1 s", 0.97, 0.8, ha="right", va="top")
     finish(ax, "time (s)", "e (m)")
@@ -277,12 +287,12 @@ def p_law(path):
     for edge in (MAX_STEER, -MAX_STEER):
         ax.axhline(edge, color=TEXT, ls="--", lw=1.5)
     corner(ax, "+0.5 rad: the\nwheels' limit", 0.97, 0.93, ha="right", va="top")
-    corner(ax, "-0.5 rad", 0.03, 0.11, va="bottom")
+    corner(ax, "−0.5 rad", 0.03, 0.11, va="bottom")
     flat, tilt = (provided.steer_p(LaneEstimate(0.4, h, True)) for h in (0.0, 0.05))
     dot(ax, 0.4, flat, colours[0])
     dot(ax, 0.4, tilt, colours[1])
     note(ax, f"{flat:.2f} rad", (0.4, flat), (30, 40), colours[0], line=True, va="center")
-    note(ax, f"{tilt:.3f} rad", (0.4, tilt), (30, -30), colours[1], line=True, va="center")
+    note(ax, f"{tilt:.3f} rad", (0.4, tilt), (45, 0), colours[1], line=True, va="center")
     corner(ax, "heading 0", 0.02, 0.62, colour=colours[0], va="center")
     corner(ax, "heading\n0.05 rad left", 0.02, 0.42, colour=colours[1], va="center")
     corner(ax, f"slope {-K_OFF} rad\nper m", 0.62, 0.64, va="center")
@@ -317,8 +327,8 @@ def wheel_vs_lane(path):
     ax.text(0.12, 6.2, "lane centre", ha="left", va="top")
     unit = lambda th: np.array([math.cos(th), math.sin(th)])
     theta_b, theta_w = math.pi / 2 + big * psi, math.pi / 2 + big * (psi + delta)
-    rear = np.array([-e, 0.0])
-    front = rear + WHEELBASE * unit(theta_b)
+    front = np.array([-e, WHEELBASE])  # e is the front axle's offset, so the front axle sits e left of the lane centre on the page
+    rear = front - WHEELBASE * unit(theta_b)
     perp = np.array([-math.sin(theta_b), math.cos(theta_b)])
     corners = [rear - 0.5 * unit(theta_b) + 0.9 * perp, front + 0.6 * unit(theta_b) + 0.9 * perp, front + 0.6 * unit(theta_b) - 0.9 * perp, rear - 0.5 * unit(theta_b) - 0.9 * perp]
     ax.add_patch(Polygon(corners, closed=True, fc=PANEL, ec=TEXT, lw=2, zorder=2))
@@ -333,9 +343,10 @@ def wheel_vs_lane(path):
     ax.add_patch(Arc(front, 5.2, 5.2, theta1=deg(math.pi / 2), theta2=deg(theta_b), color=PINK, lw=3, zorder=4))
     ax.add_patch(Arc(front, 2.0, 2.0, theta1=deg(theta_w), theta2=deg(theta_b), color=GREEN, lw=3, zorder=4))
     ax.add_patch(Arc(front, 3.6, 3.6, theta1=deg(theta_w), theta2=deg(math.pi / 2), color=TEXT, lw=2, zorder=4))
-    ax.text(front[0] - 0.6, front[1] + 2.9, f"ψ = {psi:.3f} rad", color=PINK, ha="right", va="center")
-    ax.text(front[0] + 1.35, front[1] + 1.25, f"δ = {delta:.3f} rad", color=GREEN, ha="left", va="center")
-    ax.text(front[0] + 1.35, front[1] + 2.45, f"ψ + δ = {psi + delta:.2f} rad", color=TEXT, ha="left", va="center")
+    label(ax, front[0] - 0.6, front[1] + 2.9, f"ψ = {psi:.3f} rad", color=PINK, ha="right", va="center")
+    label(ax, front[0] + 1.35, front[1] + 1.25, f"δ = {delta:.3f} rad", color=GREEN, ha="left", va="center")
+    label(ax, front[0] + 1.35, front[1] + 2.45, f"ψ + δ = {psi + delta:.2f} rad", color=TEXT, ha="left", va="center")
+    ax.plot([-e, -e], [front[1], -1.0], color=TEXT, ls=":", lw=1.5, zorder=3)  # from the front axle down to the arrow that measures e
     link(ax, (-e, -1.0), (0.0, -1.0))
     ax.text(-e / 2, -1.5, f"e = {e:.2f} m left", ha="center", va="top")
     ax.text(0, -2.5, "angles drawn 3× larger", ha="center", va="top")
@@ -388,7 +399,10 @@ def steady_state(path):
 
 def steady_curvy(path):
     fig, ax = canvas(4.8)
-    shade_bends(ax, curvy_spans(+1))
+    for turn, name, alpha in ((+1, "left\nbend", 0.2), (-1, "right\nbend", 0.07)):  # left bends darker, right bends paler, so neighbours stay apart
+        shade_bends(ax, curvy_spans(turn), alpha)
+        for a, b in curvy_spans(turn):
+            ax.text((a + b) / 2, 0.02, name, transform=ax.get_xaxis_transform(), ha="center", va="bottom")
     for k, colour, y in zip((K_HEAD, 1.0), shades(BLUE, 2), (0.96, 0.87)):
         tel = perfect_run("curvy", gains(K_OFF, k))
         ax.plot(tel.progress_m, tel.lat, color=colour, lw=2.5)
@@ -401,7 +415,7 @@ def steady_curvy(path):
         a, b = curvy_spans(turn)[0]
         note(ax, f"predicted {predicted:+.3f} m", ((a + b) / 2, predicted), (0, 6 if turn > 0 else -6), ha="center", va="bottom" if turn > 0 else "top")
     finish(ax, "distance along the road (m)", "e (m)")
-    ax.set_ylim(-1.1, 1.3)
+    ax.set_ylim(-1.3, 1.3)
     save(fig, path)
 
 
@@ -428,9 +442,9 @@ def bias_terms(path):
     for i, (name, left, value, colour) in enumerate(rows):
         y = len(rows) - 1 - i
         ax.barh(y, value, left=left, height=0.42, color=colour)
-        ax.text(min(left, left + value), y + 0.3, f"{name} {value:+.3f}", va="bottom", ha="left", color=TEXT)
+        label(ax, min(left, left + value), y + 0.3, f"{name} {value:+.3f}", va="bottom", ha="left", color=TEXT)
     dot(ax, measured, 0.0, TEXT, 11)
-    ax.text(measured, -0.35, f"measured {measured:+.3f}", ha="right", va="top")
+    label(ax, measured, -0.35, f"measured {measured:+.3f}", ha="right", va="top")
     ax.axvline(0, color=TEXT, lw=1)
     ax.set_yticks([])
     ax.set_ylim(-0.9, len(rows) - 0.1)
@@ -450,7 +464,7 @@ def curvy_leave(path):
     i = int(np.argmin(np.abs(tel.progress_m - 30.3)))
     dot(top, tel.progress_m[i], tel.lat[i], BLUE)
     dot(top, tel.progress_m[i], tel.est_offset[i], RED)
-    note(top, f"box {tel.est_offset[i]:.3f} m", (tel.progress_m[i], tel.est_offset[i]), (14, 8), RED, va="bottom")
+    note(top, f"box {tel.est_offset[i]:.3f} m", (tel.progress_m[i], tel.est_offset[i]), (-14, 8), RED, ha="right", va="bottom")
     note(top, f"true {tel.lat[i]:.3f} m", (tel.progress_m[i], tel.lat[i]), (14, -8), BLUE, va="top")
     cross(top, tel.progress_m[-1], tel.lat[-1])
     bottom.plot(tel.progress_m, tel.head_err, color=PINK, lw=2.5)
@@ -459,7 +473,7 @@ def curvy_leave(path):
     dot(bottom, tel.progress_m[j], tel.head_err[j], PINK)
     dot(bottom, tel.progress_m[j], tel.est_heading[j], RED)
     note(bottom, f"box {tel.est_heading[j]:.3f} rad", (tel.progress_m[j], tel.est_heading[j]), (-10, -8), RED, ha="right", va="top")
-    note(bottom, f"true {tel.head_err[j]:.3f} rad", (tel.progress_m[j], tel.head_err[j]), (-10, 8), PINK, ha="right", va="bottom")
+    note(bottom, f"true\n{tel.head_err[j]:.3f}\nrad", (tel.progress_m[j], tel.head_err[j]), (-10, -8), PINK, ha="right", va="top")
     finish(top, None, "e (m)")
     finish(bottom, "distance along the road (m)", "heading (rad)")
     save(fig, path)
@@ -532,7 +546,7 @@ def tuning_map(path):
 
 
 def gain_sweep(path):
-    fig, (top, bottom) = canvas(7.4, 2, 1)
+    fig, top = canvas(4.6)
     runs = {k: box_run("gentle", gains(k, K_HEAD)) for k in (0.05, 0.35, 1.4, 6.0)}
     for (k, tel), colour in zip(runs.items(), shades(BLUE, 4)):
         window = tel.t <= 20.0
@@ -546,7 +560,13 @@ def gain_sweep(path):
         else:
             note(top, f"{k}: within {reach:.3f} m", (19.5, 0.0), (0, -8), colour, ha="right", va="top")
     finish(top, "time (s)", "e (m)")
-    bad = runs[6.0]
+    save(fig, path)
+
+
+def wheel_lag(path):
+    """The steering the rule asks for against the angle the wheels reach, for offset gain 6.0 on gentle."""
+    fig, bottom = canvas(4.4)
+    bad = box_run("gentle", gains(6.0, K_HEAD))
     cmd = np.array([provided.steer_p(LaneEstimate(o, h, bool(v)), 6.0, K_HEAD) for o, h, v in zip(bad.est_offset, bad.est_heading, bad.est_valid)])
     light, dark = shades(GREEN, 2)[1], GREEN
     bottom.plot(bad.t[1:], cmd[:-1], color=light, lw=2.5)
@@ -598,7 +618,7 @@ def alvinn(path):
     ax.set(xlim=(0, 10), ylim=(0, 12))
     ax.axis("off")
     ax.text(1.6, 11.4, "1217 inputs", ha="center", va="center", weight="bold")
-    ax.text(8.5, 11.4, "45 outputs", ha="center", va="center", weight="bold")
+    ax.text(8.5, 11.4, "46 outputs", ha="center", va="center", weight="bold")
     for y, text in zip((9, 6, 3), ("video 30 × 32\n= 960", "range 8 × 32\n= 256", "feedback\n1")):
         tag(ax, text, (1.6, y), TEXT)
         link(ax, (3.1, y), (4.2, 6.0 + (y - 6) * 0.25))
@@ -606,9 +626,14 @@ def alvinn(path):
     for y, text in zip((9, 6, 3), ("sharp left", "straight", "sharp right")):
         tag(ax, text, (8.5, y), TEXT)
         link(ax, (6.5, 6.0 + (y - 6) * 0.25), (7.3, y))
+    tag(ax, "brightness\nfeedback", (8.5, 0.9), TEXT)
+    link(ax, (6.5, 6.0 - 5.1 * 0.25), (7.2, 1.2))
     ax.text(8.5, 7.5, "⋮", ha="center", va="center")
     ax.text(8.5, 4.5, "⋮", ha="center", va="center")
     save(fig, path)
+
+
+AHEAD = 10.0  # the "?" target: a point on the lane centre further ahead than the box's two points
 
 
 def next_lesson(path):
@@ -618,22 +643,24 @@ def next_lesson(path):
     fig = Figure(figsize=(W, 3.6), layout="constrained")
     pic, top = fig.subplots(1, 2, width_ratios=(2.1, 1))
     pic.imshow(frame, interpolation="nearest")
+    pic.set(xticks=[], yticks=[])
     pic.axis("off")
-    for (forward, left), name, dy in zip(points, ("near", "far"), (0, 0)):
+    for (forward, left), name, y in zip(points, ("near", "far"), (0.2, 0.8)):
         u, v = Camera().ground_to_pixel(forward, left)
         pic.plot([u], [v], "o", color=TEXT, ms=9, mec=BACKGROUND, mew=1.5)
-        note(pic, f"{name} {forward:.2f} m", (u, v), (-14, dy), ha="right", va="center", bbox=LABEL_BOX)
-    top.set(xlim=(3, -3), ylim=(-1, 10), aspect="equal", xlabel="left (m)", ylabel="forward (m)")
+        pic.annotate(f"{name}\n{forward:.2f} m", (u, v), (-0.04, y), textcoords="axes fraction", ha="right", va="center", color=TEXT, annotation_clip=False,
+                     arrowprops={"arrowstyle": "-", "color": TEXT, "lw": 1, "shrinkA": 0, "shrinkB": 5})
+    top.set(xlim=(3, -3), ylim=(-1, 12), aspect="equal", xlabel="left (m)", ylabel="forward (m)")
     top.plot([0], [0], "^", color=TEXT, ms=12)
     for forward, left in points:
         top.plot([left], [forward], "o", color=TEXT, ms=9, mec=BACKGROUND, mew=1.5)
-    top.plot([0], [7.0], "o", fillstyle="none", mec=TEXT, mew=2.5, ms=22)
-    top.text(-1.0, 7.0, "?", ha="left", va="center", weight="bold", fontsize=24)
+    top.plot([0], [AHEAD], "o", fillstyle="none", mec=TEXT, mew=2.5, ms=22)
+    top.text(-1.0, AHEAD, "?", ha="left", va="center", weight="bold", fontsize=24)
     save(fig, path)
 
 
 FIGURES = (result_first, open_vs_closed, loop_kinds, offset_only, p_law, push_family, wheel_vs_lane, circle, steady_state, steady_curvy,
-           bias_terms, curvy_leave, tuning_map, gain_sweep, loop_lookback, alvinn, next_lesson)
+           bias_terms, curvy_leave, tuning_map, gain_sweep, wheel_lag, loop_lookback, alvinn, next_lesson)
 
 
 def make(out_dir):
