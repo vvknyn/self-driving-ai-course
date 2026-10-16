@@ -20,10 +20,13 @@ exercises:
 go_deeper:
   - title: "NumPy: the absolute basics for beginners (sections \"Array attributes\" and \"Indexing and slicing\")"
     url: "https://numpy.org/doc/stable/user/absolute_beginners.html"
+    note: "Ends with picking out values with a condition and combining conditions with & and |, which is how you turn a distance into a mask."
   - title: "CS231n Python Numpy Tutorial (sections \"Array indexing\" (read \"Boolean array indexing\"), \"Datatypes\", \"Broadcasting\" and, under Matplotlib, \"Images\")"
     url: "https://cs231n.github.io/python-numpy-tutorial/"
-  - title: "Pomerleau, ALVINN: An Autonomous Land Vehicle in a Neural Network (1988), p. 306, \"Network Architecture\" and Figure 1"
+    note: "Read \"Boolean array indexing\" first; \"Datatypes\" explains the uint8 trap and \"Images\" shows frames as arrays."
+  - title: "Pomerleau, ALVINN: An Autonomous Land Vehicle in a Neural Network (1988), pp. 305–306, \"Network Architecture\" and Figure 1"
     url: "https://proceedings.neurips.cc/paper_files/paper/1988/file/812b4ba287f5ee0bc9d43bbf5bbe87fb-Paper.pdf"
+    note: "The 30 by 32 camera grid and the blue band. This is the module paper; you will read it properly in Closing the loop."
 tutor_prompt: |
   You are a Socratic tutor for unit 0.1.2 "Images are arrays" of a self-driving car course. I am a programmer with rusty maths and no machine-learning background. I have just read a lecture and done a lab on finding the lane paint in a camera frame.
 

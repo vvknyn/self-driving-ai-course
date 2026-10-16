@@ -12,7 +12,7 @@ In 1988, Dean Pomerleau at Carnegie Mellon University taught a small neural netw
 
 > "The first retina, consisting of 30x32 units, receives video camera input from a road scene. The activation level of each unit in this retina is proportional to the intensity in the blue color band of the corresponding patch of the image. The blue band of the color image is used because it provides the highest contrast between the road and the non-road." (Pomerleau, 1988, p. 306)
 
-A grid of 30 by 32 brightness values, 960 numbers, was all ALVINN ever saw of the camera picture. (The "first retina" has a partner: a smaller grid of distances from a laser range finder.)
+A grid of 30 by 32 brightness values, 960 numbers, was all ALVINN ever saw of the camera picture. (The "first retina" has a partner: a smaller 8 by 32 grid from a laser range finder, each unit's activation proportional to how close that patch is.)
 
 Your car's camera gives you a bigger grid. Each picture it takes is called a **frame**. A frame is 320 pixels wide and 180 pixels tall, and the colour of each pixel is stored as three numbers: how much red, how much green and how much blue.
 
@@ -300,9 +300,3 @@ The fix is one call: convert to a type that can go negative, `frame.astype(float
 You can now find the paint. But a mask is still 57,600 answers of yes or no, and the controller needs two numbers: how far the car is from the lane centre, and which way it points along the lane. How do you get from two masks to those two numbers?
 
 That is the next lesson, *Your first perception box*.
-
-## Go deeper
-
-- **NumPy: the absolute basics for beginners**, sections "Array attributes" (shape, dtype) and "Indexing and slicing", which ends with picking out values with a condition and combining conditions with `&` and `|`.
-- **CS231n Python Numpy Tutorial**, sections "Array indexing" (read "Boolean array indexing"), "Datatypes", "Broadcasting" and, under Matplotlib, "Images".
-- **Pomerleau, "ALVINN: An Autonomous Land Vehicle in a Neural Network" (1988)**, p. 306, "Network Architecture" and Figure 1: the 30 by 32 camera grid and the blue band. This is the module paper; you will read it properly in *Closing the loop*.

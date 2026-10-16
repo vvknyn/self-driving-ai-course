@@ -67,6 +67,12 @@ def test_a_unit_paper_is_carried_through(built_repo):
     assert bundler.build_bundle(built_repo)[0]["units"]["0-1-1"]["paper"] == paper
 
 
+def test_a_go_deeper_note_survives_bundling_and_its_absence_is_unchanged(built_repo):
+    assert bundler.build_bundle(built_repo)[0]["units"]["0-1-1"]["go_deeper"] == [{"title": "An example source", "url": "https://example.org/source"}]
+    edit(built_repo, f"{UNIT}/unit.yaml", 'url: "https://example.org/source"}', 'url: "https://example.org/source", note: "Read the intro."}')
+    assert bundler.build_bundle(built_repo)[0]["units"]["0-1-1"]["go_deeper"][0]["note"] == "Read the intro."
+
+
 def test_write_bundle_is_deterministic_and_replaces_stale_figures(built_repo):
     out = bundler.write_bundle(built_repo)
     first = out.read_bytes()
@@ -148,6 +154,7 @@ def test_a_unit_yaml_missing_any_required_key_fails(built_repo, key):
         (f"{UNIT}/quiz.yaml", "  explain: \"The absolute values are both 0.5.\"\n", "", "needs id, type"),
         (f"{UNIT}/quiz.yaml", "id: q2", "id: q1", "duplicate id"),
         (f"{UNIT}/cards.yaml", 'back: "The sideways distance from lane centre."', 'back: ""', "id, front and back"),
+        (f"{UNIT}/unit.yaml", 'url: "https://example.org/source"}', 'url: "https://example.org/source", note: ""}', "go_deeper item"),
         ("course/syllabus.yaml", "status: planned", "status: draft", "ready or planned"),
         ("course/syllabus.yaml", "id: \"0.1.2\"", "id: \"0.1.1\"", "duplicate unit ids"),
     ],

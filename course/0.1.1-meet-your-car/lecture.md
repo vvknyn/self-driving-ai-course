@@ -299,9 +299,3 @@ Vectorised code is shorter, it reads like the maths, and it runs much faster, be
 Next question: twenty times a second, the camera hands the perception box a picture. What is a picture to a computer, and how could you find a yellow line in one? That is the next lesson, *Images are arrays*.
 
 ![The camera's picture of the gentle loop, with a small patch of the yellow line magnified until its pixels show as squares. Each square carries three numbers, its amounts of red, green and blue. To the computer, the picture is nothing but numbers like these.](figures/next_lesson.png)
-
-## Go deeper
-
-- **NumPy: the absolute basics for beginners**, sections "Array fundamentals" and "Basic array operations". The official guide to everything this lesson used: making arrays, `abs`, `mean`, `max` and comparisons.
-- **CS231n Python Numpy Tutorial**, sections "Arrays" and "Array math". A compact tour from Stanford's computer-vision course. Its "Boolean array indexing" part prepares you for *Images are arrays*.
-- **Thrun et al., "Stanley: The Robot that Won the DARPA Grand Challenge" (2006)**, §9.2 "Steering Control", p. 684. How the winning car of the 2005 desert race defined its cross-track error and steered to shrink it. Read the definition now, and come back for the steering law after *Closing the loop*.
