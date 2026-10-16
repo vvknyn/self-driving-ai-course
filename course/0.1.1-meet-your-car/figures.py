@@ -431,8 +431,8 @@ def _zoom_on_bend(ax, road, provided_run, nothing_run):
     """An inset over the first bend, where the do-nothing path leaves the blue one: the grey path is drawn on top there."""
     inset = ax.inset_axes([0.2, 0.58, 0.6, 0.26], gid=ZOOM_INSET)
     render_topdown(road, ax=inset)
-    for tel_run, color, width in ((provided_run, QUANTITY["e_off"], 3), (nothing_run, TEXT, 3)):
-        inset.plot(tel_run.x, tel_run.y, color=color, linewidth=width)
+    for tel_run, color, width, alpha in ((provided_run, QUANTITY["e_off"], 3, 1), (nothing_run, CHROME["text"], 3, 0.5)):
+        inset.plot(tel_run.x, tel_run.y, color=color, linewidth=width, alpha=alpha)
     inset.plot(nothing_run.x[-1], nothing_run.y[-1], "X", color=TEXT, markersize=12)
     inset.set(xlim=ZOOM_X, ylim=ZOOM_Y, xlabel="", ylabel="")
     inset.set(xticks=[], yticks=[])
@@ -459,7 +459,7 @@ def _yardstick(path):
             ax.set(xticks=[0, 100, 200], yticks=[0])
         if name == "gentle":
             ax.plot(nothing_run.x[-1], nothing_run.y[-1], "X", color=TEXT, markersize=16, zorder=4)
-            ax.annotate("do-nothing car:\nrun ends", xy=(nothing_run.x[-1], nothing_run.y[-1]), xytext=(30, 25),
+            ax.annotate(f"do-nothing car:\nrun ends, {int(nothing_run.x[-1])} m", xy=(nothing_run.x[-1], nothing_run.y[-1]), xytext=(30, 25),
                         color=grey, ha="left", va="bottom", arrowprops={"arrowstyle": "->", "color": grey, "lw": 1.5})
             ax.annotate("provided car", xy=(provided_run.x[len(provided_run.x) // 3], provided_run.y[len(provided_run.x) // 3]),
                         xytext=(40, 78), color=QUANTITY["e_off"], ha="center",
