@@ -20,7 +20,7 @@ $$\begin{aligned}x &: 10 \times 0.7623\\ &\quad - 2 \times 0.6473 = 6.33\\ y &: 
 
 Then add the car's position:
 
-$$\begin{aligned}x &= 6.33 + 154.66 = 160.99\\ y &= 8.00 + 19.85 = 27.85\end{aligned}$$
+$$\begin{aligned}x &= 6.33 + 154.66\\ &= 160.99\\ y &= 8.00 + 19.85\\ &= 27.85\end{aligned}$$
 
 ![Two panels stacked. Top: the world frame's axes in grey at the world origin, and a long grey arrow from there to the car at step 400, labelled (154.66, 19.85). Bottom: a 20 m square around the car, with its ego frame in purple, the forward axis 40.33° left of east, with a grey dashed line labelled east and an arc for the 40.33° between them. A purple arrow runs 10 m along the forward axis and a second one 2 m along the left axis, ending at the cone, labelled (160.99, 27.85).](figures/pose_frame.png)
 
@@ -75,7 +75,7 @@ Its pose is $(152.601, 18.107, 0.704)$: the same yaw as the car, with the origin
 
 Now look at the names:
 
-$$\begin{aligned}&T_{\text{world}\leftarrow\text{ego}} \cdot T_{\text{ego}\leftarrow\text{rear}}\\ &= T_{\text{world}\leftarrow\text{rear}}\end{aligned}$$
+$$\begin{aligned}&T_{\text{world}\leftarrow\text{ego}}\\ &\quad \cdot T_{\text{ego}\leftarrow\text{rear}}\\ &= T_{\text{world}\leftarrow\text{rear}}\end{aligned}$$
 
 The two inner names, ego and ego, meet and cancel, leaving the outer two. That is the whole rule for chaining frames: write the transforms so that neighbouring names match, and the product is named by the first and the last.
 
@@ -153,7 +153,7 @@ $$\begin{aligned}&T_{\text{world}\leftarrow k} \cdot T_{k\leftarrow k+1}\\ &= T_
 
 Multiply both sides on the left by $T_{k\leftarrow\text{world}}$, the inverse of $T_{\text{world}\leftarrow k}$. On the left side the two cancel to $I$, which leaves
 
-$$\begin{aligned}&T_{k\leftarrow k+1}\\ &= T_{k\leftarrow\text{world}} \cdot T_{\text{world}\leftarrow k+1}\end{aligned}$$
+$$\begin{aligned}&T_{k\leftarrow k+1}\\ &= T_{k\leftarrow\text{world}}\\ &\quad \cdot T_{\text{world}\leftarrow k+1}\end{aligned}$$
 
 In code that is `relative_pose(T_world_a, T_world_b)`, which returns `invert_pose(T_world_a) @ T_world_b`. You write it in the lab.
 
@@ -249,7 +249,7 @@ Here `T_world_ego` holds the lap's 1778 poses, with shape (1778, 3, 3), and `@` 
 
 *Closing the loop* drew the triangle a bend makes: the turning point, the rear axle and the front axle, with a right angle at the rear axle and the front axle's radius $R$ as the longest side. The side from the turning point to the rear axle is then the rear axle's radius, and by Pythagoras it is $\sqrt{R^2 - L^2}$, shorter than $R$. In the middle of the first bend the front axle rides 0.5298 m inside the 81.8 m lane centre, so $R = 81.27$ m:
 
-$$\begin{aligned}\sqrt{R^2 - L^2} &= \sqrt{81.27^2 - 2.7^2}\\ &= 81.225\text{ m}\\ R - 81.225 &= 0.045\text{ m}\end{aligned}$$
+$$\begin{aligned}\sqrt{R^2 - L^2}\\ &= \sqrt{81.27^2 - 2.7^2}\\ &= 81.225\text{ m}\\ R - 81.225\\ &= 0.045\text{ m}\end{aligned}$$
 
 That is the measured gap.
 

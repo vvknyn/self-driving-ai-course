@@ -147,7 +147,7 @@ def relative_pose_error(fn) -> float:
     worst = 0.0
     for name, a, b, want in (*named_pairs(), *seeded_pairs()):
         size = len(a)
-        any_size = "" if size == 3 else f" Every 3x3 pair passed and this {size}x{size} one did not: relative_pose, and the invert_pose under it, must work at any size."
+        any_size = "" if size == 3 else f" The 3x3 pairs before it passed and this {size}x{size} one did not: relative_pose, and the invert_pose under it, must work at any size."
         try:
             got = np.asarray(call(fn, a, b, given=f"{name}: two {size}x{size} poses"), dtype=float)
         except Failure as failure:

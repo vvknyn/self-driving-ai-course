@@ -192,7 +192,7 @@ def pose_frame(path):
     _dot(top, (x, y), EGO)
     _note(top, (x - 12, y + 19), f"({x:.2f}, {y:.2f})")
     _frame(bottom, (0, 0, th), EGO, 4, "ego")
-    _nudge(bottom, "x", 0.9 * math.sin(th), -0.9 * math.cos(th))  # clear of the 10 m arrow drawn along the same line
+    _nudge(bottom, "x", -0.9 * math.sin(th), 0.9 * math.cos(th))  # above the line: the angle arc and its end sit below it
     mid, tip = 10 * f, 10 * f + 2 * n
     _arrow(bottom, (0, 0), tuple(mid), EGO, lw=3.5)
     _arrow(bottom, tuple(mid), tuple(tip), EGO, lw=3.5)
@@ -202,7 +202,7 @@ def pose_frame(path):
     _note(bottom, (tip[0] - 3.2, tip[1] + 3.2), f"cone\n({cone[0]:.2f}, {cone[1]:.2f})")
     bottom.plot([0, 9], [0, 0], color=GREY, lw=1.5, ls="--")
     _note(bottom, (11.6, 0), "east", GREY)
-    bottom.add_patch(Arc((0, 0), 10, 10, theta1=0, theta2=math.degrees(th) - 1.5, color=GREY, lw=1.5))
+    bottom.add_patch(Arc((0, 0), 10, 10, theta1=0, theta2=math.degrees(th), color=GREY, lw=1.5))
     _note(bottom, (7.6, 1.6), f"{math.degrees(th):.2f}\u00b0", GREY)
     _save(fig, path)
 
