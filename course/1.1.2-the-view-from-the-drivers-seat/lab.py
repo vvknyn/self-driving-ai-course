@@ -1,8 +1,8 @@
 # %% [markdown]
 # # Lab: The view from the driver's seat
 #
-# You will write the three functions the lecture ends with: `rotation_matrix`, `world_to_ego` and `ego_to_world`. You will check
-# `world_to_ego` against the simulator's own transform at 40 places and headings, put it into the camera so that every
+# You will write the three functions the lecture builds: `rotation_matrix`, `world_to_ego` and `ego_to_world`. You will check
+# `world_to_ego` against the simulator's own transform at 40 places and yaws, put it into the camera so that every
 # picture your car sees passes through your code, and find out why a test at yaw 0 proves nothing.
 # Read the lecture first; this lab points back to its sections by title and follows its order.
 #
@@ -24,7 +24,8 @@ import math
 import numpy as np
 
 from zero2fsd.car import Car, run
-from zero2fsd.geom import forward_left, heading_vector, wrap_angle
+from zero2fsd import geom
+from zero2fsd.geom import forward_left, heading_vector
 from zero2fsd.grade import check, practice
 from zero2fsd.preview.units.u1_1_2 import PICTURES, differing_pictures
 from zero2fsd.sim import BicycleState, Camera, make_scenario
@@ -57,8 +58,8 @@ print(f"car at ({x:.3f}, {y:.3f}), theta {theta:.4f} rad; first lane-centre poin
 #
 # **Problem 1.** Compute `v`, then `forward_left(theta, v)`, and unpack the pair into `forward` and `left`.
 #
-# **Guess first:** how far ahead of the car is the point, and how far to its left? Compare with the lecture's 10.189 m and
-# 0.453 m.
+# **Guess first:** how far ahead of the car is the point, and how far to its left? Write down two numbers before you run the
+# cell below; its ticks show what the right pair is.
 
 # %%
 v = None  # your code: the arrow from the car to the point
@@ -69,7 +70,7 @@ practice("left (m)", left, 0.453, tol=0.001)
 
 # %% [markdown]
 # **Break it.** Take the dot product with the left arrow first and the heading arrow second, and the pair comes out swapped.
-# The cell makes that mistake; the red cross is what you should see.
+# The cell makes that mistake, so a red cross is what you should see here.
 
 # %%
 h = heading_vector(theta)
@@ -97,7 +98,7 @@ def rotation_matrix(theta):
 
     Input:   theta, the yaw in radians.
     Output:  a (2, 2) array.
-    Example: rotation_matrix(0)  ->  [[1, 0], [0, 1]]
+    Example: rotation_matrix(math.pi / 2)  ->  [[0, -1], [1, 0]]
     """
     raise NotImplementedError
 
@@ -108,7 +109,8 @@ practice("column 1 minus the heading arrow (largest entry)", float(np.abs(R[:, 0
 practice("column 2 minus the left arrow (largest entry)", float(np.abs(R[:, 1] - left_arrow).max()), 0, tol=1e-12)
 
 # %% [markdown]
-# **Break it.** Write the sine in the wrong places, `[[c, s], [-s, c]]`. The columns stop being the two arrows.
+# **Break it.** Write the sine in the wrong places, `[[c, s], [-s, c]]`. The columns stop being the two arrows, so a red
+# cross is what you should see here. This matrix is $R(\theta)^{\mathsf T}$, which is what the next section needs.
 
 # %%
 c, s = math.cos(theta), math.sin(theta)
@@ -122,11 +124,13 @@ practice("column 1 minus the heading arrow, wrong matrix", float(np.abs(wrong[:,
 # ## Undo is the transpose
 #
 # **Problem 3.** Write `world_to_ego(pose, p_world)` and `ego_to_world(pose, p_ego)`. The lecture's formulas are
-# $R(\theta)^{\mathsf T}(\mathbf{p} - \mathbf{t})$ and $R(\theta)\,\mathbf{q} + \mathbf{t}$. Use `rotation_matrix` and write
-# the subtraction before the rotation. Keep the arrays as rows for now: one point of shape `(2,)` is enough, and the next
-# section makes it work on every point at once.
+# $R(\theta)^{\mathsf T}(\mathbf{p} - \mathbf{t})$ and $R(\theta)\,\mathbf{q} + \mathbf{t}$. Use `rotation_matrix`, and write the
+# subtraction before the rotation. Write `world_to_ego` for points stored as rows, as `(p_world - t) @ R`: the cell after the
+# two functions sends 2109 points through them at once, and *Every point at once* explains why rows go on the left. You can
+# also build it for one point from your own `forward_left` of *Positions and headings*; the camera needs the form that takes
+# a whole array.
 #
-# **Guess first:** what does `world_to_ego` give for the car's own position?
+# **Guess first:** what does `world_to_ego` give for the car's own position? The cell prints it after the two functions.
 #
 # The first function below is the one Exercise A and Exercise B check, so its cell carries the exercise tags.
 
@@ -149,6 +153,7 @@ def ego_to_world(pose, p_ego):
     raise NotImplementedError
 
 
+print("the car's own position, in the car's frame:", world_to_ego(SCENE_POSE, t))
 practice("scene point, forward then left", world_to_ego(SCENE_POSE, p), (10.189, 0.453), tol=0.001)
 practice("largest entry of R transposed times R, minus the identity", float(np.abs(R.T @ R - np.eye(2)).max()), 0, tol=1e-12)
 
@@ -156,17 +161,18 @@ practice("largest entry of R transposed times R, minus the identity", float(np.a
 # ![](figures/undo.png)
 #
 # **Break it.** Rotate first and subtract second: $R(\theta)^{\mathsf T}\mathbf{p} - \mathbf{t}$. The cell does it for the
-# same point. The lecture's answer is (-7.260, -84.974).
+# same point, so a red cross is what you should see here.
 
 # %%
 rotate_first = R.T @ p - t
 practice("rotate first, then subtract t", tuple(float(c) for c in rotate_first), (10.189, 0.453), tol=0.001)
+print("the lecture's answer for this mistake is (-7.260, -84.974)")
 
 # %% [markdown]
 # ![](figures/order_trap.png)
 #
-# Now the lap. The next cell sends the 2109 road points of `gentle` into the car's frame and back out. Neither number is
-# exactly 0, because every multiply-and-add rounds in the last digit.
+# Now the lap. The next cell sends the 2109 road points of `gentle` into the car's frame and back out. The error it prints
+# is not exactly 0, because every multiply-and-add rounds in the last digit.
 
 # %%
 cloud = np.concatenate([road.sample_points(1.0, d) for d in (0.0, EGO_LANE_CENTER, WHITE_LINE_LATERAL)])
@@ -180,46 +186,46 @@ practice("largest round-trip error (m)", round_trip, 0, tol=1e-12)
 # %% [markdown]
 # ## Every point at once
 #
-# The camera calls `world_to_ego` three times per picture, each time with a whole array: 146 road quads of 4 corners, the
-# same for the white line, and 103 yellow dashes.
+# The camera calls `world_to_ego` three times per picture, each time with a whole array: one of shape (146, 4, 2) for the
+# road, one of the same shape for the white line, and one of shape (103, 4, 2) for the yellow centre dashes.
 #
-# **Problem 4.** Check that your `world_to_ego` returns the same shape it was given, for the road's array of shape
-# `(146, 4, 2)`, and that its answers for the three lane-centre points match the lecture's table.
-#
-# **Guess first:** does `rot @ rows` work with 2 points? With 5?
+# **Problem 4.** Send the road's array of shape `(146, 4, 2)` and the three lane-centre points through your `world_to_ego`
+# and check that the shape comes back unchanged and that the three answers match the lecture's table.
 
 # %%
 quads = np.zeros((146, 4, 2)) + lane_points[0]
-practice("output shape for the road quads", world_to_ego(SCENE_POSE, quads).shape, (146, 4, 2))
+ego_quads = None  # your code: the road's array through world_to_ego
+ego_lane = None  # your code: the three lane-centre points through world_to_ego
 
-table = world_to_ego(SCENE_POSE, lane_points)
-practice("the three lane-centre points: forward, then left", table, [[10.189, 0.453], [20.158, 2.694], [29.771, 6.160]], tol=0.001)
+practice("output shape for the road quads", None if ego_quads is None else ego_quads.shape, (146, 4, 2))
+practice("the three lane-centre points: forward, then left", ego_lane, [[10.189, 0.453], [20.158, 2.694], [29.771, 6.160]], tol=0.001)
 
 # %% [markdown]
 # ![](figures/quads.png)
 #
 # **Break it.** The maths wrote arrows as columns, so `rot @ points` looks right. With rows it is not.
+#
+# **Guess first:** the cell tries 2, 3 and 146 points. Which of the three raises an error?
 
 # %%
 rot = np.array([[c, -s], [s, c]])
-try:
-    rot @ lane_points[:2].copy()
-    print("2 points: no error, and the answer is wrong")
-except ValueError as err:
-    print("2 points:", err)
-try:
-    rot @ np.zeros((5, 2))
-except ValueError as err:
-    print("5 points: ValueError, the shapes do not line up")
-print("rows @ rot works for both:", (lane_points[:2] - t) @ rot)
+for k in (2, 3, 146):
+    rows = np.tile(lane_points[0], (k, 1)) - t
+    try:
+        wrong_way = rot @ rows
+    except ValueError:
+        print(f"{k} points: ValueError, the shapes do not line up")
+    else:
+        print(f"{k} points: no error, and the answer is {'right' if np.allclose(wrong_way, rows @ rot) else 'wrong'}")
+print("rows @ rot, for the first two points:", (lane_points[:2] - t) @ rot)
 
 # %% [markdown]
 # ![](figures/shape_trap.png)
 #
 # **Exercise A.** The check puts a point 4 m ahead and 1 m left of a car at yaws 0, π/2, π and −3π/4, where it must come out
-# as (4, 1); then tries the `(K, 4, 2)` shape; then the round trip; then 40 seeded poses, with yaws up to ±4π, against the
-# simulator's own transform. Expect a largest difference of about 5.7e-14 m for the matrix form
-# `(p_world - t) @ rot`; the check allows 1e-9 m.
+# as (4, 1); then tries the `(K, 4, 2)` shape; then the round trip through the provided `ego_to_world`; then 40 seeded
+# poses, with yaws up to ±4π, against the simulator's own transform. The matrix form `(p_world - t) @ rot` differs from it
+# by about 5.7 × 10⁻¹⁴ m at most; the check allows 10⁻⁹ m.
 
 # %%
 check("1.1.2.a", world_to_ego)
@@ -232,12 +238,15 @@ check("1.1.2.a", world_to_ego)
 # **Problem 5.** Take 18 evenly spaced moments of the provided car's lap of `gentle`, draw each through the simulator's
 # transform and through yours, and count the pictures that differ.
 #
+# `differing_pictures(your_function, lap)` returns the count of differing pictures and the count of differing pixels.
+#
 # **Guess first:** how many of the 18 pictures will differ, and by how many pixels?
 
 # %%
 lap_full = run(Car(), "gentle")
-pictures, pixels = differing_pictures(world_to_ego, lap_full)
-print(f"{pictures} of {PICTURES} pictures differ, {pixels} pixels")
+pictures, pixels = None, None  # your code: differing_pictures(world_to_ego, lap_full)
+if pictures is not None:
+    print(f"{pictures} of {PICTURES} pictures differ, {pixels} pixels")
 practice("pictures that differ", pictures, 0, tol=0)
 
 # %% [markdown]
@@ -259,25 +268,36 @@ check("1.1.2.b", world_to_ego)
 # Two broken transforms: the swap, `(p - t) @ rot.T` (R where its transpose belongs), and no rotation, `p - t`. Each is
 # right when the car points along east.
 #
-# **Problem 6.** Run both on the lecture's named poses, then count how much of the parked car's picture each changes at
-# three places on the lap.
+# **Problem 6.** Write both as functions with the signature of `world_to_ego`, run them on the named poses, then count how
+# much of the parked car's picture each changes at three places on the lap.
 #
-# **Guess first:** at which yaws will each one give (4, 1)?
+# **Guess first:** the loop below also tries yaw −π/2 and yaw 2π. Which of the two do the swap and the dropped rotation
+# get right?
 
 # %%
 def swap(pose, p_world):
-    x, y, theta = pose
-    return (np.asarray(p_world, dtype=float) - np.array([x, y])) @ np.array([[math.cos(theta), -math.sin(theta)], [math.sin(theta), math.cos(theta)]]).T
+    """The swap: the rows times the transpose of the matrix, `(p - t) @ rotation_matrix(theta).T`. Rows in, rows out."""
+    raise NotImplementedError
 
 
 def no_rotation(pose, p_world):
-    x, y, theta = pose
-    return np.asarray(p_world, dtype=float) - np.array([x, y])
+    """No rotation at all: `p - t`. Rows in, rows out."""
+    raise NotImplementedError
 
 
-for label, yaw in (("0", 0.0), ("pi/2", math.pi / 2), ("pi", math.pi), ("-3pi/4", -3 * math.pi / 4)):
+def named_case(yaw):
+    """A car at (10, 5) with this yaw, and the point 4 m ahead and 1 m left of it: the answer is (4, 1) at every yaw."""
     point = np.array([10.0, 5.0]) + 4.0 * heading_vector(yaw) + 1.0 * np.array([-math.sin(yaw), math.cos(yaw)])
-    print(f"yaw {label:>7}: swap {np.round(swap((10.0, 5.0, yaw), point), 3)}, no rotation {np.round(no_rotation((10.0, 5.0, yaw), point), 3)}")
+    return (10.0, 5.0, yaw), point
+
+
+pose_90, point_90 = named_case(math.pi / 2)
+practice("swap at yaw pi/2", swap(pose_90, point_90), (-4.0, -1.0), tol=1e-6)
+practice("no rotation at yaw pi/2", no_rotation(pose_90, point_90), (-1.0, 4.0), tol=1e-6)
+
+for label, yaw in (("0", 0.0), ("pi/2", math.pi / 2), ("pi", math.pi), ("-3pi/4", -3 * math.pi / 4), ("-pi/2", -math.pi / 2), ("2pi", 2 * math.pi)):
+    pose, point = named_case(yaw)
+    print(f"yaw {label:>7}: swap {np.round(swap(pose, point), 3)}, no rotation {np.round(no_rotation(pose, point), 3)}")
 
 
 # %% [markdown]
@@ -316,13 +336,33 @@ practice("seconds before the swap leaves straight", float(swap_run.t[-1]), 2.95,
 #
 # ![](figures/park_box.png)
 #
-# **Fix it.** The way to catch both mistakes is the one Exercise A already uses: yaws where sin θ is well away from 0, and
-# many random poses. Your `world_to_ego` passed it, and the picture test, so the camera now draws through your code.
-# The lecture's last figure shows what the next lesson is about.
+# **Problem 7 (Fix it).** The way to catch both mistakes is the one Exercise A already uses: yaws where sin θ is well away
+# from 0. Write the test: fill `test_yaws` with the yaws, in radians, your test would try. `fails_at` counts the yaws where a
+# transform misses the point 4 m ahead and 1 m left.
+#
+# **Guess first:** does `[0.0]` catch the swap? Does `[math.pi]` catch the dropped rotation?
+
+# %%
+def fails_at(fn, yaws):
+    """The yaws, out of the list, where fn misses (4, 1) on the named case."""
+    return [yaw for yaw in yaws if np.abs(fn(*named_case(yaw)) - (4.0, 1.0)).max() > 1e-6]
+
+
+test_yaws = []  # your code: the yaws (radians) of your test, for example [0.0] to start with, then more
+
+caught = sum(bool(fails_at(fn, test_yaws)) for fn in (swap, no_rotation))
+practice("broken transforms your yaws catch (of 2)", caught, 2, tol=0)
+practice("yaws where your world_to_ego fails", len(fails_at(world_to_ego, test_yaws)), 0, tol=0)
+practice("yaws where the simulator's transform fails", len(fails_at(geom.world_to_ego, test_yaws)), 0, tol=0)
+
+# %% [markdown]
+# While `test_yaws` is empty the first line shows a red cross: that is the cell waiting for you. A test that catches both
+# mistakes and passes the right transform is what Exercise A is built from. Your `world_to_ego` passed Exercise A and the
+# picture test, so the camera now draws through your code. The lecture's last figure shows what the next lesson is about.
 #
 # ![](figures/next_lesson.png)
 #
-# The lecture's two challenges end with these figures: the swap seen through time, and how the error grows.
+# The two challenges of the lecture end with a figure each: the swap seen through time, then how fast its error grows.
 #
 # ![](figures/challenge_swing.png)
 #

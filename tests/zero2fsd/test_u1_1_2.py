@@ -35,6 +35,10 @@ def forward_only(pose, p):  # the right answer for one point, and a crash for an
     return np.array([dx * math.cos(theta) + dy * math.sin(theta), -dx * math.sin(theta) + dy * math.cos(theta)])
 
 
+def matrix_first(pose, p):  # R^T @ (p - t): right for one point, silently mixed up for 2 points stored as rows
+    return geom.rotation_matrix(pose[2]).T @ (np.asarray(p, dtype=float) - np.array(pose[:2]))
+
+
 def not_implemented(pose, p):
     raise NotImplementedError
 
@@ -60,16 +64,77 @@ def test_the_reference_solution_passes_both_exercises_and_matches_the_renderer_t
     assert renderer_gap(solution) < 1e-12 and renderer_gap(geom.world_to_ego) == 0.0
 
 
-@pytest.mark.parametrize(("fn", "yaw"), [(r_not_transposed, "pi/2"), (no_rotation, "pi/2"), (rotate_first, "pi/2")])
-def test_a_wrong_transform_is_named_at_the_first_yaw_that_catches_it(fn, yaw):
+def degrees(pose, p):  # the right transform with the yaw read as degrees
+    return geom.world_to_ego((*pose[:2], math.radians(pose[2])), p)
+
+
+def inverse(pose, p):  # ego_to_world handed in
+    return geom.ego_to_world(pose, p)
+
+
+def left_first(pose, p):
+    return geom.world_to_ego(pose, p)[..., ::-1]
+
+
+def left_flipped(pose, p):
+    return geom.world_to_ego(pose, p) * (1, -1)
+
+
+def sin_cos_swapped(pose, p):  # R with sin and cos exchanged
+    c, s = math.sin(pose[2]), math.cos(pose[2])
+    return (np.asarray(p, dtype=float) - np.array(pose[:2])) @ np.array([[c, -s], [s, c]])
+
+
+def shrunk_yaw(pose, p):  # a mistake the grader does not know by name: the yaw scaled by 0.9
+    return geom.world_to_ego((*pose[:2], 0.9 * pose[2]), p)
+
+
+MISTAKES = {  # wrong answer -> the words its message must hold, and the section it must point to
+    "swap": (r_not_transposed, "yaw pi/2: this is the swap", "Undo is the transpose"),
+    "no rotation": (no_rotation, "yaw pi/2: this is no rotation", "Two dot products make a frame change"),
+    "rotate first": (rotate_first, "turns first and subtracts t afterwards", "Undo is the transpose"),
+    "degrees": (degrees, "reads the yaw as degrees", "The rotation matrix"),
+    "inverse": (inverse, "this is ego_to_world", "Undo is the transpose"),
+    "order": (left_first, "forward and left are in the wrong order", "Two dot products make a frame change"),
+    "left flipped": (left_flipped, "left has the wrong sign", "Two dot products make a frame change"),
+    "sin and cos swapped": (sin_cos_swapped, "yaw 0 has no rotation at all", "Two dot products make a frame change"),
+    "yaw scaled by 0.9": (shrunk_yaw, "a rotation mistake: check R(θ)ᵀ, θ in radians", "The rotation matrix"),  # not in the grader's list
+}
+
+
+@pytest.mark.parametrize(("fn", "yaw"), [(r_not_transposed, "pi/2"), (no_rotation, "pi/2"), (rotate_first, "pi/2"), (left_first, "0")])
+def test_a_wrong_transform_is_caught_at_the_first_yaw_that_catches_it(fn, yaw):
     result = run_check("1.1.2.a", fn)
     assert not result.passed and f"wrong at yaw {yaw}" in result.details[0]
     assert "1.1.2" not in "\n".join(result.details)  # never the dotted id
 
 
-def test_the_named_yaws_say_what_they_can_and_cannot_tell_apart():
-    assert "catches both R in place of its transpose and a missing rotation" in run_check("1.1.2.a", r_not_transposed).details[0]
-    assert "pi/2" in run_check("1.1.2.a", no_rotation).details[0]  # no rotation passes yaw 0 only; the swap passes yaw 0 and pi
+@pytest.mark.parametrize("mistake", MISTAKES)
+def test_each_wrong_transform_is_named_for_the_mistake_it_makes_and_points_to_its_own_section(mistake):
+    fn, words, section = MISTAKES[mistake]
+    headline = run_check("1.1.2.a", fn).details[0]
+    assert words in headline and f'the section "{section}"' in headline, headline
+    assert "1.1.2" not in headline  # never the dotted id
+
+
+def test_a_failure_at_yaw_zero_never_says_what_a_pass_there_means():
+    headline = run_check("1.1.2.a", left_first).details[0]
+    assert "yaw 0" in headline and "cannot tell" not in headline and "identity" not in headline
+
+
+def test_a_pass_says_what_each_named_yaw_proved():
+    message = run_check("1.1.2.a", solution).details[0]
+    assert "yaw 0 cannot tell R from its transpose" in message and "yaw pi/2 tells R from its transpose" in message
+
+
+def test_the_renderer_failure_sends_the_learner_back_to_exercise_a():
+    assert "Run Exercise A first" in run_check("1.1.2.b", r_not_transposed).details[0]
+
+
+def test_matrix_at_rows_is_named_when_two_points_run_without_an_error():
+    result = run_check("1.1.2.a", matrix_first)
+    assert not result.passed and "matrix @ rows" in result.details[0] and "Every point at once" in result.details[0]
+    assert "1.1.2" not in result.details[0]
 
 
 def test_a_transform_that_only_takes_one_point_fails_the_shape_check():
@@ -87,8 +152,19 @@ def test_the_forty_pose_test_catches_what_a_yaw_zero_test_misses(fn):
 def test_the_presets_fail_the_renderer_gate_and_the_matrix_form_passes_it():
     for name in ("r_not_transposed", "no_rotation"):
         result = run_check("1.1.2.b", preset(name))
-        assert not result.passed and "did not pass the gentle gate" in result.details[0], name
+        assert not result.passed and "differs from the renderer's transform" in result.details[0], name
         assert not run_check("1.1.2.a", preset(name)).passed, name
+
+
+def offset_by_a_hand(pose, p):  # right except 0.05 m too far left everywhere: small enough for the car to still drive
+    return solution(pose, p) + np.array([0.0, 0.05])
+
+
+def test_a_transform_the_drive_forgives_still_fails_the_entry_by_entry_comparison():
+    from zero2fsd.grade._drive import gate
+    assert gate(Car(), False, None, Camera(world_to_ego=offset_by_a_hand))  # the downstream drive alone passes it
+    result = run_check("1.1.2.b", offset_by_a_hand)
+    assert not result.passed and "differs from the renderer's transform" in result.details[0]
 
 
 def test_the_swap_preset_is_the_swap_and_the_other_leaves_the_rotation_out():

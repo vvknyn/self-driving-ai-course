@@ -2,11 +2,11 @@
 
 *Positions and headings* ended with the camera's question. Here it is at one moment of the provided car's lap. The car is 150 m along `gentle`, 50 m into the first bend, and it points 34.1° to the left of east. Ahead of it the yellow centre line and the white edge line curve away to the left. The camera cannot use a world position. What it draws depends on how far ahead of the car each point is, and how far to its left. Where is every lane line in the car's own coordinates, so the camera can draw it?
 
-By the end of this lesson you will write three short functions, `rotation_matrix`, `world_to_ego` and `ego_to_world`. You will check `world_to_ego` against the simulator's own version at 40 places and headings, then plug it into the camera, so that every picture your car sees on its lap of `gentle` passes through code you wrote. On the way you meet your first matrices, and a bug that no test at the start line can catch.
+By the end of this lesson you will write three short functions, `rotation_matrix`, `world_to_ego` and `ego_to_world`. You will check `world_to_ego` against the simulator's own version at 40 places and yaws, then plug it into the camera, so that every picture your car sees on its lap of `gentle` passes through code you wrote. On the way you meet your first matrices, and a bug that no test at the start line can catch.
 
-![The provided car 150 m along gentle, drawn twice in two stacked panels. Top: seen from above in the world frame, east to the right and north up. The car's front axle is at (147.839, 14.299), and its own forward and left axes, x and y, are drawn in purple, turned 0.5958 rad from east. Bottom: the same lane lines in the car's own frame, with forward up the page and the car's left to the left. The lane centre starts 0.527 m to the car's right. The lane-centre points 10, 20 and 30 m further along the lane are 0.453, 2.694 and 6.160 m to its left.](figures/result_first.png)
+![The provided car 150 m along gentle, drawn twice in two stacked panels. Top: seen from above in the world frame, east to the right and north up. The car's front axle is at (147.839, 14.299), and its own forward and left axes, x and y, are drawn in purple, turned 0.5958 rad from east. Bottom: the same lane lines in the car's own frame, with forward up the page and the car's left to the left. The lane centre, not painted and drawn as a grey dashed line in both panels, starts 0.527 m to the car's right. The lane-centre points 10, 20 and 30 m further along the lane are 0.453, 2.694 and 6.160 m to its left.](figures/result_first.png)
 
-The bottom panel is what the camera needs, and none of its numbers can be read off the top one: the first lane-centre point is at (156.018, 20.391) in the world frame, and nothing in that pair says "0.453 m to the left".
+The bottom panel is what the camera needs, and none of its numbers can be read off the top one: the lane-centre point 10 m further along is at (156.018, 20.391) in the world frame, and nothing in that pair says "0.453 m to the left".
 
 The bottom panel's coordinates belong to the car's own frame, called the **ego frame** ("ego" is Latin for "I"). Its origin is the front axle. Its x axis points where the car points, and its y axis is a quarter turn to the left of that. The camera is mounted at the front axle, facing forward, so this is the frame it draws from.
 
@@ -47,7 +47,7 @@ $$
 \end{aligned}
 $$
 
-![The arrow v from the car's front axle to the lane-centre point 10 m further along, 8.179 m east and 6.093 m north, with the car's heading arrow and left arrow drawn in purple. Dashed lines from the tip of v meet the two arrows' directions at right angles: 10.189 m along the heading arrow, and 0.453 m along the left arrow.](figures/two_dots.png)
+![The arrow v from the car's front axle to the lane-centre point 10 m further along, 8.179 m east and 6.093 m north, with the car's heading arrow and left arrow drawn in purple. Dashed lines from the tip of v meet the two arrows' directions at right angles: 10.189 m along the heading arrow, and 0.453 m along the left arrow. A magnified inset shows the right angle where the dashed line meets the left arrow's direction.](figures/two_dots.png)
 
 Those are the bottom panel's numbers for this point: 10.189 m ahead and 0.453 m to the left. Your `forward_left(theta, v)` from *Positions and headings* gives the same pair, (10.189, 0.453). It computes the left part as the cross product $\hat{h}\times\mathbf{v}$, which is the same multiply-and-add in a different order.
 
@@ -65,7 +65,7 @@ $$
 
 A grid of numbers in rows and columns is called a **matrix**. A matrix written just before an arrow means: take the dot product of each row with the arrow, and stack the answers in the rows' order. That is the **matrix–vector product**. It is nothing but the dot products you already did, written in a stack.
 
-![The matrix–vector product at the scene, drawn as two dot products stacked. Top row: the heading arrow, (0.8277, 0.5612), dotted with v = (8.179, 6.093), gives the forward part, 10.189. Bottom row: the left arrow, (−0.5612, 0.8277), dotted with v gives the left part, 0.453.](figures/stacked_dots.png)
+![The matrix–vector product at the scene, written out as the matrix with the two arrows as its rows, times v, equals the result, with each row's dot product shaded. Top row: the heading arrow, (0.8277, 0.5612), dotted with v = (8.179, 6.093), gives the forward part, 10.189. Bottom row: the left arrow, (−0.5612, 0.8277), dotted with v gives the left part, 0.453.](figures/stacked_dots.png)
 
 `forward_left` was a matrix–vector product all along. It just never wrote the grid down.
 
@@ -86,10 +86,13 @@ $$
 
 That is $\mathbf{v}$ again. Add the car's position, (147.839, 14.299), and you land on the point, (156.018, 20.391).
 
-Look at the arithmetic for a point a metres ahead and b metres left. The east part is $a\cos\theta - b\sin\theta$ and the north part is $a\sin\theta + b\cos\theta$. Each is a dot product of $(a, b)$ with a row, so the walk is another matrix–vector product, with this matrix, read "R of theta":
+Look at the arithmetic for a point a metres ahead and b metres left. The east part is $a\cos\theta - b\sin\theta$ and the north part is $a\sin\theta + b\cos\theta$. Each is a dot product of $(a, b)$ with a row, so the walk is another matrix–vector product, with this matrix, read "R of theta" (not the bend radius R of *Closing the loop*):
 
 $$
-R(\theta) = \begin{bmatrix}\cos\theta & -\sin\theta\\ \sin\theta & \cos\theta\end{bmatrix}
+\begin{aligned}
+R(\theta) &= \\
+&\begin{bmatrix}\cos\theta & -\sin\theta\\ \sin\theta & \cos\theta\end{bmatrix}
+\end{aligned}
 $$
 
 Its first column is $(\cos\theta, \sin\theta)$, the heading arrow, and its second column is $(-\sin\theta, \cos\theta)$, the left arrow. At the scene it is
@@ -100,7 +103,7 @@ $$
 
 So a matrix–vector product can be read two ways. Row by row, it is dot products, which is how you compute it. Column by column, it is the first column scaled by a, plus the second column scaled by b, which is the walk. Both readings give the same numbers.
 
-![Two stacked panels at the scene. Top: the two columns of R(θ) at θ = 0.5958 rad, (0.8277, 0.5612) and (−0.5612, 0.8277), drawn in purple from the car's front axle. They are the ego frame's x and y axes. The world's x and y axes are drawn in grey for comparison. Bottom: start at the car, (147.839, 14.299), walk 10.189 m along the first column and then 0.453 m along the second, and you arrive at the lane-centre point (156.018, 20.391).](figures/columns_axes.png)
+![Two stacked panels at the scene. Top: the two columns of R(θ) at θ = 0.5958 rad, (0.8277, 0.5612) and (−0.5612, 0.8277), drawn in purple from the car's front axle. They are the ego frame's x and y axes. The world's x and y axes are drawn in grey for comparison. Bottom: start at the car, (147.839, 14.299), walk 10.189 m along the first column and then 0.453 m along the second, and you arrive at the lane-centre point (156.018, 20.391). A magnified inset shows the second leg.](figures/columns_axes.png)
 
 Multiplying by R(θ) takes the world's x axis, (1, 0), to the heading arrow, and the world's y axis, (0, 1), to the left arrow. Both are turned by θ anticlockwise, both are still 1 m long, and they are still a quarter turn apart. Any arrow, a times (1, 0) plus b times (0, 1), goes to a times the heading arrow plus b times the left arrow: the same arrow, turned by θ. So R(θ) is called a **rotation matrix**. Multiplying by it turns any arrow by the angle θ.
 
@@ -119,7 +122,10 @@ It turns nothing. This matrix is called the **identity**, written I: multiplying
 The matrix in the first section, which took a world arrow into the ego frame, had the heading and left arrows as its rows. R(θ) has them as its columns. It is the same four numbers with the rows and columns swapped. Swapping the rows and columns of a matrix is called taking its **transpose**, written $R(\theta)^{\mathsf T}$ and read "R of theta transpose":
 
 $$
-R(\theta)^{\mathsf T} = \begin{bmatrix}\cos\theta & \sin\theta\\ -\sin\theta & \cos\theta\end{bmatrix}
+\begin{aligned}
+R(\theta)^{\mathsf T} &= \\
+&\begin{bmatrix}\cos\theta & \sin\theta\\ -\sin\theta & \cos\theta\end{bmatrix}
+\end{aligned}
 $$
 
 ![The same arrow turned out and back, in two stacked panels, with the car's front axle at the origin and the world's x and y axes in grey. Top: R(θ) turns the arrow (10.189, 0.453) by 0.5958 rad anticlockwise, to (8.179, 6.093). Bottom: R(θ)ᵀ turns (8.179, 6.093) by the same angle clockwise, back to (10.189, 0.453).](figures/undo.png)
@@ -145,7 +151,14 @@ $$
 \end{aligned}
 $$
 
-The first is 1 by Pythagoras: the heading arrow is 1 m long. The same holds for $\hat{n}\cdot\hat{n}$, and $\hat{n}\cdot\hat{h}$ is the same 0. So R(θ)ᵀR(θ) has 1 on its top-left to bottom-right diagonal and 0 elsewhere, which is I. If you walk out to $\mathbf{w} = R(\theta)\,\mathbf{q}$, then $R(\theta)^{\mathsf T}\mathbf{w} = R(\theta)^{\mathsf T}R(\theta)\,\mathbf{q} = I\,\mathbf{q} = \mathbf{q}$.
+The first is 1 by Pythagoras: the heading arrow is 1 m long. The same holds for $\hat{n}\cdot\hat{n}$, and $\hat{n}\cdot\hat{h}$ is the same 0. So R(θ)ᵀR(θ) has 1 on its top-left to bottom-right diagonal and 0 elsewhere, which is I. If you walk out to $\mathbf{w} = R(\theta)\,\mathbf{q}$, then
+
+$$
+\begin{aligned}
+R(\theta)^{\mathsf T}\mathbf{w} &= R(\theta)^{\mathsf T}R(\theta)\,\mathbf{q}\\
+&= I\,\mathbf{q} = \mathbf{q}.
+\end{aligned}
+$$
 
 </details>
 
@@ -157,7 +170,7 @@ The order inside `world_to_ego` matters. Turn first and subtract afterwards, $R(
 
 **Guess first:** take 2109 points along the yellow line, the lane centre and the white line of the lap, 1 m apart, and send them into the ego frame and back out to the world. Do it at 41 poses: the scene's and 40 random ones. How far from where they started do the points land?
 
-![Two stacked panels. Top: the lap of gentle in the world frame, its 2109 points in grey, and the same points after world_to_ego and then ego_to_world at the scene's pose, in purple, landing on top of them. Bottom: at each of the 41 poses, the largest coordinate error after the round trip, on a scale where each grid line is ten times the one below. Every pose is below the dashed line at 10 to the minus 12 m. The largest error is 1.4 times ten to the minus 13 m going world to ego to world, and 8.5 times ten to the minus 14 m going ego to world to ego.](figures/round_trip.png)
+![Two stacked panels. Top: the lap of gentle in the world frame, its 2109 points in grey, and the same points after world_to_ego and then ego_to_world at the scene's pose, in purple as rings on a sample of the points, landing on top of them. Bottom: at each of the 41 poses, the largest coordinate error after the round trip, on a scale where each grid line is ten times the one below. Every pose is below the dashed line at 10 to the minus 12 m. The largest error is 1.4 times ten to the minus 13 m going world to ego to world, and 8.5 times ten to the minus 14 m going ego to world to ego.](figures/round_trip.png)
 
 **Answer:** within $1.4\times10^{-13}$ m. Going the other way, ego to world to ego, the points land within $8.5\times10^{-14}$ m. Neither is exactly 0, because every multiply-and-add rounds in the last digit. The lab's check uses a tolerance of $1\times10^{-9}$ m, thousands of times bigger than either, while the two mistakes at the end of this lesson miss it by hundreds of metres.
 
@@ -169,7 +182,7 @@ The camera never moves one point. To draw one picture, with the car parked on th
 
 The quads come in three arrays, one for each kind. The road surface's has shape (146, 4, 2): 146 quads, 4 corners each, 2 numbers per corner. 146 strips 0.5 m long cover 73 m, from 3 m behind the car to 70 m ahead. The white line's array has the same shape, and the yellow dashes' is (103, 4, 2). So the camera calls `world_to_ego` 3 times per picture, with a whole array each time.
 
-![The road around the car parked on the lane centre 150 m along gentle, seen from above, with every quad outlined: strips of road surface 0.5 m long, strips of white line, and yellow dashes. One road quad is shaded, with its 4 corners marked as dots. Each corner is 2 numbers, east and north.](figures/quads.png)
+![The road around the car parked on the lane centre 150 m along gentle, seen from above, with every quad outlined: strips of road surface 0.5 m long, strips of white line, and yellow dashes. One road quad is shaded, with its 4 corners marked as dots. Each corner is 2 numbers, east and north. A magnified inset shows the shaded quad, and a badge marks the car.](figures/quads.png)
 
 In NumPy a list of N points is stored as rows: shape (N, 2), one row per point, east part first. The maths above wrote arrows as columns. To use R(θ) on rows, flip the product around. A row written before a matrix is dotted with each of the matrix's columns. The columns of R(θ) are the heading and left arrows, so a row $\mathbf{v}$ times R(θ) gives $(\mathbf{v}\cdot\hat{h},\ \mathbf{v}\cdot\hat{n})$: forward, then left. That is $R(\theta)^{\mathsf T}\mathbf{v}$, written as a row.
 
@@ -188,7 +201,7 @@ Written the maths way round in code, `rot @ rows` multiplies a (2, 2) by an (N, 
 
 **Guess first:** with exactly 2 points, the shapes are (2, 2) and (2, 2). Does `rot @ rows` raise an error?
 
-![Two lane-centre points, 160 m and 170 m along gentle, in the ego frame of the car 150 m along the road, with forward up the page. Purple dots: the rows times R(θ), the right product, at (9.837, 0.398) and (19.817, 2.595), on the lane centre ahead of the car. Grey crosses: R(θ) times the rows, the same two arrays the other way round, read as two points: (−1.833, −2.604) and (16.815, 14.265), off the road, with no error message.](figures/shape_trap.png)
+![The first two lane-centre points of the opening, 10 and 20 m further along the lane, in the ego frame of the car at the scene, with forward up the page. Purple dots: the rows times R(θ), the right product, at (10.189, 0.453) and (20.158, 2.694), on the lane centre ahead of the car. Grey crosses: R(θ) times the rows, the same two arrays the other way round, read as two points: (−1.745, −2.556) and (17.149, 14.628), off the road, with no error message.](figures/shape_trap.png)
 
 **Answer:** no. Both arrays are 2 by 2, so the product is allowed, and it mixes up the two points' east and north parts without a word. The lab tests `world_to_ego` on many points at once, and on the (K, 4, 2) shape the camera uses, so this mistake cannot hide behind a lucky count.
 
@@ -196,7 +209,7 @@ Written the maths way round in code, `rot @ rows` multiplies a (2, 2) by an (N, 
 
 The camera's `render` does two things to each picture. First it moves every quad corner into the ego frame. Then it turns each ego point into a pixel, using the camera's height, pitch and focal length from *Your first perception box*, and paints the quads in order. Between the two steps it cuts away any part of a quad less than 0.3 m ahead of the car.
 
-![How the camera draws one picture, in three stacked panels, for the car parked on the lane centre 150 m along gentle and pointing along the road, at yaw 0.6254 rad. Top: the road's quads in the world frame, from above. Middle: the same quads after world_to_ego, in the ego frame with forward up the page, from 3 m behind the car to 70 m ahead. Bottom: the 320 by 180 pixel picture painted from the middle panel's quads.](figures/renderer_steps.png)
+![How the camera draws one picture, in three stacked panels, for the car parked on the lane centre 150 m along gentle and pointing along the road, at yaw 0.6254 rad. Top: the road's quads in the world frame, from above. Middle: the same quads after world_to_ego, in the ego frame with forward up the page, drawn at true scale from 3 m behind the car to 40 m ahead, although the quads reach 73 m. Bottom: the 320 by 180 pixel picture painted from the middle panel's quads.](figures/renderer_steps.png)
 
 This is not quite the opening's moment. The car here is parked exactly on the lane centre and points exactly along the road, so that the pictures below compare like with like.
 
@@ -254,15 +267,15 @@ The start of the lap is the worst place to test a transform. The yaw is 0 there,
 
 **Answer:** 2.95 s. On a road with no bend at all, the swapped car crosses the yellow line 22.8 m from the start. On `gentle` it lasts 2.80 s and 21.7 m. No rotation, which changes the picture less than the swap at 150 m and more at 260 m, drives the whole straight road within 0.003 m of the lane centre. It leaves `gentle` at 116.6 m, 16.6 m into the first bend, once the road starts to turn and the car's yaw with it.
 
-Why does the swap fail where the road is straight? θ is where the car points; ψ, from *Closing the loop*, is how far that is from the road's direction. On `straight` the road points east, so θ is ψ itself, and once the car moves it is small but never exactly 0. Swap the signs of the sin θ entries and you have the right transform for a car pointing at −θ. So the perception box sees the lane as if the car pointed the other way.
+Why does the swap fail where the road is straight? θ is where the car points; ψ, the heading from *Your first perception box*, is the yaw minus the road's direction, wrapped. On `straight` the road points east, so θ is ψ itself, and once the car moves it is small but never exactly 0. Swap the signs of the sin θ entries and you have the right transform for a car pointing at −θ. So the perception box sees the lane as if the car pointed the other way.
 
-![What the perception box reads as the heading, against the car's true heading error ψ, at the 53 steps of the swapped car's run on straight where ψ is more than 0.001 rad from 0. Red dots, read through the swap: the box's heading is the true ψ with its sign flipped, a median ratio of −0.994. Grey dots, the same moments read through the right transform, 49 of them with a valid reading: a median ratio of +1.011.](figures/heading_flip.png)
+![What the perception box reads as the heading, against the car's true heading ψ, at the 53 steps of the swapped car's run on straight where ψ is more than 0.001 rad from 0. Red dots, read through the swap: the box's heading is the true ψ with its sign flipped, a median ratio of −0.994. Grey dots, the same moments read through the right transform, 49 of them with a valid reading: a median ratio of +1.011.](figures/heading_flip.png)
 
 Park the car on `straight` 50 m from the start, 0.3 m left of the lane centre, pointing 0.05 rad right. Through the right transform the box reads an offset of 0.3063 m and a heading of −0.0517 rad. Through the swap it reads 0.2964 m and +0.0506 rad. The offset hardly changes; the heading's sign flips.
 
 ![Two camera pictures of a car parked on straight, stacked: 50 m from the start, 0.3 m left of the lane centre, pointing 0.05 rad right. Top: through the right transform; the perception box reads an offset of 0.3063 m and a heading of −0.0517 rad. Bottom: through the swap; it reads 0.2964 m and +0.0506 rad.](figures/park_box.png)
 
-The controller steers by $-(k_{\text{off}} \cdot \text{offset} + k_{\text{head}}\,\psi)$ from *Closing the loop*, with the box's heading in place of ψ. With that sign flipped, a car pointing a little to one side is told it points to the other, so it steers further the way it already points and the error feeds itself. After the first step e is $2.51\times10^{-5}$ m. Its size grows to 0.0382 m at 1.00 s and 0.2724 m at 2.00 s; then it swings back across the lane centre and leaves the lane at 2.95 s.
+The controller steers by $-(k_{\text{off}} \cdot \text{offset} + k_{\text{head}}\,\psi)$ from *Closing the loop*, with the box's heading in place of ψ. With that sign flipped, a car pointing a little to one side is told it points to the other, so it steers further the way it already points and the error feeds itself. After the first step e is $2.51\times10^{-5}$ m. It flips sign and grows to 0.0382 m at 1.00 s and 0.2724 m at 2.00 s; then it swings back across the lane centre and leaves the lane at 2.95 s.
 
 So a test of a transform needs yaws where sin θ is well away from 0, like π/2 and −3π/4, and many random poses. The lab checks the four yaws in the table and 40 random poses against the simulator's own transform; at those 40, the swap is off by up to 704 m and no rotation by up to 751 m.
 
@@ -272,7 +285,7 @@ So a test of a transform needs yaws where sin θ is well away from 0, like π/2 
 - R(θ) has the heading and left arrows as its columns and turns every arrow by θ. Its transpose undoes it, R(θ)ᵀR(θ) = I, so `ego_to_world` is $R(\theta)\,\mathbf{q} + \mathbf{t}$. With points stored as rows, `(P - t) @ rot` moves them all at once.
 - At yaw 0, R(0) = I, so a test there proves nothing. The swap also passes at π, changes 0.0% of the picture at the start line, and still puts the car off `straight` after 2.95 s, because it flips the sign of the heading the box reads.
 
-![The car 150 m along gentle, seen from above, 0.527 m to the left of its lane centre. Two braces carry a question mark each: one follows the road from its start to the car, and one crosses the lane from the lane centre to the car's front axle.](figures/next_lesson.png)
+![The car 150 m along gentle, seen from above, 0.527 m to the left of its lane centre. Two braces carry a question mark each: one follows the road from its start to the car, and one crosses the lane from the lane centre to the car's front axle. A magnified panel below shows the second brace.](figures/next_lesson.png)
 
 You can now put every lane line into the car's own frame, and the camera draws it. The simulator needs two other numbers about the car at every step. One is how far it has got along the road, which decides when the lap is finished. The other is how far it is from its lane centre, the e that grades every drive. Neither is a world coordinate, and neither is an ego coordinate. How far along the road is the car, and how far from its lane centre?
 
@@ -282,12 +295,12 @@ That is the next lesson, *The road's own coordinates*.
 
 Both problems explain the swapped car's run on `straight`.
 
-![The provided car on straight seeing through the swap, from the start to 2.50 s, in two stacked panels against time. Top: distance from the lane centre, e. Bottom: heading error, ψ. e is most negative, −0.2824 m, at 2.10 s; ψ crosses zero at 2.30 s; and e is back through zero at 2.49 s.](figures/challenge_swing.png)
+![The provided car on straight seeing through the swap, from the start to 2.50 s, in two stacked panels against time. Top: distance from the lane centre, e. Bottom: heading, ψ. e is most negative, −0.2824 m, at 2.10 s; ψ crosses zero at 2.30 s; and e is back through zero at 2.49 s.](figures/challenge_swing.png)
 
 1. **Why the swap flips the heading.** For small angles cos θ ≈ 1 and sin θ ≈ θ, an approximation; at 0.02 rad, cos θ = 0.9998 and sin θ = 0.0200.
    - (a) Show that R(θ) = R(−θ)ᵀ for every θ. Write R(θ)ᵀ and R(θ) for a small θ, and explain why, on `straight`, the swapped box reads the heading as −ψ while the offset hardly changes. Compare with the parked car's numbers above, and with a second parked car pointing 0.02 rad left.
-   - (b) On a straight, the car's heading changes at $v\,\delta / L$ radians per second, with v = 8.0 m/s and L = 2.7 m. Leave out the offset term and show that, with the swap, ψ grows by a factor of $\mathrm{e}$ every 0.125 s, while the right transform shrinks it just as fast. Fitting the swapped car's own steps gives a growth of 2.387 per second instead. Which part of the answer is right, and which is not?
-   - (c) Optional. Keep both terms. Using the front-axle model, the offset changes at $v(\psi + \delta)$ metres per second. Write both rates as a matrix times (e, ψ), and use the fact stated in the answer to find how fast the swapped car's error grows and how often it swings. Compare with the fit.
+   - (b) On a straight, the car's yaw changes at $v\,\delta / L$ radians per second, with v = 8.0 m/s and L = 2.7 m, the wheelbase from *Meet your car*. Leave out the offset term and show that, with the swap, ψ grows by a factor of $\mathrm{e}$ every 0.125 s, where $\mathrm{e}$ is the number 2.718 from *Closing the loop*, not the offset $e$, while the right transform shrinks it just as fast. Fitting the swapped car's own steps gives a growth of 2.387 per second instead. Which part of the answer is right, and which is not?
+   - (c) Optional. Keep both terms. Using the front-axle model, the offset changes at $v(\psi + \delta)$ metres per second. Write both rates as a matrix times (e, ψ), and use this fact, stated without proof, to find how fast the swapped car's error grows and how often it swings. For a matrix [[a, b], [c, d]], write tr = a + d and det = ad − bc. If (tr/2)² is less than det, the motion is a swing whose size grows like $\mathrm{e}^{(\mathrm{tr}/2)\,\text{time}}$ and which repeats every 2π/√(det − (tr/2)²) seconds. If (tr/2)² is bigger than det, there is no swing: the motion is two exponentials, with rates tr/2 + √((tr/2)² − det) and tr/2 − √((tr/2)² − det) per second. Compare with the fit.
 2. **Turns add up.** Using the angle-sum rules, cos(a + b) = cos a cos b − sin a sin b and sin(a + b) = sin a cos b + cos a sin b, show that R(a)R(b) = R(a + b). Then show that the car's heading arrow, sent into its own ego frame, is (1, 0) at every pose.
 
 <details>
@@ -304,11 +317,12 @@ $$
 
 On `straight` the road points east, so θ = ψ, and the swapped picture is drawn for a car pointing at −ψ: the box reads the heading as −ψ. The offset is where the lane centre is beside the car, and the small θ entries hardly move a point that is beside it, so the offset barely changes. Parked 0.3 m left at ψ = −0.05 rad, the box reads (offset, heading) = (0.3063, −0.0517) through the right transform and (0.2964, 0.0506) through the swap. At ψ = +0.02 rad it reads (0.2984, 0.0197) and (0.3016, −0.0201).
 
-(b) With the swap the box's heading is −ψ, so the rule steers $\delta = -k_{\text{off}}\,\text{offset} + k_{\text{head}}\,\psi$. Leaving out the offset term, $\delta = k_{\text{head}}\,\psi$ and the heading changes at
+(b) With the swap the box's heading is −ψ, so the rule steers $\delta = -k_{\text{off}}\,\text{offset} + k_{\text{head}}\,\psi$. Leaving out the offset term, $\delta = k_{\text{head}}\,\psi$ and the yaw changes at
 
 $$
 \begin{aligned}
-\frac{v\,k_{\text{head}}}{L}\,\psi &= \frac{8.0 \times 2.7}{2.7}\,\psi\\
+\frac{v\,k_{\text{head}}}{L}\,\psi\\
+&= \frac{8.0 \times 2.7}{2.7}\,\psi\\
 &= 8.000\,\psi
 \end{aligned}
 $$
@@ -326,7 +340,7 @@ $$
 \end{aligned}
 $$
 
-For example, 29.600 = v(1 + k_head) = 8.0 × 3.7, and 1.0370 = v k_off / L = 2.8 / 2.7. The fact, stated without proof: for a matrix [[a, b], [c, d]], write T = a + d and D = ad − bc. If (T/2)² is less than D, the motion is a swing whose size grows like $\mathrm{e}^{(T/2)\,\text{time}}$ and which repeats every 2π/√(D − (T/2)²) seconds. If (T/2)² is bigger than D, there is no swing: the motion is two exponentials, with rates T/2 + √((T/2)² − D) and T/2 − √((T/2)² − D) per second. Here T = −2.800 + 8.000 = 5.200 and D = 8.296. (T/2)² = 6.760, D minus that is 1.536, and its square root is 1.239. So the error grows at 2.600 per second and swings with a period of 2π/1.239 = 5.07 s. With the right transform the matrix is [[−2.800, −13.600], [−1.0370, −8.000]], T = −10.800 and D is again 8.296; (T/2)² is now bigger than D, there is no swing, and the two rates are −0.832 and −9.968 per second: both negative, so every error dies away.
+For example, 29.600 = v(1 + k_head) = 8.0 × 3.7, and 1.0370 = v k_off / L = 2.8 / 2.7. Here tr = −2.800 + 8.000 = 5.200 and det = 8.296. (tr/2)² = 6.760, det minus that is 1.536, and its square root is 1.239. So the error grows at 2.600 per second and swings with a period of 2π/1.239 = 5.07 s. With the right transform the matrix is [[−2.800, −13.600], [−1.0370, −8.000]], tr = −10.800 and det is again 8.296; (tr/2)² is now bigger than det, there is no swing, and the two rates are −0.832 and −9.968 per second: both negative, so every error dies away.
 
 The same two rules applied the way the simulator does, one 0.05 s step at a time, give 2.393 per second and 4.93 s. Fitting the swapped car's own steps from 0.40 s to 2.30 s gives 2.387 per second and 4.87 s, so the model is close.
 
@@ -336,6 +350,6 @@ The model holds until the wheels hit their limit of 0.05 rad per step, first at 
 
 2. The entries of R(a)R(b) are the rows of R(a) dotted with the columns of R(b). Top left: cos a cos b − sin a sin b = cos(a + b). Bottom left: sin a cos b + cos a sin b = sin(a + b). Top right: −cos a sin b − sin a cos b = −sin(a + b). Bottom right: −sin a sin b + cos a cos b = cos(a + b). So R(a)R(b) = R(a + b): two turns in a row are one turn by the sum. Over 40 random pairs of angles the computer agrees to within $4.4\times10^{-16}$.
 
-The heading arrow is the first column of R(θ), which is R(θ) times (1, 0). Into the ego frame it goes by R(θ)ᵀ, which is R(−θ) by Problem 1. So it comes out as R(−θ)R(θ) times (1, 0) = R(0) times (1, 0) = (1, 0). Every car points along its own x axis. At 40 poses `world_to_ego` puts the heading arrow within $1.4\times10^{-14}$ of (1, 0).
+The heading arrow is the first column of R(θ), which is R(θ) times (1, 0). Into the ego frame it goes by R(θ)ᵀ, which is R(−θ) by Problem 1. So it comes out as R(−θ)R(θ) times (1, 0) = R(0) times (1, 0) = (1, 0). Every car points along its own x axis. At 40 poses `world_to_ego` puts the point 1 m ahead of the car, $\mathbf{t} + \hat{h}$, within $1.4\times10^{-14}$ of (1, 0). Pass the point, not the arrow: `world_to_ego` subtracts $\mathbf{t}$ first.
 
 </details>

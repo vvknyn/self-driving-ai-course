@@ -1,6 +1,7 @@
 id: "1.1.2"
 title: The view from the driver's seat
-minutes: 90
+minutes: 210
+standard: 2
 box: "Frames and transforms: the world-to-ego transform the camera draws through"
 car_box: camera
 outcomes:
@@ -9,11 +10,11 @@ outcomes:
   - can: "Write the rotation matrix R(θ) and read its columns as the ego frame's axes in world coordinates"
     proof: "rotation_matrix in the lab, and the quiz question on the columns"
   - can: "Explain why the transpose undoes a rotation, and write world_to_ego as R(θ)ᵀ(p − t) and ego_to_world as R(θ)q + t"
-    proof: "Your world_to_ego passes check(\"1.1.2.a\") in the lab"
+    proof: "Your world_to_ego passes Exercise A in the lab"
   - can: "Move an (N, 2) or (K, 4, 2) array of points with one @, and spot the shape trap"
     proof: "The Every point at once section of the lab, and the quiz question on rows"
   - can: "Draw the car's camera pictures through your own transform"
-    proof: "Your car passes check(\"1.1.2.b\") on gentle with your world_to_ego in the camera"
+    proof: "Your car passes Exercise B on gentle with your world_to_ego in the camera"
   - can: "Choose test poses that catch a swapped or missing rotation, and explain why yaw 0 cannot"
     proof: "The break-it, fix-it section of the lab, and the quiz question on test yaws"
 prerequisites: ["1.1.1"]
@@ -26,7 +27,7 @@ go_deeper:
     note: "The columns of a matrix are where the two axis arrows land, and its worked \"Rotation\" example turns by 90° anticlockwise. That is this lesson's column reading of R(θ), animated."
   - title: "NumPy reference: numpy.matmul (the @ operator), section \"Notes\""
     url: "https://numpy.org/doc/stable/reference/generated/numpy.matmul.html"
-    note: "\"If either argument is N-D, N > 2, it is treated as a stack of matrices residing in the last two indexes\": why (146, 4, 2) @ (2, 2) works. The \"Raises\" entry is the shape trap's ValueError."
+    note: "\"If either argument is N-D, N > 2, it is treated as a stack of matrices residing in the last two indexes ...\": why (146, 4, 2) @ (2, 2) works. The \"Raises\" entry is the shape trap's ValueError."
 tutor_prompt: |
   You are a Socratic tutor for unit 1.1.2 "The view from the driver's seat" of a self-driving car course. I am a programmer with rusty maths. I have just learned to move points from the world frame into the car's own frame.
 

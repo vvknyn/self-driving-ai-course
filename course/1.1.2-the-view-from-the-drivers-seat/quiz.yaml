@@ -59,7 +59,7 @@
   choices:
   - its entries are all positive, so the transpose cancels them
   - transposing swaps east and north, which is the opposite turn
-  - its rows are the heading and left arrows, each 1 m long and a quarter turn apart, so $R(\theta)^{\mathsf T}R(\theta) = I$
+  - the rows of $R(\theta)^{\mathsf T}$ are the heading and left arrows, each 1 m long and a quarter turn apart, so $R(\theta)^{\mathsf T}R(\theta) = I$
   - 'it does not undo it exactly: the round trip leaves an error of about a metre'
   answer: 2
   explain: 'Row $i$ of $R^{\mathsf T}$ times column $j$ of $R$ is a dot product of two of the arrows: 1 for the same arrow, 0 for two a quarter turn apart. That is the identity, to within $2.2\times10^{-16}$ over 40 yaws. The round trip is exact to $1.4\times10^{-13}$ m, not a metre.'

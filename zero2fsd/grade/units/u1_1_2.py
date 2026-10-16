@@ -15,12 +15,42 @@ from .._report import Failure, call, exercise, fmt
 LESSON = ("1.1.2", "The view from the driver's seat")  # (unit id, title): grade/__init__ files it in LESSON_TITLES
 TOL, N_POSES, N_POINTS = 1e-9, 40, 25
 CAR_AT, AHEAD, LEFT = (10.0, 5.0), 4.0, 1.0  # the named-pose test: a point 4 m ahead and 1 m left must come out as (4, 1)
-NAMED_YAWS = {  # yaw -> what a pass at that yaw proves (and so what a failure there still leaves open)
-    "0": (0.0, "at yaw 0 the rotation is the identity, so this yaw cannot tell R from its transpose, or from no rotation"),
-    "pi/2": (math.pi / 2, "this yaw catches both R in place of its transpose and a missing rotation"),
-    "pi": (math.pi, "this yaw catches a missing rotation, but not R in place of its transpose"),
-    "-3pi/4": (-3 * math.pi / 4, "this yaw catches both R in place of its transpose and a missing rotation"),
+NAMED_YAWS = {  # yaw label -> (yaw, what a pass at that yaw proves)
+    "0": (0.0, "cannot tell R from its transpose, or from no rotation"),
+    "pi/2": (math.pi / 2, "tells R from its transpose, and from no rotation"),
+    "pi": (math.pi, "tells no rotation from the rest, but not R from its transpose"),
+    "-3pi/4": (-3 * math.pi / 4, "tells R from its transpose, and from no rotation"),
 }
+NAME_TOL = 1e-6  # how close `got` must be to a known wrong answer for the message to name that mistake
+GENERAL = ("a rotation mistake: check R(θ)ᵀ, θ in radians, and that you subtract t before rotating", "The rotation matrix")
+YAW_0 = ("yaw 0 has no rotation at all, so this is not a turn mistake: subtract the car's position first, then return (forward, left)",
+         "Two dot products make a frame change")
+
+
+def known_mistakes(pose, point):
+    """[(what the learner did, lecture section)] paired with the answer that mistake gives for `point` at `pose`."""
+    x, y, yaw = pose
+    t, p = np.array([x, y]), np.asarray(point, dtype=float)
+    rot = geom.rotation_matrix(yaw)
+    right = (p - t) @ rot
+    return [
+        ((p - t) @ rot.T, ("this is the swap: R(θ) where its transpose belongs", "Undo is the transpose")),
+        (p - t, ("this is no rotation: p − t is never turned into the car's axes", "Two dot products make a frame change")),
+        (p @ rot - t, ("this turns first and subtracts t afterwards: subtract the car's position first", "Undo is the transpose")),
+        ((p - t) @ geom.rotation_matrix(math.radians(yaw)), ("this reads the yaw as degrees: θ is in radians", "The rotation matrix")),
+        (p @ rot.T + t, ("this is ego_to_world, which goes the other way: world_to_ego is R(θ)ᵀ(p − t)", "Undo is the transpose")),
+        (right[::-1], ("forward and left are in the wrong order: return (forward, left)", "Two dot products make a frame change")),
+        (right * (1, -1), ("left has the wrong sign: the car's y axis points to its left", "Two dot products make a frame change")),
+    ]
+
+
+def name_the_mistake(pose, point, got, label):
+    """The headline for a wrong answer `got`: the mistake it matches, else yaw 0's text or the general rotation hint."""
+    for answer, (what, section) in known_mistakes(pose, point):
+        if got.shape == answer.shape and np.allclose(got, answer, atol=NAME_TOL):
+            return f'wrong at yaw {label}: {what}. See the section "{section}"'
+    what, section = YAW_0 if pose[2] == 0.0 else GENERAL
+    return f'wrong at yaw {label}: {what}. See the section "{section}"'
 
 
 def renderer_gap(fn) -> float:
@@ -42,18 +72,28 @@ def renderer_gap(fn) -> float:
 @exercise(
     "1.1.2.a",
     checked=(f"a point {AHEAD:g} m ahead and {LEFT:g} m left of a car at {CAR_AT} at yaws 0, π/2, π and −3π/4; the (K, 4, 2) shape; "
-             f"the round trip with ego_to_world; then {N_POSES} seeded poses against the renderer's own transform, to {TOL:g} m"),
+             f"the round trip with the provided ego_to_world; then {N_POSES} seeded poses against the renderer's own transform, to {TOL:g} m"),
     section="Every point at once",
 )
 def _world_to_ego(fn, show, on_step):
     car = np.array(CAR_AT)
-    for label, (yaw, meaning) in NAMED_YAWS.items():
+    for label, (yaw, _) in NAMED_YAWS.items():
         point = car + AHEAD * geom.heading_vector(yaw) + LEFT * np.array([-math.sin(yaw), math.cos(yaw)])
         given = f"pose {(*CAR_AT, round(yaw, 4))}, world point {fmt(point)} (yaw {label})"
         got = np.asarray(call(fn, (*CAR_AT, yaw), point.copy(), given=given), dtype=float)
         if got.shape != (2,) or not np.allclose(got, (AHEAD, LEFT), atol=TOL):
-            raise Failure(f"wrong at yaw {label} ({meaning})", given=given, expected=(AHEAD, LEFT), got=got)
-    rng, pose = np.random.default_rng(1103), (31.0, -12.0, 2.2)
+            raise Failure(name_the_mistake((*CAR_AT, yaw), point, got, label), given=given, expected=(AHEAD, LEFT), got=got)
+    pose = (31.0, -12.0, 2.2)
+    rows = np.array([[40.0, 3.0], [12.0, -20.0]])  # 2 points: the one shape where matrix @ rows runs without an error
+    given = f"pose {pose} and 2 points as rows {fmt(rows)}"
+    want = geom.world_to_ego(pose, rows)
+    got = np.asarray(call(fn, pose, rows.copy(), given=given), dtype=float)
+    if got.shape != want.shape or not np.allclose(got, want, atol=TOL):
+        matrix_first = geom.rotation_matrix(pose[2]).T @ (rows - np.array(pose[:2]))
+        what = ("this is matrix @ rows: with 2 points it runs and mixes the points' parts; points stored as rows go on the left, rows @ R"
+                if got.shape == want.shape and np.allclose(got, matrix_first, atol=NAME_TOL) else "wrong for 2 points stored as rows")
+        raise Failure(f'{what}. See the section "Every point at once"', given=given, expected=want, got=got)
+    rng = np.random.default_rng(1103)
     cloud = rng.uniform(-200, 200, (146, 4, 2))
     ego = np.asarray(call(fn, pose, cloud.copy(), given="146 quads of 4 corners at one pose"), dtype=float)
     if ego.shape != cloud.shape:
@@ -63,11 +103,18 @@ def _world_to_ego(fn, show, on_step):
     if back > TOL:
         raise Failure(f"going to the car's frame and back moves points by up to {back:.3g} m", expected=f"at most {TOL:g} m",
                       given=f"pose {pose} and a (146, 4, 2) array of points")
+    worst = check_against_renderer(fn)
+    proved = "; ".join(f"yaw {label} {proof}" for label, (_, proof) in NAMED_YAWS.items())
+    return f"all four yaws pass ({proved}), and so do the shape and the round trip; largest difference from the renderer's transform {worst:.2g} m over {N_POSES} poses"
+
+
+def check_against_renderer(fn) -> float:
+    """Fail unless `fn` matches the renderer's transform entry by entry; return the largest difference (m)."""
     worst = renderer_gap(fn)
     if worst > TOL:
         raise Failure(f"differs from the renderer's transform by up to {worst:.3g} m", expected=f"at most {TOL:g} m",
                       given=f"{N_POSES} seeded poses, yaws up to ±4π")
-    return f"all four yaws, the shape and the round trip pass; largest difference from the renderer's transform {worst:.2g} m over {N_POSES} poses"
+    return worst
 
 
 @exercise(
@@ -76,4 +123,9 @@ def _world_to_ego(fn, show, on_step):
     section="Swap your transform into the renderer",
 )
 def _renderer_gate(fn, show, on_step):
-    return gate(Car(), show, on_step, camera=Camera(world_to_ego=fn))
+    try:
+        check_against_renderer(fn)  # the entries first: a drive can pass on a transform that is slightly wrong
+        return gate(Car(), show, on_step, camera=Camera(world_to_ego=fn))
+    except Failure as failure:
+        failure.headline = f"{failure.headline}. Run Exercise A first: it names the mistake"
+        raise

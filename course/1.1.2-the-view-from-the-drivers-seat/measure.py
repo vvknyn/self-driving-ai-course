@@ -176,11 +176,12 @@ try:
     trap5 = "no error"
 except ValueError as exc:
     trap5 = f"ValueError: {exc}"
-pts2 = pts5[:2] - np.array(scene_pose[:2])
+s_scene = road.project(*scene_pose[:2])[0]
+pts2 = np.array([road.offset(s_scene + ahead, world.EGO_LANE_CENTER) for ahead in (10.0, 20.0)]) - np.array(scene_pose[:2])
 right2 = pts2 @ Rm
 wrong2 = Rm @ pts2
 say("M08.trap", f"R @ points for 5 points stored as rows: {trap5}")
-say("M08.trap2", f"2 points as rows (lane centre at road s 160 and 170): rows @ R -> [[{right2[0,0]:+.3f}, {right2[0,1]:+.3f}], [{right2[1,0]:+.3f}, {right2[1,1]:+.3f}]]; "
+say("M08.trap2", f"2 points as rows (the lane-centre points 10 and 20 m further along the lane): rows @ R -> [[{right2[0,0]:+.3f}, {right2[0,1]:+.3f}], [{right2[1,0]:+.3f}, {right2[1,1]:+.3f}]]; "
     f"R @ rows -> [[{wrong2[0,0]:+.3f}, {wrong2[0,1]:+.3f}], [{wrong2[1,0]:+.3f}, {wrong2[1,1]:+.3f}]] with no error")
 
 # ---- M09 40 seeded poses against the renderer's own to_vehicle (lab 1.1.2.a, tolerance 1e-9) ----
@@ -365,6 +366,22 @@ k17 = 380
 a17, b17 = cam0.render(road, state_at(ref, k17)), cam_l.render(road, state_at(ref, k17))
 say("M17", f"swap_same picture: step {k17}, t {ref.t[k17]:.2f} s, progress {ref.progress_m[k17]:.1f} m, yaw {ref.yaw[k17]:.4f} rad; "
     f"matrix-form picture differs from the provided one in {int((a17 != b17).any(axis=-1).sum())} of {a17.shape[0] * a17.shape[1]} pixels")
+
+# ---- M18 the lab's Problem 6 and 7: the two broken transforms at yaw pi/2, and which yaw lists catch them ----
+def fails_at(fn, yaws):
+    """Yaws (of the list) where fn puts the point 4 ahead and 1 left of a car at (10, 5) anywhere but (4, 1)."""
+    bad = []
+    for yaw in yaws:
+        pose = (10.0, 5.0, yaw)
+        q = fn(pose, np.array([10.0, 5.0]) + 4.0 * heading_vector(yaw) + 1.0 * np.array([-math.sin(yaw), math.cos(yaw)]))
+        if np.abs(q - [4.0, 1.0]).max() > 1e-6:
+            bad.append(yaw)
+    return bad
+
+
+for yaws_label, yaws in (("[0]", [0.0]), ("[pi/2]", [math.pi / 2]), ("[pi]", [math.pi]), ("[pi/2, pi]", [math.pi / 2, math.pi]), ("[2.5]", [2.5])):
+    say(f"M18.{yaws_label}", f"yaw list {yaws_label}: swap fails at {len(fails_at(r_not_transposed, yaws))}, no rotation fails at {len(fails_at(no_rotation, yaws))}, "
+        f"provided fails at {len(fails_at(world_to_ego, yaws))}, matrix form fails at {len(fails_at(matrix_form, yaws))} of {len(yaws)} yaws")
 
 if os.environ.get("MEASURED_JSON"):  # the values behind each line, for tools that check the lecture's numbers
     Path(os.environ["MEASURED_JSON"]).write_text(json.dumps(OUT, indent=1, default=float))

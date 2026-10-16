@@ -121,7 +121,7 @@ def lane_lines(road, s0, s1, pose=None, n=200):
 def draw_lines(ax, lines, ego=False, box=None):
     """Plot lane lines; in the ego frame forward is up the page and left is to the left (x = left, inverted axis).
     `box` = ((x0, x1), (y0, y1)) in plotted coordinates: points outside it are dropped, never cut off by an axis limit."""
-    for name, colour, style in (("yellow", YELLOW, "-"), ("white", WHITE, "-"), ("centre", GREY, "--")):
+    for name, colour, style in (("yellow", YELLOW, (0, (7, 3))), ("white", WHITE, "-"), ("centre", GREY, "--")):
         pts = lines[name]
         xs, ys = (pts[:, 1], pts[:, 0]) if ego else (pts[:, 0], pts[:, 1])
         if box:
@@ -147,20 +147,50 @@ def car_dot(ax, xy, markersize=10):
     ax.plot(*xy, marker="o", markersize=markersize, color=TEXT, zorder=4)
 
 
+HOLLOW = (0.0, 0.0, 0.0, 0.0)  # fully transparent: a marker drawn as an outline only
+ZOOM = "zoom-inset"  # the gid the data-inside-axes gate reads: an axes that shows only part of its data on purpose
+
+
+def zoom_inset(ax, rect, xlim, ylim, parent=None):
+    """A magnified window onto `xlim` x `ylim` of `ax`, drawn in `rect` (axes fractions) with its connectors; `parent` is the axes it zooms."""
+    inset = ax.inset_axes(rect, gid=ZOOM)
+    inset.set(xlim=xlim, ylim=ylim, xticks=[], yticks=[])
+    inset.set_aspect("equal", adjustable="box")
+    (parent or ax).indicate_inset_zoom(inset, edgecolor=GREY, linewidth=1.5)
+    return inset
+
+
+def bracket(ax, a, b, colour, off):
+    """A measuring bracket from a to b, set `off` data units to the right of the direction a -> b; returns its middle."""
+    a, b = np.asarray(a, dtype=float), np.asarray(b, dtype=float)
+    direction = (b - a) / np.linalg.norm(b - a)
+    side = off * np.array([direction[1], -direction[0]])
+    ax.plot(*zip(a, a + side, b + side, b), color=colour, lw=2)
+    return (a + b) / 2 + side
+
+
 # ---- 1. result_first ----
 def _result_first(d, path):
     fig, (top, bottom) = _fig(9.8, 2, [3.4, 4.6])
     x, y, th = d.pose
     box = ((138, 170), (8, 35))
-    draw_lines(top, lane_lines(d.gentle, 135, 190, n=600), box=box)
+    world_lines = lane_lines(d.gentle, 135, 190, n=600)
+    draw_lines(top, world_lines, box=box)
+    c = world_lines["centre"]
+    spot = c[int(np.argmin(np.abs(c[:, 0] - 163)))]
+    say(top, tuple(spot), "lane centre\n(not painted)", dx=24, dy=-44, ha="left", colour=GREY, badge=True, arrow=True)
     top.plot([x, x + 12], [y, y], color=GREY, ls=":", lw=2)
     arc(top, (x, y), 9.0, 0, th, THETA)
     say(top, (x + 9.0, y), f"θ = {th:.4f} rad", dx=4, dy=-18, ha="left", colour=THETA)
     car_dot(top, (x, y))
-    draw_frame(top, d.pose, EGO, "", length_m=7.0, fontsize=FS)
+    draw_frame(top, d.pose, EGO, "", length_m=5.0, fontsize=FS)
     top.set(xlim=box[0], ylim=box[1], xlabel="east (m)", ylabel="north (m)", title="world frame")
     top.set_aspect("equal", adjustable="box")
-    draw_lines(bottom, lane_lines(d.gentle, 140, 190, d.pose, n=500), ego=True, box=((14, -14), (-8, 34)))
+    ego_lines = lane_lines(d.gentle, 140, 190, d.pose, n=500)
+    draw_lines(bottom, ego_lines, ego=True, box=((14, -14), (-8, 34)))
+    c = ego_lines["centre"]
+    spot = c[int(np.argmin(np.abs(c[:, 0] - 25)))]
+    say(bottom, (spot[1], spot[0]), "lane centre\n(not painted)", dx=120, dy=0, ha="left", colour=GREY, badge=True, arrow=True)
     for ahead in (10, 20, 30):
         fl = world_to_ego(d.pose, d.centre(ahead))
         bottom.plot(fl[1], fl[0], "o", color=EGO, markersize=9, zorder=5)
@@ -180,7 +210,7 @@ def _unit(theta):
 
 
 def _two_dots(d, path):
-    xlim, ylim = (-4, 13.5), (-2.5, 10)
+    xlim, ylim = (-4, 13.5), (-2.5, 13.5)
     fig, ax = _fig(_panel(xlim, ylim) + 1.3)
     th = d.pose[2]
     h, n = _unit(th)
@@ -196,35 +226,59 @@ def _two_dots(d, path):
     for foot in (fwd * h, left * n):
         ax.plot(*zip(v, foot), color=EGO, ls="--", lw=1.8)
     arrow(ax, (0, 0), tuple(v), TEXT, lw=3.5)
-    say(ax, (10.3, 3.3), f"v =\n({num(v[0])}, {num(v[1])})")
-    say(ax, tuple(fwd / 2 * h), f"{num(fwd)} m along " + r"$\hat{h}$", dx=60, dy=-36, colour=EGO)
-    say(ax, (-1.2, 9.3), f"{num(left)} m along " + r"$\hat{n}$", ha="left", colour=EGO)
-    ax.annotate("", xy=tuple(left * n + (v - left * n) * 0.4), xytext=(3.8, 8.8), arrowprops={"arrowstyle": "-", "color": EGO, "lw": 1.5})
+    say(ax, tuple(v / 2), f"v =\n({num(v[0])}, {num(v[1])})", dx=-70, dy=130, arrow=True)
+    mid = bracket(ax, (0, 0), fwd * h, EGO, 1.3)
+    say(ax, tuple(mid), f"{num(fwd)} m along " + r"$\hat{h}$", dx=22 * math.sin(th), dy=-22 * math.cos(th), colour=EGO, rotation=math.degrees(th), rotation_mode="anchor")
     car_dot(ax, (0, 0))
     ax.set(xlim=xlim, ylim=ylim, xlabel="east (m), car at the origin", ylabel="north (m)")
     ax.set_aspect("equal", adjustable="box")
+    foot = fwd * h
+    centre, half = (v + foot) / 2, 0.7
+    inset = zoom_inset(ax, [0.58, 0.55, 0.40, 0.44], (centre[0] - half, centre[0] + half), (centre[1] - half, centre[1] + half))
+    inset.plot(*zip(foot - 1.2 * h, foot + 0.6 * h), color=EGO, lw=1.5, alpha=0.6)
+    inset.plot(*zip(v, foot), color=EGO, ls="--", lw=2)
+    arrow(inset, tuple(v - 0.5 * v / np.linalg.norm(v)), tuple(v), TEXT, lw=3.5)
+    inset.plot(*zip(foot - 0.12 * h, foot - 0.12 * h + 0.12 * n, foot + 0.12 * n), color=EGO, lw=1.5)
+    say(inset, tuple(v), f"{num(left)} m\nalong " + r"$\hat{n}$", dx=36, dy=-50, ha="center", colour=EGO)
     _save(fig, path)
 
 
 # ---- 3. stacked_dots ----
 def _stacked_dots(d, path):
-    fig, ax = _fig(4.0)
+    fig, ax = _fig(2.8)
     th = d.pose[2]
-    h, n = _unit(th)
     v = d.v10
-    for row, (hat, word, y) in enumerate(((h, "forward", 0.82), (n, "left", 0.34))):
-        say(ax, (0.03, y), f"({num(hat[0], 4)}, {num(hat[1], 4)})", ha="left", colour=EGO)
-        say(ax, (0.53, y), f"·  ({v[0]:.3f}, {v[1]:.3f})", ha="left")
-        say(ax, (0.03, y - 0.15), f"=  {hat @ v:.3f}:  {word}", ha="left", fontweight="bold")
-    ax.axhline(0.58, color=BORDER, lw=1.5)
-    ax.set(xlim=(0, 1), ylim=(0, 1))
+    matrix = rotation_matrix(th).T  # rows: the heading arrow, then the left arrow
+    out = matrix @ v
+    light = shades(EGO, 2)[1]
+    ys = (0.68, 0.30)
+    half = 0.17
+
+    def square_bracket(x_left, x_right):
+        for x, tip in ((x_left, 0.012), (x_right, -0.012)):
+            ax.plot([x + tip, x, x, x + tip], [ys[0] + half, ys[0] + half, ys[1] - half, ys[1] - half], color=TEXT, lw=2)
+
+    for y, colour, word, entries, result in zip(ys, (EGO, light), ("forward", "left"), matrix, out):
+        ax.axhspan(y - half, y + half, color=colour, alpha=0.18, lw=0)
+        for x, value in zip((0.13, 0.36), entries):
+            say(ax, (x, y), num(value, 4), colour=colour)
+        say(ax, (0.855, y + 0.05), f"{result:.3f}", colour=colour, fontweight="bold")
+        say(ax, (0.855, y - 0.07), word, colour=colour)
+    for x, value, y in zip((0.59, 0.59), v, ys):
+        say(ax, (x, y), f"{value:.3f}")
+    square_bracket(0.02, 0.47)
+    square_bracket(0.52, 0.66)
+    square_bracket(0.74, 0.97)
+    say(ax, (0.495, sum(ys) / 2), "·")
+    say(ax, (0.70, sum(ys) / 2), "=")
+    ax.set(xlim=(0, 1), ylim=(0.1, 0.88))
     bare(ax)
     _save(fig, path)
 
 
 # ---- 4. columns_axes ----
 def _columns_axes(d, path):
-    top_lim, top_y, bot_x, bot_y = (-3.0, 3.3), (-0.75, 1.9), (144, 164), (11.5, 24.5)
+    top_lim, top_y, bot_x, bot_y = (-3.0, 3.3), (-0.75, 1.9), (144, 168), (9.5, 24.5)
     top_h, bot_h = _panel(top_lim, top_y), _panel(bot_x, bot_y)
     fig, (top, bottom) = _fig(top_h + bot_h + 2.4, 2, [top_h + 0.5, bot_h + 1.0])
     th = d.pose[2]
@@ -235,8 +289,9 @@ def _columns_axes(d, path):
     say(top, (0, 1.3), "world y", dy=16, colour=GREY)
     arrow(top, (0, 0), tuple(h), EGO, lw=3.5)
     arrow(top, (0, 0), tuple(n), EGO, lw=3.5)
-    say(top, tuple(h), f"column 1\n({num(h[0], 4)}, {num(h[1], 4)})", dx=12, dy=14, ha="left", colour=EGO)
-    say(top, tuple(n), f"column 2\n({num(n[0], 4)}, {num(n[1], 4)})", dx=-10, dy=4, ha="right", colour=EGO)
+    say(top, tuple(h), f"x (col 1)\n({num(h[0], 4)}, {num(h[1], 4)})", dx=12, dy=14, ha="left", colour=EGO)
+    say(top, tuple(n), f"y (col 2)\n({num(n[0], 4)}, {num(n[1], 4)})", dx=-10, dy=4, ha="right", colour=EGO)
+    car_dot(top, (0, 0))
     arc(top, (0, 0), 0.4, 0, th, THETA)
     say(top, (0.4, 0), f"θ = {th:.4f} rad", dx=10, dy=-28, ha="left", colour=THETA)
     top.set(xlim=top_lim, ylim=top_y)
@@ -251,12 +306,18 @@ def _columns_axes(d, path):
     car_dot(bottom, (x, y))
     bottom.plot(*end, "o", color=TEXT, markersize=10, zorder=4)
     say(bottom, (x, y), f"({x:.3f}, {y:.3f})", dx=-4, dy=-24, ha="left")
-    say(bottom, tuple(end), f"({end[0]:.3f}, {end[1]:.3f})", dx=-8, dy=26, ha="right")
-    say(bottom, (157.2, 15.2), f"{fwd:.3f} m along\ncolumn 1", colour=EGO)
-    say(bottom, (157.0, 19.0), f"{left:.3f} m along\ncolumn 2", ha="left", colour=EGO)
-    bottom.annotate("", xy=tuple(corner), xytext=(157.0, 19.6), arrowprops={"arrowstyle": "-", "color": EGO, "lw": 1.5})
+    say(bottom, tuple(end), f"({end[0]:.3f}, {end[1]:.3f})", dx=22, dy=30, ha="right")
+    say(bottom, tuple((np.array([x, y]) + corner) / 2), f"{fwd:.3f} m\nalong\ncolumn 1", dx=-34, dy=30, ha="right", colour=EGO, arrow=True)
     bottom.set(xlim=bot_x, ylim=bot_y, xlabel="east (m)", ylabel="north (m)", title="world coordinates")
     bottom.set_aspect("equal", adjustable="box")
+    width = 0.30
+    inset = zoom_inset(bottom, [1 - width - 0.01, 0.02, width, width * (bot_x[1] - bot_x[0]) / (bot_y[1] - bot_y[0])],
+                       (corner[0] + (end[0] - corner[0]) / 2 - 1.4, corner[0] + (end[0] - corner[0]) / 2 + 1.4),
+                       (corner[1] + (end[1] - corner[1]) / 2 - 1.4, corner[1] + (end[1] - corner[1]) / 2 + 1.4))
+    inset.plot(*zip(corner - 2.0 * h, corner), color=EGO, lw=3.5)
+    arrow(inset, tuple(corner), tuple(end), EGO, lw=3.5)
+    inset.plot(*end, "o", color=TEXT, markersize=10, zorder=4)
+    say(inset, tuple((corner + end) / 2), f"{left:.3f} m\nalong\ncolumn 2", dy=66, colour=EGO, arrow=True)
     _save(fig, path)
 
 
@@ -318,20 +379,23 @@ def _round_trip(d, path):
     xlim, ylim = (cloud[:, 0].min() - 10, cloud[:, 0].max() + 10), (cloud[:, 1].min() - 10, cloud[:, 1].max() + 10)
     top_h = _panel(xlim, ylim)
     fig, (top, bottom) = _fig(top_h + 5.6, 2, [top_h + 0.8, 4.2])
-    top.scatter(cloud[:, 0], cloud[:, 1], s=14, color=GREY, zorder=1)
-    top.scatter(back[:, 0], back[:, 1], s=2.5, color=EGO, zorder=2)
+    shown = slice(None, None, 15)  # every fifteenth point, so the dots stay dots
+    top.scatter(cloud[shown, 0], cloud[shown, 1], s=30, color=GREY, zorder=1)
+    top.scatter(back[shown, 0], back[shown, 1], s=110, facecolors=HOLLOW, edgecolors=EGO, linewidths=1.5, zorder=2)
     top.set(xlim=xlim, ylim=ylim, xlabel="east (m)", ylabel="north (m)", title=f"{len(cloud)} road points")
     top.set_aspect("equal", adjustable="box")
-    say(top, (cloud[:, 0].mean(), cloud[:, 1].max() - 20), "grey: the points\npurple: after the round trip", colour=TEXT)
+    left_end, right_end = cloud[int(np.argmin(cloud[:, 0]))], cloud[int(np.argmax(cloud[:, 0]))]
+    say(top, tuple(left_end), "grey: the points", dx=40, dy=30, ha="left", colour=GREY, badge=True, arrow=True)
+    say(top, tuple(right_end), "purple rings:\nafter the round trip", dx=-40, dy=-40, ha="right", colour=EGO, badge=True, arrow=True)
     k = np.arange(1, len(poses) + 1)
-    bottom.semilogy(k, there, "o", color=RIGHT_RUN, markersize=8)
-    bottom.semilogy(k, return_, "s", color=SWAP_RUN, markersize=8)
-    bottom.axhline(1e-12, color=GREY, ls="--", lw=2)
+    bottom.semilogy(k, there, "o", color=GREY, markersize=5)
+    bottom.semilogy(k, return_, "s", mfc=HOLLOW, mec=EGO, mew=2, markersize=9)
+    bottom.axhline(1e-12, color=TEXT, ls="--", lw=2)
     low = 10.0 ** math.floor(math.log10(min(min(there), min(return_))))
     bottom.set(xlim=(0, len(poses) + 1), ylim=(low, 1e-11), xlabel="pose", ylabel="largest error (m)")
-    say(bottom, (len(poses) / 2, 1e-12), r"$10^{-12}$ m", dy=16, colour=GREY)
-    say(bottom, (len(poses) / 2, max(there)), "world → ego → world", dy=34, colour=RIGHT_RUN, badge=True)
-    say(bottom, (len(poses) / 2, min(return_)), "ego → world → ego", dy=-34, colour=SWAP_RUN, badge=True)
+    say(bottom, (len(poses) / 2, 1e-12), r"$10^{-12}$ m", dy=16, colour=TEXT)
+    say(bottom, (len(poses) / 2, max(there)), "world → ego → world", dy=34, colour=GREY, badge=True)
+    say(bottom, (len(poses) / 2, min(return_)), "ego → world → ego", dy=-34, colour=EGO, badge=True)
     _save(fig, path)
 
 
@@ -368,32 +432,38 @@ def _quads(d, path):
     ahead = np.array([q.mean(axis=0) @ heading_vector(d.parked.yaw) - (px, py) @ heading_vector(d.parked.yaw) for q in road])
     pick = road[int(np.argmin(np.abs(ahead - 8.0)))]
     ax.add_patch(Polygon(pick, closed=True, fc=EGO, ec=EGO, alpha=0.45))
-    ax.plot(pick[:, 0], pick[:, 1], "o", color=EGO, markersize=9, zorder=5)
-    say(ax, tuple(pick.mean(axis=0)), "4 corners", dx=-90, dy=36, colour=EGO, badge=True, arrow=True)
-    say(ax, (px - 8.5, py + 22.5), "each corner:\n(east, north)", ha="left", colour=EGO)
+    ax.plot(pick[:, 0], pick[:, 1], "o", color=EGO, markersize=6, zorder=5)
     car_dot(ax, (px, py))
+    say(ax, (px, py), "car", dx=-12, dy=-24, ha="right", badge=True)
     ax.set(xlim=xlim, ylim=ylim, xlabel="east (m)", ylabel="north (m)")
     ax.set_aspect("equal", adjustable="box")
+    centre = pick.mean(axis=0)
+    half = 0.75 * float(np.ptp(pick, axis=0).max())
+    inset = zoom_inset(ax, [0.02, 0.62, 0.42, 0.36], (centre[0] - half, centre[0] + half), (centre[1] - half, centre[1] + half))
+    inset.add_patch(Polygon(pick, closed=True, fc=EGO, ec=EGO, alpha=0.45))
+    inset.plot(pick[:, 0], pick[:, 1], "o", color=EGO, markersize=8)
+    corner = pick[int(np.argmin(pick[:, 1]))]
+    say(inset, tuple(corner), f"4 corners, each\n({corner[0]:.1f}, {corner[1]:.1f})", dx=118, dy=58, colour=EGO, badge=True, arrow=True)
     _save(fig, path)
 
 
 # ---- 9. shape_trap ----
 def _shape_trap(d, path):
-    pts = d.gentle.offset(np.array([160.0, 170.0]), EGO_LANE_CENTER) - np.array(d.pose[:2])
+    rows = np.stack([d.centre(10.0), d.centre(20.0)]) - np.array(d.pose[:2])
     rot = rotation_matrix(d.pose[2])
-    right, wrong = pts @ rot, rot @ pts
-    xlim, ylim = (24, -32), (-6, 28)
-    fig, ax = _fig(_panel(xlim, ylim) + 1.3)
+    right, wrong = rows @ rot, rot @ rows
+    xlim, ylim = (26, -20), (-7, 28)
+    fig, ax = _fig(_panel(xlim, ylim) + 2.2)
     draw_lines(ax, lane_lines(d.gentle, 140, 200, d.pose, n=500), ego=True, box=(xlim, ylim))
     car_dot(ax, (0, 0))
-    for (fwd, left), (wf, wl), dy in zip(right, wrong, (-44, 40)):
+    for (fwd, left), (wf, wl) in zip(right, wrong):
         ax.plot(left, fwd, "o", color=EGO, markersize=11, zorder=5)
         ax.plot(wl, wf, "x", color=GREY, markersize=14, markeredgewidth=3, zorder=5)
-    say(ax, (right[0, 1], right[0, 0]), f"rows @ rot:\n({num(right[0, 0])}, {num(right[0, 1])})", dx=-20, dy=-40, ha="right", colour=EGO, badge=True, arrow=True)
-    say(ax, (right[1, 1], right[1, 0]), f"({num(right[1, 0])}, {num(right[1, 1])})", dx=24, dy=0, ha="left", colour=EGO, badge=True)
-    say(ax, (wrong[0, 1], wrong[0, 0]), f"rot @ rows:\n({num(wrong[0, 0])}, {num(wrong[0, 1])})", dx=30, dy=38, ha="left", colour=GREY, badge=True, arrow=True)
-    say(ax, (wrong[1, 1], wrong[1, 0]), f"({num(wrong[1, 0])}, {num(wrong[1, 1])})", dy=40, colour=GREY, badge=True)
-    say(ax, (-20, 14), "no error message", colour=TEXT, badge=True)
+    say(ax, (right[0, 1], right[0, 0]), f"rows @ rot:\n({num(right[0, 0])}, {num(right[0, 1])})", dx=-30, dy=-40, ha="right", colour=EGO, badge=True, arrow=True)
+    say(ax, (right[1, 1], right[1, 0]), f"({num(right[1, 0])}, {num(right[1, 1])})", dx=26, dy=0, ha="left", colour=EGO, badge=True)
+    say(ax, (wrong[0, 1], wrong[0, 0]), f"rot @ rows:\n({num(wrong[0, 0])}, {num(wrong[0, 1])})", dx=-24, dy=-8, ha="right", colour=GREY, badge=True, arrow=True)
+    say(ax, (wrong[1, 1], wrong[1, 0]), f"({num(wrong[1, 0])}, {num(wrong[1, 1])})", dy=-36, colour=GREY, badge=True)
+    say(ax, (19.5, 25.5), "no error\nmessage", colour=TEXT, badge=True)
     ego_axes(ax, xlim, ylim)
     ax.set_title("the car's own frame")
     _save(fig, path)
@@ -418,20 +488,22 @@ def _renderer_steps(d, path):
     every = np.concatenate([road, white, dashes])
     world = every.reshape(-1, 2)
     xlim, ylim = (world[:, 0].min() - 2, world[:, 0].max() + 2), (world[:, 1].min() - 2, world[:, 1].max() + 2)
-    top_h = _panel(xlim, ylim)
-    fig, (top, mid, bottom) = _fig(top_h + 3.6 + 3.1 + 2.4, 3, [top_h + 0.5, 3.6, 3.1])
+    sliced = [(_slice_ego(quads, d.parked_pose, (-3.0, 40.0)), colour) for quads, colour in ((road, FAINT), (white, WHITE), (dashes, YELLOW))]
+    lateral = np.concatenate([q[..., 1].ravel() for q, _ in sliced])
+    mid_xlim, mid_ylim = (lateral.max() + 1, lateral.min() - 1), (-3, 40)
+    top_h, mid_h = _panel(xlim, ylim), _panel(mid_xlim, mid_ylim)
+    fig, (top, mid, bottom) = _fig(top_h + mid_h + 3.1 + 2.4, 3, [top_h + 0.5, mid_h + 0.5, 3.1])
     for quads, colour in ((road, FAINT), (white, WHITE), (dashes, YELLOW)):
         _outline(top, quads, colour, lw=0.8)
     car_dot(top, (d.parked.x, d.parked.y))
     top.set(xlim=xlim, ylim=ylim, xlabel="east (m)", ylabel="north (m)", title="world frame")
     top.set_aspect("equal", adjustable="box")
-    sliced = [(_slice_ego(quads, d.parked_pose, (-3.0, 70.0)), colour) for quads, colour in ((road, FAINT), (white, WHITE), (dashes, YELLOW))]
-    lateral = np.concatenate([q[..., 1].ravel() for q, _ in sliced])
     for quads, colour in sliced:
         for quad in quads:
             mid.add_patch(Polygon(quad[:, ::-1], closed=True, fill=False, edgecolor=colour, lw=0.8))
     mid.plot(0, 0, "o", color=TEXT, markersize=10)
-    mid.set(xlim=(lateral.max() + 1, lateral.min() - 1), ylim=(-3, 70), xlabel="left (m)", ylabel="forward (m)", title="ego frame")
+    mid.set(xlim=mid_xlim, ylim=mid_ylim, xlabel="left (m)", ylabel="forward (m)", title="ego frame")
+    mid.set_aspect("equal", adjustable="box")
     _picture(bottom, d.camera.render(d.gentle, d.parked), "camera picture, 320 × 180")
     _save(fig, path)
 
@@ -477,44 +549,54 @@ def _share_vs_s(d, path):
     fig, (top, bottom) = _fig(8.0, 2)
     top.plot(s, yaw, color=THETA, lw=2.5)
     top.plot(dots, dot_yaw, "o", color=THETA, markersize=9)
-    top.set(xlim=(-15, 415), ylim=(-0.3, 3.9), ylabel="yaw (rad)", title="the car's yaw")
+    top.set(xlim=(-15, 450), ylim=(-0.3, 3.9), ylabel="yaw (rad)", title="the car's yaw")
     say(top, (400, dot_yaw[-1]), f"π = {math.pi:.4f}", dx=-14, dy=24, ha="right", colour=THETA)
     bottom.plot(dots, shares["the swap"], "o-", color=TEXT, lw=2.5, markersize=9)
     bottom.plot(dots, shares["no rotation"], "o--", color=TEXT, lw=2.5, markersize=9)
-    bottom.set(xlim=(-15, 415), ylim=(-9, 48), xlabel="distance along gentle (m)", ylabel="pixels changed (%)")
-    say(bottom, (150, shares["the swap"][3]), "the swap", dx=-16, dy=0, ha="right", badge=True)
-    say(bottom, (260, shares["no rotation"][4]), "no rotation", dy=30, badge=True)
-    for x, y, text, dy in ((0, shares["the swap"][0], "0.0%", 22), (50, shares["the swap"][1], "0.0%", -24),
-                           (400, shares["no rotation"][-1], f"{shares['no rotation'][-1]:.1f}%", 22), (400, shares["the swap"][-1], f"{shares['the swap'][-1]:.1f}%", -24)):
-        say(bottom, (x, y), text, dy=dy, ha={0: "left", 50: "center"}.get(x, "right"), dx=0 if x < 300 else -12)
+    bottom.set(xlim=(-15, 450), ylim=(-9, 48), xlabel="distance along gentle (m)", ylabel="pixels changed (%)")
+    peak = int(np.argmax(shares["the swap"]))
+    say(bottom, (dots[peak], shares["the swap"][peak]), "the swap", dx=-12, dy=16, ha="right")
+    say(bottom, (260, shares["no rotation"][4]), "no rotation", dy=24)
+    for x, y, text, dy, ha in ((0, shares["the swap"][0], "0.0%", 22, "left"), (50, shares["the swap"][1], "0.0%", -24, "center"),
+                               (400, shares["no rotation"][-1], f"{shares['no rotation'][-1]:.1f}%", 0, "left"), (400, shares["the swap"][-1], f"{shares['the swap'][-1]:.1f}%", 0, "left")):
+        say(bottom, (x, y), text, dx=12 if ha == "left" and x else 0, dy=dy, ha=ha)
     _save(fig, path)
 
 
 # ---- 14. e_vs_s ----
 def _e_vs_s(d, path):
     fig, (top, bottom) = _fig(8.2, 2)
-    runs = (("right", RIGHT_RUN, "-"), ("swap", SWAP_RUN, "-"), ("no rotation", NO_ROT_RUN, "--"))
-    for ax, scen, title, upto in ((top, "straight", "straight", 160), (bottom, "gentle", "gentle", 160)):
+    runs = (("right", RIGHT_RUN, "-"), ("swap", SWAP_RUN, "-."), ("no rotation", NO_ROT_RUN, "--"))
+    half = abs(WHITE_LINE_LATERAL) / 2
+    for ax, scen, upto in ((top, "straight", 160), (bottom, "gentle", 160)):
         for name, colour, style in runs:
             tel = d.tels[(name, scen)]
             keep = tel.progress_m <= upto
             ax.plot(tel.progress_m[keep], tel.lat[keep], style, color=colour, lw=2.5)
-        ax.axhline(abs(WHITE_LINE_LATERAL) / 2, color=YELLOW, lw=2)
-        say(ax, (upto if scen == "straight" else 40, abs(WHITE_LINE_LATERAL) / 2), "yellow line", dy=16, ha="right" if scen == "straight" else "center", colour=YELLOW)
-        ax.set(xlim=(-5, upto + 5), title=title, ylabel="e (m)")
-    top.set_ylim(-0.8, 2.5)
+        ax.axhline(half, color=YELLOW, lw=2)
+        ax.axhline(-half, color=WHITE, lw=2)
+        ax.set(xlim=(-5, upto + 45), title=scen, ylabel="e (m)")
+    say(top, (100, half), "yellow line", dy=14, ha="left", colour=YELLOW)
+    say(top, (100, -half), "white line", dy=-14, ha="left", colour=WHITE)
+    top.set_ylim(-2.4, 2.6)
     bottom.set_ylim(-2.4, 2.3)
     bottom.set_xlabel("distance along the road (m)")
     bottom.axvspan(100, 165, color=FAINT, alpha=0.35, lw=0)
-    say(bottom, (135, -0.9), "first bend", colour=TEXT)
+    say(bottom, (132, -0.9), "first bend", colour=TEXT)
+    for ax, scen in ((top, "straight"), (bottom, "gentle")):
+        tel = d.tels[("right", scen)]
+        k = int(np.argmin(np.abs(tel.progress_m - 160)))
+        say(ax, (tel.progress_m[k], tel.lat[k]), "right\ntransform", dx=8, dy=-26, ha="left", colour=RIGHT_RUN)
     swap_s = d.tels[("swap", "straight")]
     top.plot(swap_s.progress_m[-1], swap_s.lat[-1], "x", color=SWAP_RUN, markersize=14, markeredgewidth=3)
-    say(top, (swap_s.progress_m[-1], swap_s.lat[-1]), f"leaves at {swap_s.progress_m[-1]:.1f} m", dx=24, dy=-50, ha="left", colour=SWAP_RUN, badge=True, arrow=True)
-    top.annotate("right transform\nno rotation", (150, 0.0), xytext=(0, 26), textcoords="offset points", ha="right", color=RIGHT_RUN)
+    say(top, (swap_s.progress_m[-1], swap_s.lat[-1]), f"swap leaves\nat {swap_s.progress_m[-1]:.1f} m", dx=16, dy=-40, ha="left", colour=SWAP_RUN, arrow=True)
+    nr = d.tels[("no rotation", "straight")]
+    k = int(np.argmin(np.abs(nr.progress_m - 160)))
+    say(top, (nr.progress_m[k], nr.lat[k]), "no\nrotation", dx=8, dy=44, ha="left", colour=NO_ROT_RUN)
     for name, colour, dy in (("swap", SWAP_RUN, 38), ("no rotation", NO_ROT_RUN, 36)):
         tel = d.tels[(name, "gentle")]
         bottom.plot(tel.progress_m[-1], tel.lat[-1], "x", color=colour, markersize=14, markeredgewidth=3)
-        say(bottom, (tel.progress_m[-1], tel.lat[-1]), f"{"the swap" if name == "swap" else name}: {tel.progress_m[-1]:.1f} m", dx=16, dy=28 if name == "swap" else -dy, ha="left" if name == "swap" else "center", colour=colour, badge=True, arrow=True)
+        say(bottom, (tel.progress_m[-1], tel.lat[-1]), f"{'the swap' if name == 'swap' else name}\nleaves at {tel.progress_m[-1]:.1f} m", dx=16, dy=28 if name == 'swap' else -dy, ha="left", colour=colour, arrow=True)
     _save(fig, path)
 
 
@@ -536,23 +618,30 @@ def _heading_flip(d, path):
     ax.plot([-span, span], [span, -span], "--", color=GREY, lw=1.5)
     ax.plot(psi[valid], right_h[valid], "o", color=GREY, markersize=7)
     ax.plot(psi, swapped, "o", color=BOX, markersize=7)
-    ax.set(xlim=(-span, span), ylim=(-span, span), xlabel="true heading error ψ (rad)", ylabel="box heading (rad)")
+    ax.set(xlim=(-span, span), ylim=(-span, span), xlabel="true heading ψ (rad)", ylabel="box heading (rad)")
     ax.set_aspect("equal", adjustable="box")
     say(ax, (span * 0.62, span * 0.62), "box = ψ", dx=-8, dy=18, ha="right", colour=GREY)
     say(ax, (-span * 0.62, span * 0.62), "box = −ψ", dx=8, dy=18, ha="left", colour=GREY)
     say(ax, (0, -span * 0.74), f"through the swap:\nmedian ratio {num(np.median(swapped / psi), sign=True)}", colour=BOX, badge=True)
-    say(ax, (-span * 0.55, 0), f"right transform:\n{num(np.nanmedian(right_h / psi), sign=True)}", colour=GREY, badge=True)
+    say(ax, (span * 0.66, 0), f"right transform:\n{num(np.nanmedian(right_h / psi), sign=True)}", colour=GREY, badge=True)
     _save(fig, path)
 
 
 # ---- 16. park_box ----
 def _park_box(d, path):
-    state = BicycleState(*d.straight.ego_pose(50.0, 0.3, -0.05), 8.0, 0.0)
+    pose = d.straight.ego_pose(50.0, 0.3, -0.05)
+    state = BicycleState(*pose, 8.0, 0.0)
+    road_yaw = d.straight.ego_pose(50.0)[2]
+    far = np.array(pose[:2]) + 2000.0 * heading_vector(road_yaw)  # a point far down the road: its pixel is the road's vanishing point
     fig, axes = _fig(7.6, 2)
-    for ax, camera, name in ((axes[0], d.camera, "right transform"), (axes[1], Camera(world_to_ego=swap), "the swap")):
+    for ax, camera, fn, name in ((axes[0], d.camera, world_to_ego, "right transform"), (axes[1], Camera(world_to_ego=swap), swap, "the swap")):
         image = camera.render(d.straight, state)
         box = estimate_lane(Observation(image, 8.0, 0.0))
         _picture(ax, image, f"{name}\nbox: {num(box.offset_m, 4)} m, {num(box.heading_rad, 4, True)} rad")
+        ax.axvline(d.camera.cx, color=TEXT, lw=1.5)
+        u, v = d.camera.ground_to_pixel(*fn(pose, far[None, :])[0])
+        ax.plot(u, v, "o", mfc=PANEL, mec=TEXT, markersize=9, mew=2)
+        say(ax, (u, v), "road's vanishing point", dx=14, dy=-26, ha="left", badge=True, arrow=True)
     _save(fig, path)
 
 
@@ -561,11 +650,12 @@ def _next_lesson(d, path):
     s = np.linspace(0, 170, 400)
     pts = {name: d.gentle.offset(s, lateral) for name, lateral in (("yellow", 0.0), ("white", WHITE_LINE_LATERAL))}
     xlim, ylim = (-10, 165), (-12, 52)
-    fig, ax = _fig(_panel(xlim, ylim) + 1.3)
+    zoom_h = 3.4
+    fig, (ax, near) = _fig(_panel(xlim, ylim) + zoom_h + 1.9, 2, [_panel(xlim, ylim) + 0.6, zoom_h])
     for name, colour in (("yellow", YELLOW), ("white", WHITE)):
-        ax.plot(pts[name][:, 0], pts[name][:, 1], color=colour, lw=2)
+        ax.plot(pts[name][:, 0], pts[name][:, 1], color=colour, ls=(0, (7, 3)) if name == "yellow" else "-", lw=2)
     x, y, _ = d.pose
-    car_dot(ax, (x, y), markersize=11)
+    car_dot(ax, (x, y), markersize=6)
     path_s = np.linspace(0, d.s_car, 300)
     along = d.gentle.offset(path_s, 7.0)
     ax.plot(along[:, 0], along[:, 1], color=EGO, lw=2.5)
@@ -579,6 +669,22 @@ def _next_lesson(d, path):
     say(ax, tuple(centre), "?", dx=34, dy=-34, colour=EGO, badge=True, arrow=True)
     ax.set(xlim=xlim, ylim=ylim, xlabel="east (m)", ylabel="north (m)")
     ax.set_aspect("equal", adjustable="box")
+    near.set_gid(ZOOM)
+    half = 3.0
+    near_x, near_y = (x - half, x + half), (y - half, y + half)
+    s_near = np.linspace(d.s_car - 8, d.s_car + 8, 100)
+    for name, colour, style in (("yellow", YELLOW, (0, (7, 3))), ("white", WHITE, "-")):
+        line = d.gentle.offset(s_near, 0.0 if name == "yellow" else WHITE_LINE_LATERAL)
+        near.plot(line[:, 0], line[:, 1], color=colour, ls=style, lw=2.5)
+    mid_line = d.gentle.offset(s_near, EGO_LANE_CENTER)
+    near.plot(mid_line[:, 0], mid_line[:, 1], color=GREY, ls="--", lw=2)
+    car_dot(near, (x, y))
+    near.plot(*centre, "o", mfc=PANEL, color=EGO, markersize=10, markeredgewidth=2.5)
+    gap = bracket(near, (x, y), tuple(centre), EGO, 0.25)
+    say(near, tuple(gap), "?", dx=18, dy=-10, colour=EGO, badge=True)
+    near.set(xlim=near_x, ylim=near_y, xticks=[], yticks=[], xlabel=f"the car and the lane centre, {2 * half:g} m across")
+    near.set_aspect("equal", adjustable="box")
+    ax.indicate_inset_zoom(near, edgecolor=GREY, linewidth=1.5)
     _save(fig, path)
 
 
@@ -633,7 +739,8 @@ def _challenge_growth(d, path):
     ax.plot(sw.t[first:last + 1], pred[:, 0], "--", color=TEXT, lw=2)
     ax.plot(right.t[right.t <= 2.5], right.lat[right.t <= 2.5], color=GREY, lw=2.5)
     ax.set(xlim=(-0.05, 2.55), ylim=(-0.41, 0.17), xlabel="time (s)", ylabel="e (m)")
-    say(ax, (0.5, -0.33), f"model from\n{sw.t[first]:.2f} s", colour=TEXT)
+    say(ax, (sw.t[last], pred[-1, 0]), f"model from\n{sw.t[first]:.2f} s", dx=-150, dy=-12, ha="right", colour=TEXT, arrow=True)
+    say(ax, (sw.t[keep][-1], sw.lat[keep][-1]), "the swap", dx=-24, dy=-60, ha="right", colour=E_OFF)
     say(ax, (1.25, 0.12), f"right transform:\nwithin {math.ceil(1000 * np.abs(right.lat).max()) / 1000:.3f} m", colour=GREY)
     for tt, dx, dy, ha in ((1.0, 0, 78, "center"), (1.5, -6, -50, "right"), (2.0, 40, -62, "right")):
         k = int(np.argmin(np.abs(sw.t - tt)))
