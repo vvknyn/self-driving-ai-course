@@ -88,7 +88,7 @@ def inverse_for_3x3_only(T):
 def test_an_invert_pose_written_for_3x3_only_fails_on_the_4x4_pair_and_says_so():
     """The lab promises invert_pose works at any size and the next lesson uses it on 4x4 poses."""
     details = failing_details("1.1.4.a", lambda a, b: inverse_for_3x3_only(a) @ b)
-    assert "4x4" in details and "works only for 3x3" in details
+    assert "Every 3x3 pair passed and this 4x4 one did not" in details and "at any size" in details
     assert check("1.1.4.a", lambda a, b: geom.invert_pose(a) @ b, show=False).passed
 
 
