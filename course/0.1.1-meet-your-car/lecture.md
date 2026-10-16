@@ -298,4 +298,4 @@ Vectorised code is shorter, it reads like the maths, and it runs much faster, be
 
 Next question: twenty times a second, the camera hands the perception box a picture. What is a picture to a computer, and how could you find a yellow line in one? That is the next lesson, *Images are arrays*.
 
-![The camera's picture of the gentle loop, with a small patch of the yellow line magnified until its pixels show as squares. Each square carries three numbers, its amounts of red, green and blue. To the computer, the picture is nothing but numbers like these.](figures/next_lesson.png)
+![The camera's picture of the gentle loop, with a small patch of the yellow line magnified until its pixels show as squares. Three squares are labelled with their three numbers, their amounts of red, green and blue. To the computer, the picture is nothing but numbers like these.](figures/next_lesson.png)

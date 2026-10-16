@@ -6,7 +6,7 @@
   back: 'The law steers against the error. Flipping the heading sign makes positive feedback: on `gentle` the car leaves the road after 21.1 m, 2.70 s. Flipping the whole law leaves after 8.2 m, 1.10 s.'
 - id: c3
   front: Write the car's P steering law, with its guards.
-  back: $\delta = -(k_{\text{off}}\, e_{\text{off}} + k_{\text{head}}\, \psi)$, left positive, clipped to $\pm 0.5$ rad; 0.0 when the estimate is not valid. The provided gains are 0.35 and 2.7.
+  back: $\delta = -(k_{\text{off}}\, e + k_{\text{head}}\, \psi)$, left positive, clipped to $\pm 0.5$ rad; 0.0 when the estimate is not valid. The provided gains are 0.35 and 2.7.
 - id: c4
   front: What does a heading gain of 1 do?
   back: The wheels point $-k_{\text{off}}$ times the offset away from the lane's direction ($\psi + \delta = -k_{\text{off}}\, e$), so the car returns with no swing.

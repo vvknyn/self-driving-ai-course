@@ -6,7 +6,7 @@ By the end of this lesson you will write `estimate_lane`, the second half of the
 
 Here is the finished box at work on that picture:
 
-![Top: the camera frame with the car 0.4 m left of the lane centre and turned 0.05 radians to the left (radians are a unit for angles, explained in the next section). Two strips of rows are shaded, one just ahead of the car and one further up, and a cross marks the middle of the yellow paint and of the white paint inside each strip. Bottom: the same moment seen from above. The four crosses have become four points on the road, a dot halfway between each pair marks the lane centre, and a straight line runs through those two dots back to the car. Where that line passes the car, and how it is tilted, give the box's answer: 0.39 m left of centre, turned 0.051 radians left. The truth is 0.40 m and 0.050 radians.](figures/box_result.png)
+![Top: the camera frame with the car 0.4 m left of the lane centre and turned 0.05 radians to the left (radians are a unit for angles, explained in the next section). Two strips of rows are marked by dashed lines, one just ahead of the car and one further up, and a cross marks the middle of the yellow paint and of the white paint inside each strip. Bottom: the same moment seen from above. The four crosses have become four points on the road, a dot halfway between each pair marks the lane centre, and a straight line runs through those two dots back to the car. Where that line passes the car, and how it is tilted, give the box's answer: 0.39 m left of centre, turned 0.051 radians left. The truth is 0.40 m and 0.050 radians.](figures/box_result.png)
 
 The rest of this lesson rebuilds that picture one step at a time.
 
@@ -28,7 +28,7 @@ Why radians? Because of the lower circle above: multiply a small angle in radian
 
 Now the symbol. The angle between the lane's direction and the car's direction is the **heading**, written $\color{#D147BD}{\psi}$, the Greek letter psi, read "sigh". It is positive when the car points to the left of the lane, because, as *Meet your car* said, left is positive everywhere in this course. The simulator knows the **true heading**; the box's estimate of it is **the box's heading**.
 
-![The car of the opening picture, seen from above, drawn as an arrow at its front axle. A blue brace from the lane centre to the axle is labelled e = +0.40 m. A pink angle between the lane's direction and the car's is labelled ψ = +0.050 rad. A dashed line runs straight on from the car's nose and, 10 m further along the lane, ends 0.50 m further left, at 0.90 m: where the car would be if it rolled on without steering. Sideways distances are stretched on the page so the labels fit.](figures/offset_heading.png)
+![The car of the opening picture, seen from above, drawn as an arrow at its front axle. A blue bar from the lane centre to the axle is labelled e = +0.40 m. A pink arc between the lane's direction and the car's is labelled ψ = +0.050 rad. A dashed line runs straight on from the car's nose and, 10 m further along the lane, ends 0.50 m further left, at 0.90 m: where the car would be if it rolled on without steering. Sideways distances are stretched on the page so the labels fit.](figures/offset_heading.png)
 
 Your `estimate_lane` hands both numbers to the controller in a `LaneEstimate`: `offset_m` in metres and `heading_rad` in radians, both left positive. A `LaneEstimate` has a third field, `valid`, which gets its own section below. The provided controller box steers by the two numbers; you open it in *Closing the loop*. For now, all that matters is that it believes whatever the box tells it.
 
@@ -131,7 +131,7 @@ The rays of one row all lie in one flat sheet that fans out sideways from the pi
 
 </details>
 
-**Guess first:** the 30 rows from row 179 up to row 150 cover 0.85 m of road, from 2.06 m to 2.91 m ahead. How much road do the 70 rows from row 150 up to row 80 cover?
+**Guess first:** rows 179 to 150 cover 0.85 m of road, from 2.06 m to 2.91 m ahead. How much road do rows 150 to 80 cover?
 
 ![The distance ahead that each row sees, for rows 80 to 179. Near the bottom of the picture the curve is almost flat: row 179 sees 2.06 m ahead, row 150 sees 2.91 m and row 125 sees 4.44 m. Toward the horizon it shoots up: row 100 sees 9.09 m, row 95 sees 11.45 m and row 80 sees 50.06 m.](figures/rows_to_distance.png)
 
@@ -151,7 +151,8 @@ Use the screen picture again, seen from above this time. A road point $x$ metres
 $Z$ is how far the road point lies in front of the camera, measured along the camera's axis. The axis tips down by $p$, so for a point $d$ ahead on the road and $h$ below the camera, $Z = d\cos p + h\sin p$. Here cos and sin, read "cosine" and "sine", are tan's two partners from school trigonometry; for $p = 5^\circ$, $\cos p = 0.9962$ and $\sin p = 0.0872$.
 
 $$\begin{aligned}
-Z &= 2.907 \times 0.9962\\
+d &= 2.9073\\
+Z &= 2.9073 \times 0.9962\\
 &\quad + 1.4 \times 0.0872\\
 &= 2.8963 + 0.1220\\
 &= 3.0183 \text{ m}\\
@@ -162,11 +163,7 @@ Z / f &= 0.01886 \text{ m}
 
 ![How much road one column covers, row by row, using the exact widths. Top: one column covers 1.4 cm of road in row 179, 1.9 cm in row 150, 2.8 cm in row 125, 5.7 cm in row 100, 7.2 cm in row 95 and 31.2 cm in row 80, 23 times as much as in row 179. Bottom: how many columns the 3.6 m lane spans in the same rows: 265, 191, 127, 63, 50 and 11.5.](figures/column_width.png)
 
-With the exact widths, the slide predicts $0.5 / 0.01886 = 26.5$ columns in row 150 and $0.5 / 0.05737 = 8.7$ in row 100. The measured shifts were 26.5 and 9.0; in row 100 the white line is only 5 pixels wide and is drawn in whole pixels, so its middle can only land near the prediction.
-
-
-
-(In row 150 the painted lines were 190 columns apart, where the figure says 191: the renderer draws in whole pixels.)
+With the exact widths, the slide predicts $0.5 / 0.01886 = 26.5$ columns in row 150 and $0.5 / 0.05737 = 8.7$ in row 100. The measured shifts were 26.5 and 9.0; in row 100 the white line is only 5 pixels wide and is drawn in whole pixels, so its middle can only land near the prediction. (In row 150 the painted lines were 190 columns apart, where the figure says 191: the renderer draws in whole pixels.)
 
 You never do this sum by hand in code. `camera.pixel_to_ground(u, v)` does both steps exactly, row to distance and column to sideways metres, and returns `(forward, left)`: metres ahead of the front axle, and metres to the left, with right negative. Column 0 of row 150, the picture's left edge, gives left +3.009 m, and column 319 gives −3.009 m.
 
@@ -191,7 +188,7 @@ Why a band and not a single row? The yellow line is dashed: 3.5 m of paint, then
 
 **Guess first:** could a gap in the yellow line ever swallow a whole band, so that the band holds no yellow paint at all?
 
-![The camera frame with the car on the lane centre of the straight road. The near band, rows 125 to 179, and the far band, rows 95 to 115, are shaded, each marked with the distances its top and bottom rows see: 4.44 and 2.06 m, 11.45 and 5.59 m. The gaps in the dashed yellow line show as breaks in the yellow paint.](figures/bands.png)
+![The camera frame with the car on the lane centre of the straight road. The near band, rows 125 to 179, and the far band, rows 95 to 115, are marked by dashed lines, each labelled with the distances its top and bottom rows see: 4.44 and 2.06 m, 11.45 and 5.59 m. The gaps in the dashed yellow line show as breaks in the yellow paint.](figures/bands.png)
 
 **Answer:** no. Each band covers more road than a gap does: the near band 2.38 m and the far band 5.86 m, against a 1.5 m gap. However the dashes fall, some paint is always inside each band. Rendering a frame with the car centred every half metre around `gentle` and along `curvy`, and every 10 cm along 10 m of `straight`, the fewest yellow pixels the near band ever held was 113 and the far band 46. A single row, by contrast, can fall into a gap: in the opening picture, rows 125 to 136 hold no yellow paint at all.
 
@@ -216,7 +213,7 @@ Third, put the centroid on the road: `camera.pixel_to_ground(83.02, 159.85)` giv
 
 Why the centroid? The paint is a thin stripe, and the middle of a thin straight stripe lies on the stripe's centre line. The simulator knows where the true yellow line is: 2.553 m ahead of the car it is at left +1.2740 m. The centroid's point is at +1.2742 m, 0.2 mm away. The near white paint, 543 pixels, gives the point forward 2.866 m, left −2.334 m, which is 1.2 cm from the true white line. That one is a little worse because near the bottom of the picture the white line runs off its right edge: rows 178 and 179 hold no white at all, so the stripe is cut off at a slant.
 
-The lane centre is halfway between the two lines, so the box takes the point halfway between the yellow point and the white point. This is the **lane-centre point**. Call its distance ahead $d_1$ and its distance to the left $c_1$, with the 1 for the near band:
+The lane centre is halfway between the two lines, so the box takes the point halfway between the yellow point and the white point. This is the **lane-centre point**. Call its distance ahead $d_1$ (read "d-one") and its distance to the left $c_1$ ("c-one"), with the 1 for the near band:
 
 $$\begin{aligned}
 d_1 &= \tfrac{2.553 + 2.866}{2}\\
@@ -230,7 +227,7 @@ The near lane-centre point is 2.710 m ahead and 0.530 m to the right of the car.
 <details>
 <summary>How we know the halfway point lies on the lane centre</summary>
 
-Describe each line near the car by where it is sideways at each distance ahead $d$. Two parallel lines have the same slope $b$ and different starting points: the yellow line is at $a_Y + b\,d$ and the white line at $a_W + b\,d$. The lane centre, halfway between them, is at $\tfrac{a_Y + a_W}{2} + b\,d$.
+Describe each line near the car by where it is sideways at each distance ahead $d$. Two parallel lines have the same slope $b$ and different starting points, $a_Y$ and $a_W$ (read "a-Y" and "a-W"): the yellow line is at $a_Y + b\,d$ and the white line at $a_W + b\,d$. The lane centre, halfway between them, is at $\tfrac{a_Y + a_W}{2} + b\,d$.
 
 Take a yellow point at distance $d_Y$ and a white point at $d_W$. The point halfway between them is $\tfrac{d_Y + d_W}{2}$ ahead, and sideways it is at
 
@@ -253,18 +250,18 @@ The far band does the same with fewer pixels, because the paint looks thinner fu
 
 ## From masks to a lane estimate
 
-Two points make a line. The box assumes the lane centre near the car is straight, and draws a line through the two lane-centre points. Its slope is rise over run, here the change sideways over the change forward:
+Two points make a line. The box assumes the lane centre near the car is straight, and draws a line through the two lane-centre points. Its slope is rise over run, here the change sideways over the change forward ($c_2 - c_1$ reads "c-two minus c-one"):
 
 $$\begin{aligned}
 \text{slope} &= \frac{c_2 - c_1}{d_2 - d_1}\\
 &= \frac{-0.759 + 0.530}{7.189 - 2.710}\\
-&= -0.229 / 4.479\\
-&= -0.0511
+&= -0.2295 / 4.479\\
+&= -0.0512
 \end{aligned}$$
 
-The slope is negative: for each metre ahead, the lane centre moves 0.0511 m further to the right.
+The numerator is −0.2295 before the two points are rounded to −0.759 and −0.530, which is why the line shows −0.229. The slope is negative: for each metre ahead, the lane centre moves 0.0512 m further to the right.
 
-**Carry the line back to the car.** The near point is 2.710 m ahead, and the car's front axle is at 0 m ahead. Walking back along the line those 2.710 m moves it $2.710 \times 0.0511 = 0.139$ m to the left, since a line that falls to the right going forward rises going back. Call the line's sideways position at the car $c_0$:
+**Carry the line back to the car.** The near point is 2.710 m ahead, and the car's front axle is at 0 m ahead. Walking back along the line those 2.710 m moves it $2.710 \times 0.0512 = 0.139$ m to the left, since a line that falls to the right going forward rises going back. Call the line's sideways position at the car $c_0$:
 
 $$\begin{aligned}
 c_0 &= c_1 - \text{slope} \times d_1\\
@@ -274,7 +271,7 @@ c_0 &= c_1 - \text{slope} \times d_1\\
 
 **First sign flip.** $c_0$ says where the lane centre is, seen from the car: 0.391 m to the right. The offset says where the car is, seen from the lane centre: 0.391 m to the left. It is the same distance in the opposite direction, so the offset is $-c_0 = +0.391$ m.
 
-**Second sign flip.** The slope says which way the lane runs, seen from the car: tilted $\arctan(-0.0511) = -0.0511$ rad, to the right. The heading is the car's direction seen from the lane, the reverse, so the box's heading is $-\arctan(\text{slope}) = +0.0511$ rad.
+**Second sign flip.** The slope says which way the lane runs, seen from the car: tilted $\arctan(-0.0512) = -0.0512$ rad, to the right. The heading is the car's direction seen from the lane, the reverse, so the box's heading is $-\arctan(\text{slope}) = +0.0512$ rad.
 
 The truth was $\color{#58C4DD}{e} = +0.400$ m and $\color{#D147BD}{\psi} = +0.050$ rad. Unrounded, the box says +0.3911 m and +0.0512 rad: 9 mm short on the offset, and 0.0012 rad over on the heading.
 
@@ -293,7 +290,7 @@ So the box's line crosses the car at −0.3911 m instead of the true −0.4005 m
 
 </details>
 
-![The two coral lane-centre points from above, near (2.710, −0.530) and far (7.189, −0.759), and the straight line through them, carried back to the car's front axle at 0 m ahead. There the line is 0.391 m to the right of the car, marked with a coral brace: the offset is +0.391 m. A coral angle between the line and the car's own forward direction marks the heading, +0.051 rad. Sideways distances are stretched on the page so the labels fit.](figures/lane_estimate.png)
+![The two coral lane-centre points from above, near (2.710, −0.530) and far (7.189, −0.759), and the straight line through them, carried back to the car's front axle at 0 m ahead. There the line is 0.391 m to the right of the car, marked with a thick coral bar: the offset is +0.391 m. A thin coral arc between the line and the car's own forward direction marks the heading, +0.051 rad. Sideways distances are stretched on the page so the labels fit.](figures/lane_estimate.png)
 
 The whole box is four steps:
 
@@ -306,7 +303,7 @@ How good must it be? The lab's Exercise A renders 40 frames on straight stretche
 
 Two slips are easy to make, and both cost.
 
-**Guess first:** suppose you forget to carry the line back, and report the near point's distance from the lane centre, $-c_1$, as the offset. For the opening picture that gives 0.530 m instead of 0.391 m. How many of the 40 frames still pass?
+**Guess first:** suppose you forget to carry the line back, and report how far the near lane-centre point is to the side, $-c_1$, as the offset. For the opening picture that gives 0.530 m instead of 0.391 m. How many of the 40 frames still pass?
 
 ![The 40 frames of Exercise A. Across: each frame's true heading, from −0.14 to +0.15 rad. Up: the error in the reported offset. The grey band is the 0.25 m tolerance. The correct box's errors, in coral, all sit within 0.022 m of zero. The box that forgets to carry the line back, in grey, is wrong by more the more the car is turned, about 2.85 m for each radian of heading, and 18 of its 40 frames fall outside the band.](figures/grader_scatter.png)
 
@@ -358,6 +355,7 @@ Put the circle's centre $R$ to the car's left, so that the circle passes through
 $$\begin{aligned}
 d^2 + (R - y)^2 &= R^2\\
 d^2 + R^2 - 2Ry + y^2 &= R^2\\
+d^2 - 2Ry + y^2 &= 0\\
 2Ry &= d^2 + y^2\\
 y &\approx d^2 / (2R)
 \end{aligned}$$
@@ -377,7 +375,8 @@ because $d_2^2 - d_1^2 = (d_2 - d_1)(d_2 + d_1)$, a difference of two squares. C
 
 $$\begin{aligned}
 \text{offset} &\approx \frac{d_1 d_2}{2R}\\
-\text{heading} &\approx -\arctan\frac{d_1 + d_2}{2R}
+\text{heading} &\approx -\arctan s\\
+s &= \frac{d_1 + d_2}{2R}
 \end{aligned}$$
 
 **Worked example: gentle.** The road's yellow line bends with a radius of 80 m, and the car's lane, the right-hand one, runs 1.8 m outside it on a left bend, so the lane centre's radius is $R = 81.8$ m. With $d_1 \approx 2.7$ m and $d_2 \approx 7.2$ m:
@@ -393,7 +392,7 @@ The box measured +0.129 m and −0.0645 rad. With the lane-centre points' real a
 
 ![The chord formula's predictions beside what the box measured, for a car centred on the lane and pointing along it, using the lane-centre points' real average distances on each road. On gentle's left bends: predicted 0.125 m, measured 0.129 m. On curvy's left bends: predicted 0.461 m, measured 0.504 m. On curvy's right bends: predicted 0.566 m, measured 0.650 m. The tighter the bend, the further the measurement runs above the prediction.](figures/chord_prediction.png)
 
-**Approximation.** The formula assumes each lane-centre point sits exactly on the lane centre. On a bend that is only nearly true: the far point sits 1.8 cm inside the bend on `gentle`, and 8 to 13 cm on `curvy`, because over the 5.9 m of the far band the paint itself curves, and the middle of a curved stripe lies inside the curve. So on `curvy`, whose lane centre bends with a radius of 21.8 m on left bends and 18.2 m on right bends, the box's offset comes out 9% to 15% bigger than the formula predicts: 0.504 m against 0.461 m on the left bends, and 0.650 m against 0.566 m on the right.
+**Approximation.** The formula assumes each lane-centre point sits exactly on the lane centre. On a bend the far point sits 1.8 cm inside it on `gentle` and 8 to 13 cm on `curvy`: the paint itself curves, and the middle of a curved stripe lies inside the curve. So on `curvy`, whose lane centre has a radius of 21.8 m on left bends and 18.2 m on right bends, the offset is 9% to 15% above the formula: 0.504 m against 0.461 m on the left bends, 0.650 m against 0.566 m on the right. Part of the gap is the formula's own shortcut: on a 21.8 m circle the exact chord through points 2.73 m and 7.36 m ahead passes 0.482 m to the car's right (the chord figure), not 0.461 m. The rest is the far point's 8 cm.
 
 A straight road is a circle too big to curve: as $R$ grows without limit, both formulas shrink to 0. That is why Exercise A tests on straight stretches only, and why this section has its name.
 
@@ -407,11 +406,11 @@ What to expect: a box built as above finishes the lap in 1,778 steps, 88.85 s, w
 
 On the straights the box is right to within 4 mm (median). In the bends its offset is 0.13 m above the truth, exactly the chord bias of the last section, and the car rides on the inside of the bend, a median $e$ of +0.53 m. How much of that is the box's fault?
 
-To find out, change only the box. A **perfect box** reads $e$ and $\psi$ straight from the simulator. No real car has one; here it is a yardstick. Same road, same seed, same speed of 8 m/s, same provided controller: only the box differs.
+To find out, change only the box. A **perfect box** reads $e$ and $\psi$ straight from the simulator. No real car has one; here it is a yardstick. Same road, same seed (the seed, the number that starts the camera's random pixel noise, so the same seed gives exactly the same noisy pictures, and so the same run), same speed of 8 m/s, same provided controller: only the box differs.
 
 **Guess first:** with the perfect box, does the mean $|e|$ on `gentle` drop a little, or a lot?
 
-![Two pairs of bars, the mean distance from the lane centre with the provided controller and two different boxes. On gentle: the two-band box 0.376 m, the perfect box 0.113 m. On curvy: the two-band box leaves the lane 48.3 m into the 218.5 m route, drawn as a crossed-out bar, while the perfect box completes the route at 0.348 m.](figures/like_for_like.png)
+![Two pairs of bars, the mean distance from the lane centre with the provided controller and two different boxes. On gentle: the two-band box 0.376 m, the perfect box 0.113 m. On curvy: the two-band box leaves the lane 48.3 m into the 218.5 m route, drawn as a full-width hatched bar, while the perfect box completes the route at 0.348 m.](figures/like_for_like.png)
 
 **Answer:** a lot, from 0.376 m to 0.113 m, 3.3 times smaller, with the same controller. The straights barely change (0.021 m against 0.009 m); nearly all of the difference is on the bends (0.515 m against 0.154 m). On `curvy` the box decides whether the car finishes at all. With the two-band box the car leaves the lane 48.3 m into the 218.5 m route, after 6.10 s: the failure you measured in *Meet your car*. With the perfect box, the same controller drives the whole of `curvy`, at a mean $|e|$ of 0.348 m. The chord bias, not the controller alone, puts the provided car off `curvy`.
 
@@ -445,7 +444,7 @@ The chord bias comes from drawing a straight line through a lane that curves, so
 
 Describe the lane centre, seen from the car, by where it is sideways at each distance $d$ ahead: $c(d) = a + b\,d + k\,d^2$. A curve with a $d^2$ term like this is a **parabola**.
 
-![The left bend of the chord figure, now with three coral lane-centre points, one in each of three bands, and the coral parabola through them. Carried back to the car, the parabola ends about 0.1 m from the lane centre and runs along it, instead of cutting 0.6 m across the inside of the bend as the chord does.](figures/curve_box.png)
+![A centred frame on one of curvy's left bends, now with three coral lane-centre points, one in each of three bands, and the coral parabola through them. Carried back to the car, the parabola ends about 0.1 m from the lane centre and runs along it, while the dashed chord (this frame's two-band line) passes 0.6 m to the car's right, on the outside of the bend.](figures/curve_box.png)
 
 1. A car is centred on a left bend of radius $R$, pointing along the lane. Show that $a = 0$, $b = 0$ and $k \approx 1 / (2R)$. (Use the circle from "Straight roads only".)
 2. A car is at $e$ with heading $\psi$ on a straight road. Show that $a \approx -e$ and $b = -\tan\psi$. So the curve box reports offset $-a$ and heading $-\arctan b$, as the line box did, while on a bend the $k\,d^2$ term carries the curve.
@@ -465,7 +464,7 @@ Describe the lane centre, seen from the car, by where it is sideways at each dis
 
 ### Challenge: how far ahead should the far band look?
 
-![The camera frame on the straight road with the near band shaded and three places a far lane-centre point could sit, each marked with how much road one column covers there: 7.19 m ahead at row 106.4, 0.0455 m; 11.45 m ahead at row 95.0, 0.0721 m; and 20 m ahead at row 86.7, 0.1253 m.](figures/far_band_choices.png)
+![The camera frame on the straight road with three places a far lane-centre point could sit, each marked with how much road one column covers there: 7.19 m ahead at row 106.4, 0.0455 m; 11.45 m ahead at row 95.0, 0.0721 m; and 20 m ahead at row 86.7, 0.1253 m.](figures/far_band_choices.png)
 
 A centroid can easily be a column off. In the opening picture the far lane-centre point is at row 106.4, where one column covers 0.0455 m of road, and the near point is at row 155.2, where it covers 0.0176 m. The two points are 4.479 m apart.
 
