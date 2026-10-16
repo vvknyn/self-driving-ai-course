@@ -126,10 +126,33 @@ def first_heading_only(theta, v):  # a heading per arrow is ignored
     return SOLUTION.forward_left(np.ravel(theta)[0], v)
 
 
-@pytest.mark.parametrize("answer", [cross_the_wrong_way, left_arrow_as_sin_cos, first_heading_only])
-def test_a_wrong_forward_left_is_refused(answer):
+def forward_negated(theta, v):  # a mistake the lab does not list
+    out = SOLUTION.forward_left(theta, v)
+    return np.stack([-out[..., 0], out[..., 1]], axis=-1)
+
+
+@pytest.mark.parametrize("answer, said", [
+    (cross_the_wrong_way, "wrong sign"),
+    (left_arrow_as_sin_cos, "(-sin theta, cos theta), not (sin theta, cos theta)"),
+    (forward_negated, "wrong forward or left part"),  # unnamed, but still honest
+    (first_heading_only, "row i must use yaw i"),
+])
+def test_a_wrong_forward_left_is_refused_and_a_known_mistake_is_named(answer, said):
     result = check("1.1.1.b", answer, show=False)
-    assert not result.passed and ("wrong forward or left part" in text(result) or "row i must use heading i" in text(result)), text(result)
+    assert not result.passed and said in text(result), text(result)
+
+
+def test_a_direction_that_is_a_pair_of_numbers_says_it_wants_one_number():
+    result = check("1.1.1.a", lambda v: np.array([0.0, np.nan]), show=False)
+    assert not result.passed and "expected one number for one arrow, got shape (2,)" in text(result), text(result)
+
+
+def test_the_lap_check_reports_a_real_miss_not_a_flip_across_the_cut():
+    def smoothed(v):  # each angle averaged with its neighbours: wrong, and flips at the cut
+        out = np.asarray(SOLUTION.direction_angle(v), dtype=float) if np.ndim(v) == 2 else SOLUTION.direction_angle(v)
+        return out if np.ndim(v) < 2 or len(v) < 100 else np.convolve(out, np.ones(3) / 3, mode="same")
+    said = text(check("1.1.1.a", smoothed, show=False))
+    assert "step arrow" in said and "-3.1415" not in said, said
 
 
 # --- previews -----------------------------------------------------------------------------------------------------

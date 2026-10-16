@@ -62,6 +62,8 @@ def _is_nan(value) -> bool:
 
 def _why_wrong(got, v) -> str:
     """The headline for a wrong direction: names the mistake whose output `got` matches at the arrow `v` (G-msg), else the general one."""
+    if np.ndim(got) != 0:
+        return f"expected one number for one arrow, got shape {np.shape(got)}"
     if not is_real(got):
         return "wrong direction for an arrow"
     x, y = float(v[0]), float(v[1])
@@ -119,12 +121,27 @@ def _direction_angle(fn, show, on_step):
         raise Failure(f"expected one angle per arrow, shape {(len(arrows),)}", given=given, got=f"shape {np.shape(got)}")
     want_lap = np.arctan2(arrows[:, 1], arrows[:, 0])
     if not np.all(np.abs(got - want_lap) <= TOL):  # entry by entry first; the yaw miss below is extra evidence
-        worst = int(np.argmax(np.abs(got - want_lap)))
+        wrong = np.abs(got - want_lap) > TOL
+        worst = int(np.argmax(np.where(wrong, np.abs(wrap_angle(got - want_lap)), -1.0)))  # worst by the wrapped miss, so a +pi/-pi flip does not outrank a real error
         raise Failure(_why_wrong(got[worst], arrows[worst]), given=f"step arrow {worst}: {fmt(arrows[worst])}", expected=want_lap[worst], got=got[worst])
     miss = miss_from_yaw(got)
     if not miss < LAP_TOL:
         raise Failure(f"some step's direction is far from the car's yaw: worst miss {fmt(miss)} rad {vs_limit(miss, LAP_TOL, 'rad')}", given=given)
     return f"every case matches np.arctan2; the worst step on gentle is {miss:.4f} rad from the yaw {vs_limit(miss, LAP_TOL, 'rad')}"
+
+
+def _parts_mistake(theta: float, v, got) -> str:
+    """The headline for a wrong (forward, left) at the arrow `v`: names the mistake whose output `got` matches (G-msg), else the general one."""
+    c, s, vx, vy = math.cos(theta), math.sin(theta), float(v[0]), float(v[1])
+    forward = c * vx + s * vy
+    mistakes = [  # (what the left part would be, the message)
+        (vx * s - vy * c, "the left part has the wrong sign: it is h x v = cos(theta)*v_y - sin(theta)*v_x, not v x h"),
+        (s * vx + c * vy, "the left arrow is (-sin theta, cos theta), not (sin theta, cos theta)"),
+    ]
+    for left, message in mistakes:
+        if abs(got[0] - forward) <= PARTS_TOL and abs(got[1] - left) <= PARTS_TOL:
+            return message
+    return "wrong forward or left part"
 
 
 def _parts(pose, points):
@@ -137,7 +154,7 @@ def _parts(pose, points):
 @exercise(
     "1.1.1.b",
     checked=(f"forward and left parts of 25 seeded arrows for each of 40 seeded poses (x, y up to 200 m, yaw up to 10 rad), and for 40 "
-             f"headings at once, against the camera's own `to_vehicle` to {PARTS_TOL}"),
+             f"yaws at once, against the camera's own `to_vehicle` to {PARTS_TOL}"),
     section="Ahead and to the left",
 )
 def _forward_left(fn, show, on_step):
@@ -151,10 +168,10 @@ def _forward_left(fn, show, on_step):
             raise Failure(f"expected shape {want.shape}: (forward, left) for each arrow", given=given, got=f"shape {np.shape(got)}")
         if not np.all(np.abs(got - want) <= PARTS_TOL):
             bad = int(np.argmax(np.where(np.abs(got - want) <= PARTS_TOL, -1.0, np.abs(got - want)).max(axis=1)))
-            raise Failure("wrong forward or left part", given=f"yaw {pose[2]:.4f} rad and arrow {fmt(arrows[bad])}", expected=want[bad], got=got[bad])
+            raise Failure(_parts_mistake(pose[2], arrows[bad], got[bad]), given=f"yaw {pose[2]:.4f} rad and arrow {fmt(arrows[bad])}", expected=want[bad], got=got[bad])
     given = "40 yaws, one arrow each: theta of shape (40,), v of shape (40, 2)"
     got = _as_floats(call(fn, poses[:, 2].copy(), (points[:, 0] - poses[:, :2]).copy(), given=given), given)
     want = np.stack([_parts(pose, p[0]) for pose, p in zip(poses, points)])
     if np.shape(got) != want.shape or not np.all(np.abs(got - want) <= PARTS_TOL):
-        raise Failure("with an array of headings, row i must use heading i", given=given, expected=f"shape {want.shape}", got=f"shape {np.shape(got)}")
-    return "40 poses x 25 arrows, and 40 headings at once, all match the camera's own forward and left"
+        raise Failure("with an array of yaws, row i must use yaw i", given=given, expected=f"shape {want.shape}", got=f"shape {np.shape(got)}")
+    return "40 poses x 25 arrows, and 40 yaws at once, all match the camera's own forward and left"

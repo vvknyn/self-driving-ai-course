@@ -115,7 +115,7 @@ A full turn is 2π = 6.2832 rad, and it changes nothing: θ and θ + 2π point t
 
 **Guess first:** on what share of the lap is atan2's answer minus the yaw, subtracted plainly, more than 1 rad from 0?
 
-![The plain difference, atan2's answer minus the yaw, at every step of the gentle lap, with thin lines joining neighbouring steps. It stays near 0 until the back straight, where the car points west. There it jumps back and forth between near 0 and near −2π, −6.28, and after it stays near −2π: 722 of the 1777 steps are more than 1 rad from 0.](figures/raw_diff.png)
+![The plain difference, atan2's answer minus the yaw, at every step of the gentle lap, with thin lines joining neighbouring steps. It stays near 0 until the back straight, where the car points west. There it jumps back and forth between near 0 and near −2π, −6.28, and after it stays near −2π: 722 of the 1777 steps are more than 1 rad from 0. The inset zooms on two seconds of the back straight, where each step lands on one line or the other.](figures/raw_diff.png)
 
 **Answer:** 40.63 %, 722 of the 1777 steps, though the two arrows never differ by more than 0.041 rad. The trouble starts on the back straight. Away from its two ends the yaw there stays between 3.1213 and 3.1421 rad, a hair either side of west, π = 3.1416. The step's arrow wobbles either side of west too, so atan2's answer flips between nearly +π and nearly −π 79 times. After the back straight the car turns through south back to east: atan2 answers between −π and 0 while the yaw keeps growing from π toward 2π, so the plain difference sits near −2π on 660 of the remaining 661 steps.
 

@@ -338,7 +338,7 @@ probes = np.vstack([[[0.0, 1.0], [0.0, -1.0], [-1.0, 0.0], [0.0, 0.0]], np.rando
 
 if atan2_by_hand(probes) is not None:
     want = np.where((probes == 0).all(axis=1), np.nan, np.arctan2(probes[:, 1], probes[:, 0]))
-    practice("atan2_by_hand matches np.arctan2 on all 34 probes, nan for the zero arrow", float(np.allclose(atan2_by_hand(probes), want, atol=1e-12, equal_nan=True)), 1.0, tol=0)
+    practice("atan2_by_hand matches np.arctan2 on all 34 probes, nan for the zero arrow", float(np.allclose(atan2_by_hand(probes), want, rtol=0, atol=1e-12, equal_nan=True)), 1.0, tol=0)
 
 # %% [markdown]
 # ## What's next

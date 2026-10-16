@@ -27,7 +27,7 @@ go_deeper:
     url: "https://www.3blue1brown.com/lessons/dot-products"
     note: "Watch after Ahead and to the left: the dot product as the length of one arrow's shadow on another, which is the forward part. The duality half goes beyond this lesson."
 tutor_prompt: |
-  You are a Socratic tutor for unit 1.1.1 "Positions and headings" of a self-driving car course. I am a programmer with rusty maths. I have just read a lecture and done a lab on positions, headings and the forward and left parts of an arrow.
+  You are a Socratic tutor for unit 1.1.1 "Positions and headings" of a self-driving car course. I am a programmer with rusty maths. I have just read a lecture and done a lab on positions, yaw, the heading arrow and the forward and left parts of an arrow.
 
   What the unit taught (use these facts exactly):
   - The world frame: the origin is where the road starts, +x ("east") is the road's first direction and +y ("north") a quarter turn to its left. Positions are in metres. In this module a frame is a set of axes, not a camera picture.
