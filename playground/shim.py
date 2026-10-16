@@ -42,6 +42,7 @@ from zero2fsd.score import metrics, metrics_table
 from zero2fsd.sim import BicycleState, Camera, make_scenario
 from zero2fsd.sim.camera import GRASS, PALETTE, ROAD, SKY, WHITE, YELLOW
 from zero2fsd.sim.dynamics import DT, MAX_STEER, WHEELBASE
+from zero2fsd.palette import CHROME, QUANTITY, SCENE
 from zero2fsd.sim.scenarios import TARGET_SPEED
 
 camera = Camera()
