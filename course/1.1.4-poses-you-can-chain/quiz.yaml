@@ -1,0 +1,77 @@
+- id: q1
+  type: mcq
+  prompt: "The car's pose at step 400 is the matrix $T$. You send the three numbers $(1, 0, 0)$ through it. What comes out?"
+  choices:
+    - "$(1, 0, 0)$ unchanged: a pose only moves things that have a position."
+    - "The point 1 m ahead of the car, in world numbers."
+    - "The car's forward axis in world numbers, $(0.7623, 0.6473, 0)$, with no position in it."
+    - "The car's position, $(154.66, 19.85, 1)$."
+  answer: 2
+  explain: "A trailing 0 skips the third column, the origin, so only the turn applies: the arrow comes out as $(0.7623, 0.6473, 0)$ at step 400. A trailing 1 gives the point: $(1, 0, 1)$ comes out as $(155.42, 20.50, 1)$, a place 1 m ahead of the car."
+  section: a-pose-is-a-frame
+- id: q2
+  type: mcq
+  prompt: "Which product gives $T_{\\text{world}\\leftarrow\\text{rear}}$, the rear axle's pose in world numbers?"
+  choices:
+    - "$T_{\\text{ego}\\leftarrow\\text{rear}} \\cdot T_{\\text{world}\\leftarrow\\text{ego}}$"
+    - "$T_{\\text{world}\\leftarrow\\text{ego}} + T_{\\text{ego}\\leftarrow\\text{rear}}$"
+    - "$T_{\\text{world}\\leftarrow\\text{ego}} \\cdot T_{\\text{ego}\\leftarrow\\text{rear}}$"
+    - "`invert_pose(T_world_ego) @ T_ego_rear`"
+  answer: 2
+  explain: "The inner names must match and cancel: world from ego, then ego from rear, leaves world from rear. At step 400 the product puts the rear axle at $(152.60, 18.11)$."
+  section: subscripts-that-cancel
+- id: q3
+  type: mcq
+  prompt: "$A = (1, 0, \\pi/2)$ and $B = (1, 0, 0)$. Where do the products $A \\cdot B$ and $B \\cdot A$ end, as $(x, y)$?"
+  choices:
+    - "Both end at $(2, 0)$: the order of two moves does not matter."
+    - "$A \\cdot B$ ends at $(2, 0)$ and $B \\cdot A$ at $(1, 1)$."
+    - "Both end at $(1, 1)$."
+    - "$A \\cdot B$ ends at $(1, 1)$ and $B \\cdot A$ at $(2, 0)$."
+  answer: 3
+  explain: "$A \\cdot B$ drives 1 m east, turns to face north, then drives 1 m north: $(1, 1)$. $B \\cdot A$ drives 1 m east, then 1 m more, then turns: $(2, 0)$. The two ends are 1.4142 m apart."
+  section: order-matters
+- id: q4
+  type: mcq
+  prompt: "At step 400 the car is at $(154.6587, 19.8543)$ pointing 0.704 rad left of east. Where is the world origin, in the car's own frame (forward, left)?"
+  choices:
+    - "$(-154.66, -19.85)$: take the car's position away."
+    - "$(-130.74, 84.97)$: 130.74 m behind and 84.97 m to the left."
+    - "$(130.74, -84.97)$"
+    - "$(-160.99, -27.85)$"
+  answer: 1
+  explain: "The inverse's third column is $-R^{\\mathsf T}\\mathbf{t}$. Taking $-\\mathbf{t}$ only undoes the shift; $R^{\\mathsf T}$ then turns that into the car's own axes, giving $(-130.74, 84.97)$."
+  section: undoing-a-pose
+- id: q5
+  type: mcq
+  prompt: "You rebuild the lap and the end is 1.11 m from the true end. Does that show your chain is right?"
+  choices:
+    - "Yes: it is inside a 2 m check, so every earlier pose was closer still."
+    - "No: the right order ends 710.66 m off, so 1.11 m must be a different mistake."
+    - "Yes: errors only grow along a lap, so the middle was smaller."
+    - "No: the wrong order also ends 1.11 m off, after being 204.88 m off at step 866, so every pose has to be checked."
+  answer: 3
+  explain: "Multiplying the step on the wrong side comes home to within 1.11 m at the end, yet is 204.88 m off at step 866. Adding the parts of each step to x, y and $\\theta$ is the version that ends 710.66 m off. A check of the end alone cannot tell the right chain from the wrong one."
+  section: dead-reckoning
+- id: q6
+  type: mcq
+  prompt: "Each step's turn is wrong by a random amount of spread $\\sigma$. Going from $\\sigma = 0.0001$ rad to $\\sigma = 0.001$ rad, how does the RMS error at the end of one lap change?"
+  choices:
+    - "About $\\sqrt{10}$ times bigger: the errors partly cancel."
+    - "About 10 times bigger: 0.608 m becomes 6.078 m."
+    - "About 100 times bigger."
+    - "Not at all: random errors average out over 1777 steps."
+  answer: 1
+  explain: "Every error is a turn of the same kind, so the whole error scales with $\\sigma$. The ratio is 9.994: 0.608 m to 6.078 m."
+  section: drift
+- id: q7
+  type: mcq
+  prompt: "On the first bend of `gentle`, which axle rides nearer the bend's centre?"
+  choices:
+    - "The rear axle."
+    - "Neither: both follow one path."
+    - "The front axle."
+    - "It depends on speed only."
+  answer: 0
+  explain: "The rear axle: its mean lateral error $e$ is 0.5746 m against 0.5298 m at the front. It sits on the shorter side of the right triangle the bend makes, so it follows a tighter path."
+  section: the-rear-axle-is-a-frame-too
