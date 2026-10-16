@@ -1,6 +1,6 @@
 """Figures for lecture 0.1.2 Images are arrays.  `python scripts/make_figures.py course/0.1.2-images-are-arrays`.
 
-Ruling F: every figure is 6 in wide, saved at 200 dpi, with its smallest text at FS = 17 pt, so a digit is at least 9 px
+Phone-legibility rule: every figure is 6 in wide, saved at 200 dpi, with its smallest text at FS = 17 pt, so a digit is at least 9 px
 tall when the PNG is shown 330 px wide on a phone.  Panels that used to sit side by side are stacked in one column.
 """
 import matplotlib

@@ -273,7 +273,7 @@ def test_the_link_pattern_stops_the_id_and_the_preset_at_a_delimiter_or_trailing
 @pytest.mark.parametrize("link", [
     "Open playground/index.html?exercise=0.1.1.a.",
     "[Open in the playground](playground/index.html?exercise=0.1.1.a)",
-    "[Try it](https://intervuhq.com/learnfsd/playground/index.html?exercise=0.1.1.b&preset=starter)",
+    "[Try it](https://example.com/learnfsd/playground/index.html?exercise=0.1.1.b&preset=starter)",
     '<a href="playground/index.html?exercise=0.1.1.a&preset=starter">try it</a>',
     "The playground (playground/index.html) opens on its own; the folder `playground/` holds its files.",
 ])
